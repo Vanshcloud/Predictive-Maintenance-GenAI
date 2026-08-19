@@ -106,7 +106,7 @@ See [docs/architecture.md](docs/architecture.md) for the detailed architecture d
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/predictive-maintenance-genai.git
+git clone https://github.com/Vanshcloud/vigilant-lamp.git
 cd predictive-maintenance-genai
 
 # Run the automated setup script
@@ -203,7 +203,7 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 
 ## Author
 
-**Your Name** — [GitHub](https://github.com/YOUR_USERNAME) · [LinkedIn](https://linkedin.com/in/YOUR_USERNAME)
+**Vansh Tomar** — [GitHub](https://github.com/Vanshcloud)
 
 ---
 
