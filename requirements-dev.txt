@@ -1,0 +1,30 @@
+# ============================================================
+# Development-Only Dependencies
+# ============================================================
+# Install: pip install -r requirements-dev.txt
+# These are NOT deployed to production.
+# ============================================================
+
+# Include production deps
+-r requirements.txt
+
+# --- Testing ---
+pytest>=7.4.0,<9.0.0
+pytest-cov>=4.1.0,<6.0.0
+pytest-asyncio>=0.23.0,<1.0.0
+
+# --- Code Quality ---
+black>=24.0.0,<25.0.0
+flake8>=7.0.0,<8.0.0
+isort>=5.12.0,<6.0.0
+mypy>=1.8.0,<2.0.0
+
+# --- Notebooks ---
+jupyter>=1.0.0,<2.0.0
+ipykernel>=6.0.0,<7.0.0
+matplotlib>=3.8.0,<4.0.0
+seaborn>=0.13.0,<1.0.0
+
+# --- Development Utilities ---
+httpx>=0.27.0,<1.0.0
+pre-commit>=3.6.0,<4.0.0

@@ -1,0 +1,75 @@
+# ============================================================
+# .gitignore — Files and directories Git should ignore
+# ============================================================
+# WHY: Prevents committing secrets, large files, and
+# auto-generated files to your repository.
+# ============================================================
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+*.whl
+
+# --- Virtual Environment ---
+venv/
+.venv/
+env/
+ENV/
+
+# --- Environment Variables (SECRETS!) ---
+.env
+.env.local
+.env.production
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# --- Jupyter Notebooks ---
+.ipynb_checkpoints/
+
+# --- Data (too large for Git) ---
+data/raw/*
+data/processed/*
+# Keep the sample data and directory structure
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/sample/
+
+# --- Model Artifacts (too large for Git) ---
+models/*.h5
+models/*.keras
+models/*.pkl
+models/*.joblib
+models/*.pb
+models/saved_model/
+!models/.gitkeep
+
+# --- Logs ---
+logs/
+*.log
+
+# --- Testing ---
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# --- Docker ---
+docker-compose.override.yml
+
+# --- OS ---
+.DS_Store
+Thumbs.db

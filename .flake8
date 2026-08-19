@@ -1,0 +1,28 @@
+# ============================================================
+# Flake8 Linting Configuration
+# ============================================================
+# WHY: Flake8 doesn't support pyproject.toml natively,
+# so we use a separate .flake8 file.
+# These rules ensure code quality without being overly strict.
+# ============================================================
+
+[flake8]
+max-line-length = 88
+# E203: Whitespace before ':' — conflicts with Black
+# E266: Too many leading '#' for block comment — too strict
+# W503: Line break before binary operator — outdated rule
+extend-ignore = E203, E266, W503
+# Don't lint auto-generated or third-party files
+exclude =
+    .git,
+    __pycache__,
+    venv,
+    .venv,
+    build,
+    dist,
+    *.egg-info,
+    .eggs,
+    migrations
+per-file-ignores =
+    # __init__.py files often have unused imports (re-exports)
+    __init__.py: F401

@@ -1,0 +1,74 @@
+# ============================================================
+# pyproject.toml — Project Metadata & Tool Configuration
+# ============================================================
+# WHY: This is the modern standard (PEP 621) for Python project
+# configuration. It replaces setup.py, setup.cfg, and consolidates
+# tool configs (Black, pytest, isort) into a single file.
+# ============================================================
+
+[project]
+name = "predictive-maintenance-genai"
+version = "0.1.0"
+description = "End-to-end Predictive Maintenance platform with TensorFlow and LangChain-powered GenAI insights"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Your Name", email = "your.email@example.com"},
+]
+keywords = [
+    "predictive-maintenance",
+    "machine-learning",
+    "tensorflow",
+    "langchain",
+    "genai",
+    "time-series",
+    "lstm",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+# ---- Black (Code Formatter) ----
+# WHY: Black enforces a consistent code style automatically.
+# No more debates about formatting — just run `black .`
+[tool.black]
+line-length = 88
+target-version = ["py310", "py311", "py312"]
+include = '\.pyi?$'
+
+# ---- isort (Import Sorter) ----
+# WHY: Keeps imports organized. The "black" profile ensures
+# isort and Black don't conflict with each other.
+[tool.isort]
+profile = "black"
+line_length = 88
+known_first_party = ["src", "config"]
+
+# ---- pytest (Testing) ----
+# WHY: Centralizes pytest configuration instead of using pytest.ini
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short --strict-markers"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks integration tests",
+    "unit: marks unit tests",
+]
+
+# ---- mypy (Type Checking) ----
+# WHY: Catches type errors before runtime. Essential for production code.
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Start lenient, tighten later
+ignore_missing_imports = true
