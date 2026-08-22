@@ -11,7 +11,7 @@
 
 > **Note on this document.** `docs/Day1.md` was written retroactively on 2026-08-23, when the
 > `IMPLEMENTATION_PLAN.md` + `docs/DayX.md` documentation system was introduced. Its content is
-> reconstructed from `docs/handoff.md`, the git history (`475e722`, `52824f6`), and the repository
+> reconstructed from `docs/handoff.md`, the git history (`e952e24`, `e3408fd`), and the repository
 > itself. Details recorded at the time are preserved; nothing has been invented to fill gaps —
 > where a fact was not recorded, this file says so.
 
@@ -208,7 +208,7 @@ exception hierarchy's inheritance relationships.
 ## README (T8)
 
 Written with badges, an architecture overview, a tech-stack table, and setup instructions.
-Updated later the same day with the real GitHub URL and author details (commit `52824f6`).
+Updated later the same day with the real GitHub URL and author details (commit `e3408fd`).
 
 ---
 
@@ -417,7 +417,7 @@ models/.gitkeep, notebooks/.gitkeep, dashboard/.gitkeep, docker/.gitkeep
 
 # Files Modified
 
-`README.md` — updated with the real GitHub repository URL and author information (commit `52824f6`).
+`README.md` — updated with the real GitHub repository URL and author information (commit `e3408fd`).
 
 # Files Deleted
 
@@ -467,5 +467,5 @@ could not install TensorFlow, forcing a rebuild of the environment on Homebrew's
 verify framework compatibility before choosing a runtime, because "newest" and "supported"
 are different properties.
 
-Ending state: 33 files, 1,511 lines, 19 passing tests, two commits (`475e722`, `52824f6`),
+Ending state: 33 files, 1,511 lines, 19 passing tests, two commits (`e952e24`, `e3408fd`),
 and a repository ready for data.

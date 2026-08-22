@@ -13,8 +13,15 @@ immediately. It must be updated whenever meaningful progress is made.
 | **Overall completion** | ~35% |
 | **Repository** | https://github.com/Vanshcloud/vigilant-lamp |
 | **Branch** | `main` |
-| **Latest commit at time of writing** | `020ad63` (Day 3); Day 4 work is staged in the working tree |
+| **Latest commit at time of writing** | `79c094a` (Day 3); Day 4 work is staged in the working tree |
 | **Companion documents** | `docs/Day1.md` … `docs/Day4.md`, `docs/handoff.md` (long-form narrative history), `CLAUDE.md` (agent instructions) |
+
+
+> **History note (2026-08-23).** Every commit in this repository was rewritten to
+> normalise the author name to `Vanshcloud` and to strip AI co-author trailers. File
+> contents were unchanged, but **all commit hashes changed**. SHAs quoted in this
+> document have been updated to the current ones. If you have an older hash from a
+> screenshot or terminal log, use `git log --oneline` to find its replacement by message.
 
 ---
 
@@ -1753,9 +1760,9 @@ Each day has a matching document in `docs/`.
 
 | Day | Date | Focus | Document | Status |
 |---|---|---|---|---|
-| **Day 1** | 2026-08-19 | Project setup & foundation | `docs/Day1.md` | ✅ Complete — commit `475e722`, `52824f6` |
-| **Day 2** | 2026-08-20 | Dataset, EDA & data pipeline | `docs/Day2.md` | ✅ Complete — commit `755e95c` |
-| **Day 3** | 2026-08-21 | Feature engineering & preprocessing | `docs/Day3.md` | ✅ Complete — commit `020ad63` |
+| **Day 1** | 2026-08-19 | Project setup & foundation | `docs/Day1.md` | ✅ Complete — commit `e952e24`, `e3408fd` |
+| **Day 2** | 2026-08-20 | Dataset, EDA & data pipeline | `docs/Day2.md` | ✅ Complete — commit `6ed62e9` |
+| **Day 3** | 2026-08-21 | Feature engineering & preprocessing | `docs/Day3.md` | ✅ Complete — commit `79c094a` |
 | **Day 4** | 2026-08-22/23 | LSTM architecture & training | `docs/Day4.md` | ✅ Complete — 75/75 tests, trained model, AUC 0.9999 |
 | **Day 5** | — | Model evaluation & optimization | `docs/Day5.md` | 🔒 Next |
 | **Day 6** | — | Prediction pipeline & inference | `docs/Day6.md` | 🔒 |

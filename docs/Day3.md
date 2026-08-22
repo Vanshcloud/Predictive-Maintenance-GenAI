@@ -7,7 +7,7 @@
 | **Estimated effort** | 1 day |
 | **Date** | 2026-08-21 |
 | **Milestone** | M3 — Feature engineering |
-| **Status** | ✅ Complete — commit `020ad63` |
+| **Status** | ✅ Complete — commit `79c094a` |
 
 > **Note on this document.** Written retroactively on 2026-08-23 when the
 > `IMPLEMENTATION_PLAN.md` + `docs/DayX.md` system was introduced. Reconstructed from
@@ -21,7 +21,7 @@
 | Field | Value |
 |---|---|
 | **Repository state** | Clean working tree |
-| **Git commit** | `755e95c` — "feat(data): add data generation, ingestion pipeline, validation, and EDA" |
+| **Git commit** | `6ed62e9` — "feat(data): add data generation, ingestion pipeline, validation, and EDA" |
 | **Existing files** | Day 1 foundation + Day 2 data layer |
 | **Existing models** | None |
 | **Existing checkpoints** | None |
@@ -473,4 +473,4 @@ artifacts to disk so that training reads `.npy` files and never imports pandas. 
 discover that pandas is precisely what breaks TensorFlow on this platform — and the data
 layer's isolation is what made that bug tractable rather than pervasive.
 
-Ending state: 68 passing tests, commit `020ad63`, and 5.2 GB of model-ready tensors.
+Ending state: 68 passing tests, commit `79c094a`, and 5.2 GB of model-ready tensors.

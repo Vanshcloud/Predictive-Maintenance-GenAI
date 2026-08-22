@@ -18,6 +18,9 @@
 > | **`docs/Day1.md` … `docs/DayN.md`** | One file per implementation day: what was planned, what was built, what broke, what was decided, and what comes next |
 > | `handoff.md` (this file) | **Historical narrative log.** Accurate for Days 1–3; **not updated after 2026-08-22**. Kept because its Day 1–3 detail is the source the retroactive `docs/Day1-3.md` files were reconstructed from |
 >
+> Commit SHAs quoted below were refreshed on 2026-08-23 after a history rewrite
+> (author-name normalisation); the commits themselves are unchanged in content.
+>
 > Where this file and `IMPLEMENTATION_PLAN.md` disagree, **the plan wins**. Known
 > divergences already: this file lists Day 4 as "Next" (it is complete), describes the
 > project as ~25% done (it is ~35%), and its §11 "Planned Callbacks" describes Keras
@@ -111,9 +114,9 @@ The final product is a **full-stack AI platform** with 4 integrated components:
 
 | Day | Focus | Status | Commit |
 |---|---|---|---|
-| Day 1 | Project Setup & Foundation | ✅ Complete | `475e722` |
-| Day 2 | Dataset, EDA & Data Pipeline | ✅ Complete | `755e95c` |
-| Day 3 | Feature Engineering & Preprocessing | ✅ Complete | `020ad63` |
+| Day 1 | Project Setup & Foundation | ✅ Complete | `e952e24` |
+| Day 2 | Dataset, EDA & Data Pipeline | ✅ Complete | `6ed62e9` |
+| Day 3 | Feature Engineering & Preprocessing | ✅ Complete | `79c094a` |
 
 ### Day 1 Deliverables
 - Python 3.12 environment with all dependencies
@@ -168,7 +171,7 @@ Data Pipeline ✅ → Model Training 🔜 → GenAI → API → Dashboard → De
 | Field | Value |
 |---|---|
 | **Branch** | `main` |
-| **Latest Commit** | `020ad63` — "feat(data): add feature engineering, preprocessing, and LSTM sequencing" |
+| **Latest Commit** | `79c094a` — "feat(data): add feature engineering, preprocessing, and LSTM sequencing" |
 | **Remote** | `origin` → `https://github.com/Vanshcloud/vigilant-lamp.git` |
 | **Status** | Clean — `nothing to commit, working tree clean` |
 | **Total Commits** | 4 |
@@ -1029,7 +1032,7 @@ No blocking bugs exist.
 | **Solution** | Installed Python 3.12 via Homebrew |
 | **Files Created** | 33 files, 1,511 lines |
 | **Tests** | 19/19 passing |
-| **Commits** | `475e722` (init), `52824f6` (README update) |
+| **Commits** | `e952e24` (init), `e3408fd` (README update) |
 | **Lesson** | Always check framework compatibility before choosing Python version |
 
 ## Day 2 — 2026-08-20 (Dataset & Data Pipeline)
@@ -1039,7 +1042,7 @@ No blocking bugs exist.
 | **Problems** | None |
 | **Files Created** | 5 source + 5 CSVs |
 | **Tests** | 22/22 new, 41/41 total |
-| **Commit** | `755e95c` |
+| **Commit** | `6ed62e9` |
 | **Lesson** | EDA before modeling reveals class imbalance (0.005% failure rate) |
 
 ## Day 3 — 2026-08-21 (Feature Engineering)
@@ -1049,7 +1052,7 @@ No blocking bugs exist.
 | **Problems** | None |
 | **Files Created** | 3 source files |
 | **Tests** | 27/27 new, 68/68 total |
-| **Commit** | `020ad63` |
+| **Commit** | `79c094a` |
 | **Lesson** | Temporal split is critical — random split = data leakage in time-series |
 
 ---

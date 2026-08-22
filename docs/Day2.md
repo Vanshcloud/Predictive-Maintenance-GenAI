@@ -7,7 +7,7 @@
 | **Estimated effort** | 1 day |
 | **Date** | 2026-08-20 |
 | **Milestone** | M2 — Data foundation |
-| **Status** | ✅ Complete — commit `755e95c` |
+| **Status** | ✅ Complete — commit `6ed62e9` |
 
 > **Note on this document.** Written retroactively on 2026-08-23 when the
 > `IMPLEMENTATION_PLAN.md` + `docs/DayX.md` system was introduced. Reconstructed from
@@ -20,7 +20,7 @@
 | Field | Value |
 |---|---|
 | **Repository state** | Clean working tree |
-| **Git commit** | `52824f6` — "docs: update README with actual GitHub repo URL and author info" |
+| **Git commit** | `e3408fd` — "docs: update README with actual GitHub repo URL and author info" |
 | **Existing files** | 33 files, 1,511 lines — the Day 1 foundation |
 | **Existing models** | None |
 | **Existing checkpoints** | None |
@@ -504,5 +504,5 @@ It also surfaced K-1: a sample dataset too small to contain any failure, a limit
 accepted rather than papered over, and one that shaped how the model tests were later
 written.
 
-Ending state: 41 passing tests, commit `755e95c`, and a dataset ready to be turned into
+Ending state: 41 passing tests, commit `6ed62e9`, and a dataset ready to be turned into
 tensors.

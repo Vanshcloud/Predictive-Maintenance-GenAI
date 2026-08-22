@@ -16,7 +16,7 @@
 | Field | Value |
 |---|---|
 | **Repository state** | **Dirty** — an interrupted session had left Day 4 work uncommitted |
-| **Git commit** | `020ad63` — "feat(data): add feature engineering, preprocessing, and LSTM sequencing" (Day 3) |
+| **Git commit** | `79c094a` — "feat(data): add feature engineering, preprocessing, and LSTM sequencing" (Day 3) |
 | **Existing files** | Days 1–3 complete, plus uncommitted: `src/models/{lstm_model,trainer,evaluator}.py`, `scripts/train_model.py`, `tests/unit/test_model.py`, modified `src/utils/logger.py` and `src/models/__init__.py` |
 | **Existing models** | **None** — `models/` contained only `.gitkeep` |
 | **Existing checkpoints** | None |
