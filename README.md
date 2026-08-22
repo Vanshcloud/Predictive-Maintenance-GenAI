@@ -2,11 +2,13 @@
 
 > An end-to-end Predictive Maintenance platform that uses **TensorFlow** to predict equipment failures from sensor telemetry data and **LangChain** with LLMs to generate human-readable maintenance reports and diagnostic insights.
 
-![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-2.15%2B-orange?logo=tensorflow&logoColor=white)
 ![LangChain](https://img.shields.io/badge/LangChain-0.2%2B-green?logo=chainlink&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-teal?logo=fastapi&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
+![Tests](https://img.shields.io/badge/tests-75%20passing-brightgreen)
+![Model AUC](https://img.shields.io/badge/model%20AUC-0.9999-success)
 
 ---
 
@@ -17,11 +19,12 @@
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Getting Started](#getting-started)
-- [Project Structure](#project-structure)
 - [Usage](#usage)
+- [Results](#results)
+- [Project Structure](#project-structure)
+- [Documentation](#documentation)
 - [Testing](#testing)
-- [Deployment](#deployment)
-- [Contributing](#contributing)
+- [Development Progress](#development-progress)
 - [License](#license)
 
 ---
@@ -97,29 +100,49 @@ See [docs/architecture.md](docs/architecture.md) for the detailed architecture d
 
 ### Prerequisites
 
-- Python 3.10+
+- **Python 3.12** — required. TensorFlow publishes no wheels for 3.13+, so a newer
+  system Python (e.g. 3.14) **will fail** at install time. On macOS:
+  `brew install python@3.12`
 - Git
-- (Optional) OpenAI API key for GenAI features
+- ~6 GB free disk space (the generated dataset and its processed tensors)
+- (Optional) An OpenAI / Google API key for the GenAI features — a local Ollama model
+  works with no key at all
 - (Optional) Docker for containerized deployment
 
 ### Quick Setup
 
 ```bash
-# Clone the repository
+# 1. Clone
 git clone https://github.com/Vanshcloud/vigilant-lamp.git
-cd predictive-maintenance-genai
+cd vigilant-lamp
 
-# Run the automated setup script
+# 2a. Automated setup (finds a compatible Python for you)
 chmod +x scripts/setup.sh
 ./scripts/setup.sh
 
-# Or set up manually:
-python3 -m venv venv
+# 2b. …or manually. Note python3.12 explicitly — plain `python3` may be
+#     a version TensorFlow does not support.
+python3.12 -m venv venv          # macOS: /opt/homebrew/bin/python3.12
 source venv/bin/activate
+pip install --upgrade pip
 pip install -r requirements-dev.txt
-cp .env.example .env
-# Edit .env with your API keys
+cp .env.example .env             # then add an LLM API key if you want reports
 ```
+
+### Generate the data
+
+The raw and processed datasets are **not** in this repository — together they are
+about 6 GB. They are fully reproducible from a fixed seed:
+
+```bash
+source venv/bin/activate
+python scripts/generate_data.py        # -> data/raw/  (883,231 rows, seed=42)
+python scripts/run_preprocessing.py    # -> data/processed/*.npy (~5.2 GB)
+```
+
+`data/sample/` is committed and is what the test suite runs against, so `make test`
+works immediately after install — but note it deliberately contains **zero** failure
+events, so it cannot be used to train or evaluate a model.
 
 ### Verify Installation
 
@@ -136,54 +159,157 @@ make help
 
 ---
 
+## Usage
+
+```bash
+source venv/bin/activate
+
+# Data
+python scripts/generate_data.py               # full dataset (100 machines x 365 days)
+python scripts/generate_data.py --sample      # small fixture -> data/sample/
+python scripts/eda_analysis.py                # 8-dimension exploratory report
+python scripts/run_preprocessing.py           # raw CSVs -> LSTM tensors + scaler
+
+# Model
+python scripts/train_model.py                 # train, evaluate, write metrics
+python scripts/train_model.py --epochs 50 --batch-size 512 --learning-rate 0.0005
+
+# Quality
+make test                                     # 75 tests
+make quality                                  # lint + format-check + typecheck
+```
+
+---
+
+## Results
+
+Trained on 698,400 sequences of shape `(24, 63)`. Early stopping fired at epoch 6 of 30;
+best weights came from epoch 1. Wall clock ~26 minutes, CPU-only (Apple Silicon).
+
+| Metric | Value |
+|---|---|
+| **ROC-AUC** | **0.9999** |
+| **Precision** | 0.6258 |
+| **Recall** | 0.9450 |
+| **F1** | 0.7530 |
+| Single-sequence inference | 54 ms median |
+
+Confusion matrix at threshold 0.5, over 172,800 held-out sequences:
+
+```
+                 predicted 0   predicted 1
+actual 0            172,487           113     <- false alarms
+actual 1                 11           189     <- caught 189 of 200 failures
+```
+
+**Accuracy is deliberately not reported.** With a 1:864 positive rate a model that
+predicts "no failure" every time scores 99.88%, so accuracy would be actively
+misleading. Quality is judged on AUC, precision, recall, and F1 only.
+
+> **Two caveats, stated plainly.** (1) The validation set is currently the test set, so
+> early stopping and checkpoint selection have seen the data they are scored on — these
+> numbers are optimistic and a clean chronological validation split is the next task.
+> (2) The dataset is synthetic, with a degradation pattern designed to be detectable;
+> these metrics reflect this dataset's difficulty, not that of real industrial equipment.
+> See `IMPLEMENTATION_PLAN.md` -> Technical debt (TD-1) for the full accounting.
+
+---
+
 ## Project Structure
 
 ```
-predictive-maintenance-genai/
-├── config/             # Centralized configuration (pydantic-settings)
+vigilant-lamp/
+├── IMPLEMENTATION_PLAN.md   # Single source of truth: scope, architecture, risks, status
+├── CLAUDE.md                # Working notes for AI agents in this repo
+├── LICENSE                  # MIT
+├── Makefile                 # make test / lint / format / typecheck / quality
+├── pyproject.toml           # PEP 621 metadata + Black/isort/pytest/mypy/coverage config
+│
+├── config/                  # Centralized configuration (pydantic-settings)
 ├── src/
-│   ├── data/           # Data ingestion, validation, preprocessing
-│   ├── models/         # LSTM model definition, training, evaluation
-│   ├── prediction/     # Inference pipeline
-│   ├── genai/          # LangChain chains, prompts, assistant
-│   ├── api/            # FastAPI REST API + routes
-│   └── utils/          # Logging, exceptions, shared utilities
-├── dashboard/          # Streamlit interactive dashboard
-├── data/               # Raw + processed data (gitignored)
-├── models/             # Saved model artifacts (gitignored)
-├── notebooks/          # Jupyter notebooks for exploration
-├── tests/              # Unit + integration tests
-├── docs/               # Architecture docs + diagrams
-├── docker/             # Docker configuration
-└── scripts/            # Utility scripts
+│   ├── utils/               # Logging, exception hierarchy
+│   ├── data/                # Ingestion, validation, preprocessing + feature engineering
+│   ├── models/              # LSTM architecture, training loop, evaluator
+│   ├── prediction/          # Inference pipeline            (Day 6)
+│   ├── genai/               # LangChain chains, prompts     (Day 7-8)
+│   └── api/                 # FastAPI REST API + routes     (Day 9)
+├── dashboard/               # Streamlit dashboard           (Day 10)
+├── docker/                  # Dockerfiles + compose         (Day 11)
+│
+├── scripts/                 # Entry points: generate_data, eda, preprocessing, train
+├── tests/
+│   ├── conftest.py          # Session bootstrap (import order matters — see the file)
+│   ├── unit/                # 75 tests
+│   └── integration/         # (Day 9)
+├── docs/
+│   ├── README.md            # Documentation index
+│   ├── architecture.md      # System architecture diagram
+│   ├── Day1.md … Day4.md    # One report per implementation day
+│   └── handoff.md           # Frozen Day 1-3 narrative log (superseded)
+│
+├── data/
+│   ├── raw/                 # gitignored — regenerate with generate_data.py
+│   ├── processed/           # gitignored — regenerate with run_preprocessing.py
+│   └── sample/              # committed test fixture (no failure events — by design)
+├── models/                  # .keras gitignored; metrics.json + history committed
+├── notebooks/               # Jupyter scratch space
+└── logs/                    # gitignored, rotated daily
 ```
+
+The `src/` packages form a strict dependency chain — each may only import from those to
+its left, which is what keeps the layers independently testable:
+
+```
+config/ -> src/utils/ -> src/data/ -> src/models/ -> src/prediction/ -> src/genai/ -> src/api/ -> dashboard/
+```
+
+---
+
+## Documentation
+
+| Document | What it is |
+|---|---|
+| [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) | **Start here.** Single source of truth — objectives, requirements, stack, architecture, dataset, model, training, evaluation, deployment, coding standards, testing strategy, risk register, milestones, and current status |
+| [`docs/README.md`](docs/README.md) | Documentation index |
+| [`docs/architecture.md`](docs/architecture.md) | System architecture diagram and layer responsibilities |
+| [`docs/Day1.md`](docs/Day1.md) … [`docs/Day4.md`](docs/Day4.md) | One report per implementation day: plan, work done, code changes, training results, bugs, design decisions, next steps |
+| [`docs/handoff.md`](docs/handoff.md) | Historical narrative log, frozen at end of Day 3 |
+| [`CLAUDE.md`](CLAUDE.md) | Repo conventions and non-negotiable invariants, for AI agents |
 
 ---
 
 ## Testing
 
 ```bash
-# Run all tests
-make test
-
-# Run with coverage
-make test-cov
-
-# Run linter
-make lint
-
-# Format code
-make format
+make test          # 75 tests
+make test-cov      # with coverage report
+make lint          # flake8
+make format        # black + isort (writes)
+make quality       # lint + format-check + typecheck (no writes)
 ```
+
+**Current status: 75 tests passing, 0 flake8 issues, Black and isort clean.**
+
+Tests run against the committed `data/sample/` fixture, so they need no generated data.
+The first run pays roughly 90 seconds for TensorFlow's initial import on ARM64 macOS;
+subsequent runs finish in about 4 seconds.
+
+> `tests/conftest.py` imports TensorFlow before anything else, and that is
+> **load-bearing** — not a stray import. TensorFlow and Apache Arrow (pulled in by
+> pandas/scikit-learn) each bundle their own copy of abseil, and whichever loads first
+> claims the shared symbol for the whole process. Get the order wrong and the suite
+> deadlocks at 0% CPU with no traceback. The file explains it in full.
 
 ---
 
 ## Development Progress
 
+**~35% complete (4 of 12 days).**
+
 - [x] **Day 1** — Project setup, folder structure, configuration, logging, testing infrastructure
-- [ ] **Day 2** — Dataset acquisition, exploratory data analysis, data pipeline
-- [ ] **Day 3** — Feature engineering, data preprocessing
-- [ ] **Day 4** — LSTM model architecture, training pipeline
+- [x] **Day 2** — Synthetic dataset (883K rows), exploratory data analysis, ingestion + validation
+- [x] **Day 3** — Feature engineering (63 features), labeling, temporal split, LSTM sequencing
+- [x] **Day 4** — LSTM architecture, training pipeline, evaluation — **AUC 0.9999, F1 0.7530**
 - [ ] **Day 5** — Model evaluation, metrics, optimization
 - [ ] **Day 6** — Prediction pipeline, inference engine
 - [ ] **Day 7** — LangChain setup, prompt engineering, report generation
@@ -197,7 +323,7 @@ make format
 
 ## License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+Released under the MIT License — see [LICENSE](LICENSE).
 
 ---
 

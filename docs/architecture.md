@@ -1,5 +1,11 @@
 # Architecture Overview
 
+> **Scope of this document.** This is the *design-level* view: layers, responsibilities,
+> and how data moves between them. It describes the finished system, so layers not yet
+> built (prediction, GenAI, API, dashboard) appear here as designed rather than as
+> implemented. For what actually exists today, current status, and the reasoning behind
+> each decision, see [`../IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md).
+
 ## System Architecture
 
 ```
@@ -42,7 +48,7 @@
 │                 │                                               │
 │  ┌──────────────▼───────────────────────────────────────────┐   │
 │  │              Model Evaluator                              │   │
-│  │  Accuracy, Precision, Recall, F1, AUC-ROC, Confusion Mat │   │
+│  │  AUC-ROC, Precision, Recall, F1, Confusion Matrix        │   │
 │  └──────────────────────────────────────────────────────────┘   │
 └───────────────────────┼─────────────────────────────────────────┘
                         ▼
@@ -106,3 +112,28 @@
 3. **Configuration as Code** — All config in environment variables
 4. **Fail Fast** — Validate data early, surface errors immediately
 5. **Observability** — Structured logging at every layer
+
+## Layer Dependency Rule
+
+The packages form a strict chain. **Each layer may import only from layers to its left.**
+No layer may reach into a later layer's internals, and none may be skipped.
+
+```
+config/ -> src/utils/ -> src/data/ -> src/models/ -> src/prediction/ -> src/genai/ -> src/api/ -> dashboard/
+```
+
+This is why `src/data/` contains no TensorFlow import and `src/models/` contains no
+pandas import, and it is what allows each layer to be tested and deployed independently.
+
+## Non-Negotiable Invariants
+
+These are correctness properties, not preferences. Each is enforced by an explicit test,
+because every one of them fails *silently* — producing better-looking numbers, not errors.
+
+| Invariant | Why |
+|---|---|
+| Train/test split is **temporal**, never random | With 24-hour lag features, a random split puts hour `t` in train and `t+1` in test. Reported metrics become fiction. |
+| `StandardScaler` is fit on **training data only** | Fitting on the full dataset leaks test-period statistics into training. |
+| Sequence windows never span two `machine_id`s | A cross-machine window describes a machine that does not exist. |
+| Model quality is judged on **AUC / precision / recall / F1**, never accuracy | At a 1:864 positive rate, "always predict no failure" scores 99.88%. |
+| TensorFlow is imported **before** pandas / scikit-learn | They load Apache Arrow, which bundles a conflicting copy of abseil; the wrong order deadlocks the process at 0% CPU with no traceback. |
