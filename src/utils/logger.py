@@ -35,7 +35,6 @@ USAGE:
 """
 
 import sys
-from pathlib import Path
 
 from loguru import logger
 
@@ -111,7 +110,6 @@ def setup_logger() -> None:
         rotation="5 MB",
         retention="3 days",
         compression="zip",  # Compress old log files to save space
-        enqueue=True,  # Thread-safe logging (important for FastAPI)
     )
 
 
