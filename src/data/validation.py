@@ -42,9 +42,8 @@ USAGE:
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List
 
-import numpy as np
 import pandas as pd
 
 from src.utils.logger import get_logger
@@ -66,10 +65,10 @@ logger = get_logger(__name__)
 class ValidationCheck:
     """Result of a single validation check."""
 
-    name: str                      # e.g., "schema_check", "null_check"
-    passed: bool                   # Did the check pass?
-    severity: str = "error"        # "error" (blocking) or "warning" (info)
-    message: str = ""              # Human-readable description
+    name: str  # e.g., "schema_check", "null_check"
+    passed: bool  # Did the check pass?
+    severity: str = "error"  # "error" (blocking) or "warning" (info)
+    message: str = ""  # Human-readable description
     details: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -85,11 +84,7 @@ class ValidationReport:
     @property
     def is_valid(self) -> bool:
         """Data is valid if ALL error-level checks passed."""
-        return all(
-            check.passed
-            for check in self.checks
-            if check.severity == "error"
-        )
+        return all(check.passed for check in self.checks if check.severity == "error")
 
     @property
     def errors(self) -> List[ValidationCheck]:
@@ -201,7 +196,7 @@ class DataValidator:
         self.max_null_pct = max_null_pct
         self.max_duplicate_pct = max_duplicate_pct
         logger.info(
-            f"DataValidator initialized | "
+            "DataValidator initialized | "
             f"max_null_pct={max_null_pct}%, "
             f"max_duplicate_pct={max_duplicate_pct}%"
         )
@@ -286,9 +281,7 @@ class DataValidator:
     # INDIVIDUAL CHECKS
     # ==================================================================
 
-    def _check_not_empty(
-        self, df: pd.DataFrame, table_name: str
-    ) -> ValidationCheck:
+    def _check_not_empty(self, df: pd.DataFrame, table_name: str) -> ValidationCheck:
         """Check that the DataFrame is not empty."""
         if len(df) == 0:
             return ValidationCheck(
@@ -303,9 +296,7 @@ class DataValidator:
             message=f"{len(df):,} rows present",
         )
 
-    def _check_schema(
-        self, df: pd.DataFrame, table_name: str
-    ) -> ValidationCheck:
+    def _check_schema(self, df: pd.DataFrame, table_name: str) -> ValidationCheck:
         """
         Verify that expected columns are present.
 
@@ -349,9 +340,7 @@ class DataValidator:
             details={"extra_columns": sorted(extra_cols)} if extra_cols else {},
         )
 
-    def _check_nulls(
-        self, df: pd.DataFrame, table_name: str
-    ) -> ValidationCheck:
+    def _check_nulls(self, df: pd.DataFrame, table_name: str) -> ValidationCheck:
         """
         Check for missing values exceeding the threshold.
 
@@ -383,12 +372,13 @@ class DataValidator:
         return ValidationCheck(
             name="null_check",
             passed=True,
-            message=f"Null check passed ({total_nulls:,} total nulls, all within threshold)",
+            message=(
+                f"Null check passed ({total_nulls:,} total nulls, "
+                "all within threshold)"
+            ),
         )
 
-    def _check_duplicates(
-        self, df: pd.DataFrame, table_name: str
-    ) -> ValidationCheck:
+    def _check_duplicates(self, df: pd.DataFrame, table_name: str) -> ValidationCheck:
         """
         Check for duplicate rows.
 
@@ -418,7 +408,10 @@ class DataValidator:
         return ValidationCheck(
             name="duplicate_check",
             passed=True,
-            message=f"Duplicate check passed ({n_duplicates} duplicates, {dup_pct:.2f}%)",
+            message=(
+                f"Duplicate check passed ({n_duplicates} duplicates, "
+                f"{dup_pct:.2f}%)"
+            ),
         )
 
     def _check_range(

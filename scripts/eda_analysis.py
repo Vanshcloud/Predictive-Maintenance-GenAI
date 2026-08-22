@@ -27,7 +27,6 @@ import argparse
 import sys
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 # Add project root to path
@@ -171,7 +170,7 @@ def analyze_correlations(telemetry: pd.DataFrame) -> None:
     logger.info("\n  Notable correlations:")
     flagged = False
     for i, col1 in enumerate(available):
-        for col2 in available[i + 1:]:
+        for col2 in available[i + 1 :]:
             corr = corr_matrix.loc[col1, col2]
             if abs(corr) > 0.7:
                 logger.info(f"    ⚠ {col1} ↔ {col2}: {corr:.4f} (high)")
@@ -244,7 +243,7 @@ def analyze_machine_patterns(
     total_machines = len(machines)
 
     logger.info(f"  Machines with failures: {machines_with_failures}/{total_machines}")
-    logger.info(f"  Failures per failed machine:")
+    logger.info("  Failures per failed machine:")
     logger.info(f"    Mean:   {failures_per_machine.mean():.1f}")
     logger.info(f"    Median: {failures_per_machine.median():.1f}")
     logger.info(f"    Max:    {failures_per_machine.max()}")
@@ -260,9 +259,11 @@ def analyze_machine_patterns(
         merged["n_failures"] = merged["n_failures"].fillna(0)
 
         logger.info("\n  Failures by age group:")
-        age_groups = pd.cut(merged["age"], bins=[0, 5, 10, 15, 20], labels=[
-            "0-5 yrs", "6-10 yrs", "11-15 yrs", "16-20 yrs"
-        ])
+        age_groups = pd.cut(
+            merged["age"],
+            bins=[0, 5, 10, 15, 20],
+            labels=["0-5 yrs", "6-10 yrs", "11-15 yrs", "16-20 yrs"],
+        )
         age_failures = merged.groupby(age_groups, observed=True)["n_failures"].agg(
             ["mean", "sum", "count"]
         )
@@ -304,22 +305,28 @@ def analyze_temporal_patterns(
     logger.info("=" * 60)
 
     if "datetime" in telemetry.columns:
-        logger.info(f"  Telemetry date range: "
-                     f"{telemetry['datetime'].min()} to "
-                     f"{telemetry['datetime'].max()}")
-        logger.info(f"  Duration: "
-                     f"{(telemetry['datetime'].max() - telemetry['datetime'].min()).days} days")
+        logger.info(
+            "  Telemetry date range: "
+            f"{telemetry['datetime'].min()} to "
+            f"{telemetry['datetime'].max()}"
+        )
+        logger.info(
+            "  Duration: "
+            f"{(telemetry['datetime'].max() - telemetry['datetime'].min()).days} days"
+        )
 
     if "datetime" in failures.columns and not failures.empty:
-        logger.info(f"  Failures date range:  "
-                     f"{failures['datetime'].min()} to "
-                     f"{failures['datetime'].max()}")
+        logger.info(
+            "  Failures date range:  "
+            f"{failures['datetime'].min()} to "
+            f"{failures['datetime'].max()}"
+        )
 
         # Failures by month
         failures_by_month = failures.groupby(
             failures["datetime"].dt.to_period("M")
         ).size()
-        logger.info(f"\n  Failures by month:")
+        logger.info("\n  Failures by month:")
         for month, count in failures_by_month.items():
             logger.info(f"    {month}: {count} failures")
 
@@ -328,7 +335,9 @@ def main():
     """Run the complete EDA analysis."""
     parser = argparse.ArgumentParser(description="Run EDA on the dataset")
     parser.add_argument(
-        "--data-dir", type=str, default=None,
+        "--data-dir",
+        type=str,
+        default=None,
         help="Directory containing the CSV files (default: data/raw/)",
     )
     args = parser.parse_args()

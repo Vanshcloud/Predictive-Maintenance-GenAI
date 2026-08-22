@@ -47,8 +47,6 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
-from config.settings import get_settings
-from src.utils.exceptions import DataPreprocessingError
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -114,7 +112,7 @@ class DataPreprocessor:
         self.feature_columns: List[str] = []
 
         logger.info(
-            f"DataPreprocessor initialized | "
+            "DataPreprocessor initialized | "
             f"horizon={prediction_horizon}h, "
             f"seq_len={sequence_length}, "
             f"test_ratio={test_ratio}"
@@ -153,13 +151,12 @@ class DataPreprocessor:
         machines = dataset.get("machines")
         errors = dataset.get("errors")
         maintenance = dataset.get("maintenance")
-        failures = dataset.get("failures")
 
         # Ensure datetime is parsed
         telemetry["datetime"] = pd.to_datetime(telemetry["datetime"])
-        telemetry = telemetry.sort_values(
-            ["machine_id", "datetime"]
-        ).reset_index(drop=True)
+        telemetry = telemetry.sort_values(["machine_id", "datetime"]).reset_index(
+            drop=True
+        )
 
         # --- Merge machine metadata ---
         if machines is not None and not machines.empty:
@@ -175,19 +172,17 @@ class DataPreprocessor:
                 )
                 telemetry = pd.concat([telemetry, model_dummies], axis=1)
                 telemetry = telemetry.drop(columns=["model"])
-            logger.info(f"  Merged machines: added age + model columns")
+            logger.info("  Merged machines: added age + model columns")
 
         # --- Aggregate errors per machine per 24h window ---
         if errors is not None and not errors.empty:
             telemetry = self._merge_error_counts(telemetry, errors)
-            logger.info(f"  Merged errors: added error count features")
+            logger.info("  Merged errors: added error count features")
 
         # --- Compute days since last maintenance ---
         if maintenance is not None and not maintenance.empty:
-            telemetry = self._merge_maintenance_features(
-                telemetry, maintenance
-            )
-            logger.info(f"  Merged maintenance: added time-since features")
+            telemetry = self._merge_maintenance_features(telemetry, maintenance)
+            logger.info("  Merged maintenance: added time-since features")
 
         logger.info(
             f"  Merged result: {len(telemetry):,} rows × "
@@ -230,10 +225,9 @@ class DataPreprocessor:
 
         # Rolling sum of errors over 24 hours per machine
         telemetry = telemetry.sort_values(["machine_id", "datetime"])
-        telemetry["errors_last_24h"] = (
-            telemetry.groupby("machine_id")["error_count"]
-            .transform(lambda x: x.rolling(24, min_periods=1).sum())
-        )
+        telemetry["errors_last_24h"] = telemetry.groupby("machine_id")[
+            "error_count"
+        ].transform(lambda x: x.rolling(24, min_periods=1).sum())
 
         return telemetry
 
@@ -260,9 +254,7 @@ class DataPreprocessor:
             comp_maint = maintenance[maintenance["comp"] == comp][
                 ["machine_id", "datetime"]
             ].copy()
-            comp_maint = comp_maint.rename(
-                columns={"datetime": f"last_maint_{comp}"}
-            )
+            comp_maint = comp_maint.rename(columns={"datetime": f"last_maint_{comp}"})
 
             # For each machine, get all maintenance times for this component
             # Then merge_asof to find the most recent one before each timestamp
@@ -273,9 +265,7 @@ class DataPreprocessor:
             merged_parts = []
             for mid in telemetry["machine_id"].unique():
                 tel_machine = telemetry[telemetry["machine_id"] == mid].copy()
-                maint_machine = comp_maint[
-                    comp_maint["machine_id"] == mid
-                ].copy()
+                maint_machine = comp_maint[comp_maint["machine_id"] == mid].copy()
 
                 if maint_machine.empty:
                     tel_machine[f"hours_since_maint_{comp}"] = 9999
@@ -291,8 +281,7 @@ class DataPreprocessor:
                     # Calculate hours since last maintenance
                     tel_machine[f"hours_since_maint_{comp}"] = (
                         (
-                            tel_machine["datetime"]
-                            - tel_machine[f"last_maint_{comp}"]
+                            tel_machine["datetime"] - tel_machine[f"last_maint_{comp}"]
                         ).dt.total_seconds()
                         / 3600
                     ).fillna(9999)
@@ -303,9 +292,9 @@ class DataPreprocessor:
                 merged_parts.append(tel_machine)
 
             telemetry = pd.concat(merged_parts, ignore_index=True)
-            telemetry = telemetry.sort_values(
-                ["machine_id", "datetime"]
-            ).reset_index(drop=True)
+            telemetry = telemetry.sort_values(["machine_id", "datetime"]).reset_index(
+                drop=True
+            )
 
         return telemetry
 
@@ -360,9 +349,7 @@ class DataPreprocessor:
 
             for lag in LAG_PERIODS:
                 # Value N hours ago
-                df[f"{col}_lag_{lag}h"] = grouped.transform(
-                    lambda x: x.shift(lag)
-                )
+                df[f"{col}_lag_{lag}h"] = grouped.transform(lambda x: x.shift(lag))
                 # Rate of change over N hours
                 df[f"{col}_change_{lag}h"] = df[col] - df[f"{col}_lag_{lag}h"]
 
@@ -370,10 +357,7 @@ class DataPreprocessor:
         # WHY: The first N rows per machine have no history for rolling.
         # Forward fill uses the first available value as the initial state.
         df = df.sort_values(["machine_id", "datetime"])
-        feature_cols = [
-            c for c in df.columns
-            if c not in ["datetime", "machine_id"]
-        ]
+        feature_cols = [c for c in df.columns if c not in ["datetime", "machine_id"]]
         df[feature_cols] = df.groupby("machine_id")[feature_cols].transform(
             lambda x: x.ffill().bfill()
         )
@@ -415,8 +399,7 @@ class DataPreprocessor:
             DataFrame with added 'label' column (0 or 1).
         """
         logger.info(
-            f"Step 3: Creating labels "
-            f"(horizon={self.prediction_horizon}h)..."
+            "Step 3: Creating labels " f"(horizon={self.prediction_horizon}h)..."
         )
         df = df.copy()
         df["label"] = 0
@@ -434,9 +417,7 @@ class DataPreprocessor:
             machine_id = failure["machine_id"]
 
             # Time window: [failure_time - horizon, failure_time]
-            window_start = failure_time - pd.Timedelta(
-                hours=self.prediction_horizon
-            )
+            window_start = failure_time - pd.Timedelta(hours=self.prediction_horizon)
 
             mask = (
                 (df["machine_id"] == machine_id)
@@ -450,9 +431,12 @@ class DataPreprocessor:
         n_total = len(df)
         pct_positive = (n_positive / n_total) * 100 if n_total > 0 else 0
 
-        logger.info(f"  Label distribution:")
+        logger.info("  Label distribution:")
         logger.info(f"    Positive (will fail): {n_positive:,} ({pct_positive:.2f}%)")
-        logger.info(f"    Negative (normal):    {n_total - n_positive:,} ({100 - pct_positive:.2f}%)")
+        logger.info(
+            f"    Negative (normal):    {n_total - n_positive:,} "
+            f"({100 - pct_positive:.2f}%)"
+        )
         logger.info(f"    Imbalance ratio:      1:{n_total // max(n_positive, 1)}")
 
         return df
@@ -548,7 +532,8 @@ class DataPreprocessor:
 
         # Identify feature columns (numeric, not excluded)
         feature_cols = [
-            col for col in train_df.columns
+            col
+            for col in train_df.columns
             if col not in exclude_columns
             and pd.api.types.is_numeric_dtype(train_df[col])
         ]
@@ -564,12 +549,8 @@ class DataPreprocessor:
         train_scaled = train_df.copy()
         test_scaled = test_df.copy()
 
-        train_scaled[feature_cols] = self.scaler.transform(
-            train_df[feature_cols]
-        )
-        test_scaled[feature_cols] = self.scaler.transform(
-            test_df[feature_cols]
-        )
+        train_scaled[feature_cols] = self.scaler.transform(train_df[feature_cols])
+        test_scaled[feature_cols] = self.scaler.transform(test_df[feature_cols])
 
         # Verify no NaN introduced by scaling
         train_nans = train_scaled[feature_cols].isna().sum().sum()
@@ -577,14 +558,13 @@ class DataPreprocessor:
 
         if train_nans > 0 or test_nans > 0:
             logger.warning(
-                f"  ⚠ NaN values after scaling: "
-                f"train={train_nans}, test={test_nans}"
+                "  ⚠ NaN values after scaling: " f"train={train_nans}, test={test_nans}"
             )
             # Fill remaining NaN with 0 (scaled mean)
             train_scaled[feature_cols] = train_scaled[feature_cols].fillna(0)
             test_scaled[feature_cols] = test_scaled[feature_cols].fillna(0)
 
-        logger.info(f"  Scaler fitted on training data (mean=0, std=1)")
+        logger.info("  Scaler fitted on training data (mean=0, std=1)")
 
         return train_scaled, test_scaled, feature_cols
 
@@ -622,18 +602,13 @@ class DataPreprocessor:
         Returns:
             Tuple of (X, y) as NumPy arrays.
         """
-        logger.info(
-            f"Step 6: Creating sequences "
-            f"(window={self.sequence_length})..."
-        )
+        logger.info("Step 6: Creating sequences " f"(window={self.sequence_length})...")
 
         all_X = []
         all_y = []
 
         for machine_id in sorted(df["machine_id"].unique()):
-            machine_data = df[df["machine_id"] == machine_id].sort_values(
-                "datetime"
-            )
+            machine_data = df[df["machine_id"] == machine_id].sort_values("datetime")
 
             features = machine_data[feature_cols].values
             labels = machine_data["label"].values
@@ -641,7 +616,7 @@ class DataPreprocessor:
             # Create sliding windows
             for i in range(self.sequence_length, len(features)):
                 # X = last `sequence_length` timesteps of features
-                X_window = features[i - self.sequence_length: i]
+                X_window = features[i - self.sequence_length : i]
                 # y = label at the current timestep
                 y_label = labels[i]
 
@@ -654,7 +629,7 @@ class DataPreprocessor:
         logger.info(f"  X shape: {X.shape} (samples, timesteps, features)")
         logger.info(f"  y shape: {y.shape}")
         logger.info(
-            f"  y distribution: "
+            "  y distribution: "
             f"{int(y.sum())} positive / {len(y)} total "
             f"({y.mean() * 100:.2f}%)"
         )
@@ -708,9 +683,7 @@ class DataPreprocessor:
         train_df, test_df = self.temporal_split(labeled)
 
         # Step 5: Normalize
-        train_scaled, test_scaled, feature_cols = self.normalize(
-            train_df, test_df
-        )
+        train_scaled, test_scaled, feature_cols = self.normalize(train_df, test_df)
 
         # Step 6: Create Sequences
         X_train, y_train = self.create_sequences(train_scaled, feature_cols)

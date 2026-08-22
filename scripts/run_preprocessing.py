@@ -32,27 +32,35 @@ logger = get_logger(__name__)
 
 def main():
     """Run the complete preprocessing pipeline."""
-    parser = argparse.ArgumentParser(
-        description="Run the full preprocessing pipeline"
-    )
+    parser = argparse.ArgumentParser(description="Run the full preprocessing pipeline")
     parser.add_argument(
-        "--data-dir", type=str, default=None,
+        "--data-dir",
+        type=str,
+        default=None,
         help="Input data directory (default: data/raw/)",
     )
     parser.add_argument(
-        "--output-dir", type=str, default=None,
+        "--output-dir",
+        type=str,
+        default=None,
         help="Output directory for processed data (default: data/processed/)",
     )
     parser.add_argument(
-        "--horizon", type=int, default=24,
+        "--horizon",
+        type=int,
+        default=24,
         help="Prediction horizon in hours (default: 24)",
     )
     parser.add_argument(
-        "--seq-len", type=int, default=24,
+        "--seq-len",
+        type=int,
+        default=24,
         help="LSTM sequence length in timesteps (default: 24)",
     )
     parser.add_argument(
-        "--test-ratio", type=float, default=0.2,
+        "--test-ratio",
+        type=float,
+        default=0.2,
         help="Test set ratio (default: 0.2)",
     )
     args = parser.parse_args()
@@ -79,13 +87,12 @@ def main():
 
     # Check for critical failures
     critical_failures = [
-        name for name, report in reports.items()
-        if not report.is_valid
+        name for name, report in reports.items() if not report.is_valid
     ]
     if critical_failures:
         logger.warning(
             f"⚠ Validation failures in: {critical_failures}. "
-            f"Proceeding with caution."
+            "Proceeding with caution."
         )
 
     # --- Step 3: Preprocess ---
@@ -96,19 +103,21 @@ def main():
         test_ratio=args.test_ratio,
     )
 
-    output_dir = Path(args.output_dir) if args.output_dir else settings.processed_data_path
+    output_dir = (
+        Path(args.output_dir) if args.output_dir else settings.processed_data_path
+    )
     result = preprocessor.run_pipeline(dataset, save_dir=output_dir)
 
     # --- Summary ---
     logger.info("")
     logger.info("🎉 PIPELINE COMPLETE")
     logger.info(f"  Output: {output_dir}")
-    logger.info(f"  Files saved:")
+    logger.info("  Files saved:")
     logger.info(f"    X_train.npy:  {result['X_train'].shape}")
     logger.info(f"    y_train.npy:  {result['y_train'].shape}")
     logger.info(f"    X_test.npy:   {result['X_test'].shape}")
     logger.info(f"    y_test.npy:   {result['y_test'].shape}")
-    logger.info(f"    scaler.joblib")
+    logger.info("    scaler.joblib")
     logger.info(f"    feature_columns.txt ({len(result['feature_columns'])} features)")
     logger.info("")
     logger.info("Next step: Model Training (Day 4)")

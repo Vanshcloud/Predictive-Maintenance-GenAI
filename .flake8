@@ -26,3 +26,6 @@ exclude =
 per-file-ignores =
     # __init__.py files often have unused imports (re-exports)
     __init__.py: F401
+    # Entry-point scripts must extend sys.path before importing project packages,
+    # so their project imports legitimately follow executable code.
+    scripts/*.py: E402

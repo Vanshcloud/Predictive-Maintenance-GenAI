@@ -43,9 +43,7 @@ class TestDependencyImports:
         """Scikit-learn provides preprocessing and evaluation utilities."""
         import sklearn
 
-        assert hasattr(
-            sklearn, "__version__"
-        ), "Scikit-learn should be importable"
+        assert hasattr(sklearn, "__version__"), "Scikit-learn should be importable"
 
     def test_tensorflow_import(self):
         """TensorFlow is our deep learning framework for the LSTM model."""
@@ -60,9 +58,7 @@ class TestDependencyImports:
         """LangChain orchestrates our GenAI pipeline."""
         import langchain
 
-        assert hasattr(
-            langchain, "__version__"
-        ), "LangChain should be importable"
+        assert hasattr(langchain, "__version__"), "LangChain should be importable"
 
     def test_fastapi_import(self):
         """FastAPI is our REST API framework."""
@@ -74,9 +70,7 @@ class TestDependencyImports:
         """Pydantic is used for data validation throughout the app."""
         import pydantic
 
-        assert hasattr(
-            pydantic, "BaseModel"
-        ), "Pydantic should have 'BaseModel' class"
+        assert hasattr(pydantic, "BaseModel"), "Pydantic should have 'BaseModel' class"
 
     def test_loguru_import(self):
         """Loguru is our logging framework."""
@@ -164,10 +158,7 @@ class TestExceptions:
 
     def test_data_validation_error(self):
         """DataValidationError should be catchable as PredMaintenanceError."""
-        from src.utils.exceptions import (
-            DataValidationError,
-            PredMaintenanceError,
-        )
+        from src.utils.exceptions import DataValidationError, PredMaintenanceError
 
         with pytest.raises(PredMaintenanceError):
             raise DataValidationError(

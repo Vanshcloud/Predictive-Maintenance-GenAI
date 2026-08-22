@@ -29,13 +29,8 @@ import pandas as pd
 import pytest
 
 from src.data.ingestion import DataIngestion
-from src.data.validation import (
-    DataValidator,
-    ValidationCheck,
-    ValidationReport,
-)
+from src.data.validation import DataValidator, ValidationCheck, ValidationReport
 from src.utils.exceptions import DataIngestionError
-
 
 # ===========================================================================
 # FIXTURES — Reusable test data
@@ -52,34 +47,40 @@ def sample_telemetry() -> pd.DataFrame:
     np.random.seed(42)
     n_rows = 100
 
-    return pd.DataFrame({
-        "datetime": pd.date_range("2024-01-01", periods=n_rows, freq="h"),
-        "machine_id": np.repeat([1, 2], n_rows // 2),
-        "voltage": np.random.normal(170, 15, n_rows),
-        "rotation": np.random.normal(450, 50, n_rows),
-        "pressure": np.random.normal(100, 12, n_rows),
-        "vibration": np.random.normal(40, 8, n_rows),
-    })
+    return pd.DataFrame(
+        {
+            "datetime": pd.date_range("2024-01-01", periods=n_rows, freq="h"),
+            "machine_id": np.repeat([1, 2], n_rows // 2),
+            "voltage": np.random.normal(170, 15, n_rows),
+            "rotation": np.random.normal(450, 50, n_rows),
+            "pressure": np.random.normal(100, 12, n_rows),
+            "vibration": np.random.normal(40, 8, n_rows),
+        }
+    )
 
 
 @pytest.fixture
 def sample_machines() -> pd.DataFrame:
     """Create a small, valid machines DataFrame."""
-    return pd.DataFrame({
-        "machine_id": [1, 2, 3],
-        "model": ["model1", "model2", "model1"],
-        "age": [5, 10, 15],
-    })
+    return pd.DataFrame(
+        {
+            "machine_id": [1, 2, 3],
+            "model": ["model1", "model2", "model1"],
+            "age": [5, 10, 15],
+        }
+    )
 
 
 @pytest.fixture
 def sample_failures() -> pd.DataFrame:
     """Create a small failures DataFrame."""
-    return pd.DataFrame({
-        "datetime": pd.to_datetime(["2024-03-15", "2024-06-20"]),
-        "machine_id": [1, 2],
-        "failure": ["comp1", "comp3"],
-    })
+    return pd.DataFrame(
+        {
+            "datetime": pd.to_datetime(["2024-03-15", "2024-06-20"]),
+            "machine_id": [1, 2],
+            "failure": ["comp1", "comp3"],
+        }
+    )
 
 
 @pytest.fixture
@@ -93,18 +94,22 @@ def temp_csv_dir(sample_telemetry, sample_machines, sample_failures):
         sample_failures.to_csv(tmpdir / "failures.csv", index=False)
 
         # Create errors and maintenance as well
-        errors_df = pd.DataFrame({
-            "datetime": pd.to_datetime(["2024-02-01"]),
-            "machine_id": [1],
-            "error_id": ["error1"],
-        })
+        errors_df = pd.DataFrame(
+            {
+                "datetime": pd.to_datetime(["2024-02-01"]),
+                "machine_id": [1],
+                "error_id": ["error1"],
+            }
+        )
         errors_df.to_csv(tmpdir / "errors.csv", index=False)
 
-        maint_df = pd.DataFrame({
-            "datetime": pd.to_datetime(["2024-01-15"]),
-            "machine_id": [1],
-            "comp": ["comp2"],
-        })
+        maint_df = pd.DataFrame(
+            {
+                "datetime": pd.to_datetime(["2024-01-15"]),
+                "machine_id": [1],
+                "comp": ["comp2"],
+            }
+        )
         maint_df.to_csv(tmpdir / "maintenance.csv", index=False)
 
         yield tmpdir
@@ -253,9 +258,7 @@ class TestValidationReport:
             total_columns=5,
             checks=[
                 ValidationCheck(name="check1", passed=True),
-                ValidationCheck(
-                    name="check2", passed=False, severity="warning"
-                ),
+                ValidationCheck(name="check2", passed=False, severity="warning"),
             ],
         )
         assert report.is_valid is True
@@ -343,20 +346,20 @@ class TestDataValidator:
         validator = DataValidator()
 
         # Create telemetry with some out-of-range values
-        df = pd.DataFrame({
-            "datetime": pd.date_range("2024-01-01", periods=100, freq="h"),
-            "machine_id": [1] * 100,
-            "voltage": [170.0] * 95 + [999.0] * 5,  # 5% out of range
-            "rotation": [450.0] * 100,
-            "pressure": [100.0] * 100,
-            "vibration": [40.0] * 100,
-        })
+        df = pd.DataFrame(
+            {
+                "datetime": pd.date_range("2024-01-01", periods=100, freq="h"),
+                "machine_id": [1] * 100,
+                "voltage": [170.0] * 95 + [999.0] * 5,  # 5% out of range
+                "rotation": [450.0] * 100,
+                "pressure": [100.0] * 100,
+                "vibration": [40.0] * 100,
+            }
+        )
 
         report = validator.validate(df, "telemetry")
 
-        range_checks = [
-            c for c in report.checks if c.name == "range_check_voltage"
-        ]
+        range_checks = [c for c in report.checks if c.name == "range_check_voltage"]
         assert len(range_checks) == 1
         assert range_checks[0].passed is False  # >1% out of range
 

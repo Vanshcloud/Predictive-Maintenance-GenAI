@@ -29,7 +29,6 @@ import pytest
 
 from src.data.preprocessing import DataPreprocessor
 
-
 # ===========================================================================
 # FIXTURES
 # ===========================================================================
@@ -51,54 +50,70 @@ def small_dataset():
     rows = []
     for mid in range(1, n_machines + 1):
         for h in range(n_hours):
-            rows.append({
-                "datetime": start + timedelta(hours=h),
-                "machine_id": mid,
-                "voltage": 170 + np.random.normal(0, 5),
-                "rotation": 450 + np.random.normal(0, 10),
-                "pressure": 100 + np.random.normal(0, 3),
-                "vibration": 40 + np.random.normal(0, 2),
-            })
+            rows.append(
+                {
+                    "datetime": start + timedelta(hours=h),
+                    "machine_id": mid,
+                    "voltage": 170 + np.random.normal(0, 5),
+                    "rotation": 450 + np.random.normal(0, 10),
+                    "pressure": 100 + np.random.normal(0, 3),
+                    "vibration": 40 + np.random.normal(0, 2),
+                }
+            )
     telemetry = pd.DataFrame(rows)
     telemetry["datetime"] = pd.to_datetime(telemetry["datetime"])
 
     # Machines
-    machines = pd.DataFrame({
-        "machine_id": [1, 2, 3],
-        "model": ["model1", "model2", "model1"],
-        "age": [5, 10, 15],
-    })
+    machines = pd.DataFrame(
+        {
+            "machine_id": [1, 2, 3],
+            "model": ["model1", "model2", "model1"],
+            "age": [5, 10, 15],
+        }
+    )
 
     # Failures (machine 1 at hour 72, machine 2 at hour 96)
-    failures = pd.DataFrame({
-        "datetime": pd.to_datetime([
-            start + timedelta(hours=72),
-            start + timedelta(hours=96),
-        ]),
-        "machine_id": [1, 2],
-        "failure": ["comp1", "comp2"],
-    })
+    failures = pd.DataFrame(
+        {
+            "datetime": pd.to_datetime(
+                [
+                    start + timedelta(hours=72),
+                    start + timedelta(hours=96),
+                ]
+            ),
+            "machine_id": [1, 2],
+            "failure": ["comp1", "comp2"],
+        }
+    )
 
     # Errors
-    errors = pd.DataFrame({
-        "datetime": pd.to_datetime([
-            start + timedelta(hours=48),
-            start + timedelta(hours=70),
-            start + timedelta(hours=71),
-        ]),
-        "machine_id": [1, 1, 1],
-        "error_id": ["error1", "error2", "error1"],
-    })
+    errors = pd.DataFrame(
+        {
+            "datetime": pd.to_datetime(
+                [
+                    start + timedelta(hours=48),
+                    start + timedelta(hours=70),
+                    start + timedelta(hours=71),
+                ]
+            ),
+            "machine_id": [1, 1, 1],
+            "error_id": ["error1", "error2", "error1"],
+        }
+    )
 
     # Maintenance
-    maintenance = pd.DataFrame({
-        "datetime": pd.to_datetime([
-            start + timedelta(hours=24),
-            start + timedelta(hours=50),
-        ]),
-        "machine_id": [1, 2],
-        "comp": ["comp1", "comp2"],
-    })
+    maintenance = pd.DataFrame(
+        {
+            "datetime": pd.to_datetime(
+                [
+                    start + timedelta(hours=24),
+                    start + timedelta(hours=50),
+                ]
+            ),
+            "machine_id": [1, 2],
+            "comp": ["comp1", "comp2"],
+        }
+    )
 
     return {
         "telemetry": telemetry,
@@ -215,9 +230,9 @@ class TestFeatureEngineering:
         result = preprocessor.engineer_features(merged)
         n_after = len(result.columns)
 
-        assert n_after > n_before, (
-            f"Expected more columns after engineering: {n_before} → {n_after}"
-        )
+        assert (
+            n_after > n_before
+        ), f"Expected more columns after engineering: {n_before} → {n_after}"
 
 
 # ===========================================================================
@@ -232,9 +247,7 @@ class TestLabelCreation:
         """Should create a 'label' column."""
         merged = preprocessor.merge_tables(small_dataset)
         featured = preprocessor.engineer_features(merged)
-        result = preprocessor.create_labels(
-            featured, small_dataset["failures"]
-        )
+        result = preprocessor.create_labels(featured, small_dataset["failures"])
 
         assert "label" in result.columns
 
@@ -242,9 +255,7 @@ class TestLabelCreation:
         """Labels should be 0 or 1 only."""
         merged = preprocessor.merge_tables(small_dataset)
         featured = preprocessor.engineer_features(merged)
-        result = preprocessor.create_labels(
-            featured, small_dataset["failures"]
-        )
+        result = preprocessor.create_labels(featured, small_dataset["failures"])
 
         unique_labels = set(result["label"].unique())
         assert unique_labels.issubset({0, 1})
@@ -253,9 +264,7 @@ class TestLabelCreation:
         """Should have some positive labels (failures exist)."""
         merged = preprocessor.merge_tables(small_dataset)
         featured = preprocessor.engineer_features(merged)
-        result = preprocessor.create_labels(
-            featured, small_dataset["failures"]
-        )
+        result = preprocessor.create_labels(featured, small_dataset["failures"])
 
         assert result["label"].sum() > 0, "No positive labels created"
 
@@ -263,9 +272,7 @@ class TestLabelCreation:
         """Positive labels should cluster around failure times."""
         merged = preprocessor.merge_tables(small_dataset)
         featured = preprocessor.engineer_features(merged)
-        result = preprocessor.create_labels(
-            featured, small_dataset["failures"]
-        )
+        result = preprocessor.create_labels(featured, small_dataset["failures"])
 
         # Machine 1 failed at hour 72 with horizon=24
         # So hours 48-72 should have label=1 for machine 1
@@ -275,9 +282,9 @@ class TestLabelCreation:
         if len(positive_times) > 0:
             failure_time = pd.Timestamp("2024-01-04 00:00:00")  # hour 72
             max_label_time = positive_times.max()
-            assert max_label_time <= failure_time, (
-                f"Labels should not extend past failure time: {max_label_time}"
-            )
+            assert (
+                max_label_time <= failure_time
+            ), f"Labels should not extend past failure time: {max_label_time}"
 
     def test_empty_failures_all_zero(self, preprocessor, small_dataset):
         """With no failures, all labels should be 0."""
@@ -300,9 +307,7 @@ class TestTemporalSplit:
         """Should return train and test DataFrames."""
         merged = preprocessor.merge_tables(small_dataset)
         featured = preprocessor.engineer_features(merged)
-        labeled = preprocessor.create_labels(
-            featured, small_dataset["failures"]
-        )
+        labeled = preprocessor.create_labels(featured, small_dataset["failures"])
         train, test = preprocessor.temporal_split(labeled)
 
         assert len(train) > 0
@@ -312,22 +317,18 @@ class TestTemporalSplit:
         """ALL training data must be BEFORE all test data."""
         merged = preprocessor.merge_tables(small_dataset)
         featured = preprocessor.engineer_features(merged)
-        labeled = preprocessor.create_labels(
-            featured, small_dataset["failures"]
-        )
+        labeled = preprocessor.create_labels(featured, small_dataset["failures"])
         train, test = preprocessor.temporal_split(labeled)
 
-        assert train["datetime"].max() <= test["datetime"].min(), (
-            "Data leakage! Train data extends past test data start."
-        )
+        assert (
+            train["datetime"].max() <= test["datetime"].min()
+        ), "Data leakage! Train data extends past test data start."
 
     def test_no_overlap(self, preprocessor, small_dataset):
         """Train and test sets should not share any rows."""
         merged = preprocessor.merge_tables(small_dataset)
         featured = preprocessor.engineer_features(merged)
-        labeled = preprocessor.create_labels(
-            featured, small_dataset["failures"]
-        )
+        labeled = preprocessor.create_labels(featured, small_dataset["failures"])
         train, test = preprocessor.temporal_split(labeled)
 
         train_times = set(zip(train["machine_id"], train["datetime"]))
@@ -349,9 +350,7 @@ class TestNormalization:
         """Scaler should be fitted after normalization."""
         merged = preprocessor.merge_tables(small_dataset)
         featured = preprocessor.engineer_features(merged)
-        labeled = preprocessor.create_labels(
-            featured, small_dataset["failures"]
-        )
+        labeled = preprocessor.create_labels(featured, small_dataset["failures"])
         train, test = preprocessor.temporal_split(labeled)
         preprocessor.normalize(train, test)
 
@@ -361,9 +360,7 @@ class TestNormalization:
         """Training features should have mean≈0, std≈1 after scaling."""
         merged = preprocessor.merge_tables(small_dataset)
         featured = preprocessor.engineer_features(merged)
-        labeled = preprocessor.create_labels(
-            featured, small_dataset["failures"]
-        )
+        labeled = preprocessor.create_labels(featured, small_dataset["failures"])
         train, test = preprocessor.temporal_split(labeled)
         train_scaled, _, feature_cols = preprocessor.normalize(train, test)
 
@@ -388,9 +385,7 @@ class TestSequenceWindowing:
         """X should be 3D: (samples, timesteps, features)."""
         merged = preprocessor.merge_tables(small_dataset)
         featured = preprocessor.engineer_features(merged)
-        labeled = preprocessor.create_labels(
-            featured, small_dataset["failures"]
-        )
+        labeled = preprocessor.create_labels(featured, small_dataset["failures"])
         train, test = preprocessor.temporal_split(labeled)
         train_scaled, _, feature_cols = preprocessor.normalize(train, test)
 
@@ -404,9 +399,7 @@ class TestSequenceWindowing:
         """y should be 1D: (samples,)."""
         merged = preprocessor.merge_tables(small_dataset)
         featured = preprocessor.engineer_features(merged)
-        labeled = preprocessor.create_labels(
-            featured, small_dataset["failures"]
-        )
+        labeled = preprocessor.create_labels(featured, small_dataset["failures"])
         train, test = preprocessor.temporal_split(labeled)
         train_scaled, _, feature_cols = preprocessor.normalize(train, test)
 
@@ -419,9 +412,7 @@ class TestSequenceWindowing:
         """X and y should have the same number of samples."""
         merged = preprocessor.merge_tables(small_dataset)
         featured = preprocessor.engineer_features(merged)
-        labeled = preprocessor.create_labels(
-            featured, small_dataset["failures"]
-        )
+        labeled = preprocessor.create_labels(featured, small_dataset["failures"])
         train, test = preprocessor.temporal_split(labeled)
         train_scaled, _, feature_cols = preprocessor.normalize(train, test)
 

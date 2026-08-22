@@ -68,28 +68,28 @@ logger = get_logger(__name__)
 
 SENSOR_CONFIG = {
     "voltage": {
-        "mean": 170.0,       # Volts — typical industrial motor voltage
+        "mean": 170.0,  # Volts — typical industrial motor voltage
         "std": 15.0,
         "min": 100.0,
         "max": 250.0,
         "degradation_shift": 25.0,  # How much it shifts near failure
     },
     "rotation": {
-        "mean": 450.0,       # RPM — rotations per minute
+        "mean": 450.0,  # RPM — rotations per minute
         "std": 50.0,
         "min": 100.0,
         "max": 800.0,
         "degradation_shift": -80.0,  # RPM drops before failure
     },
     "pressure": {
-        "mean": 100.0,       # PSI — pounds per square inch
+        "mean": 100.0,  # PSI — pounds per square inch
         "std": 12.0,
         "min": 40.0,
         "max": 180.0,
         "degradation_shift": -20.0,  # Pressure drops (leaks)
     },
     "vibration": {
-        "mean": 40.0,        # mm/s — vibration velocity
+        "mean": 40.0,  # mm/s — vibration velocity
         "std": 8.0,
         "min": 10.0,
         "max": 100.0,
@@ -130,12 +130,14 @@ def generate_machines(
     """
     logger.info(f"Generating metadata for {n_machines} machines...")
 
-    machines = pd.DataFrame({
-        "machine_id": range(1, n_machines + 1),
-        "model": rng.choice(MACHINE_MODELS, size=n_machines),
-        # Age in years: 0-20, with most machines being 5-10 years old
-        "age": rng.integers(0, 21, size=n_machines),
-    })
+    machines = pd.DataFrame(
+        {
+            "machine_id": range(1, n_machines + 1),
+            "model": rng.choice(MACHINE_MODELS, size=n_machines),
+            # Age in years: 0-20, with most machines being 5-10 years old
+            "age": rng.integers(0, 21, size=n_machines),
+        }
+    )
 
     logger.info(
         f"  Age distribution: mean={machines['age'].mean():.1f}, "
@@ -251,14 +253,16 @@ def generate_telemetry(
         all_datetimes.extend(timestamps)
         all_machine_ids.extend([mid] * n_hours)
 
-    telemetry = pd.DataFrame({
-        "datetime": all_datetimes,
-        "machine_id": all_machine_ids,
-        "voltage": np.round(all_voltage, 2),
-        "rotation": np.round(all_rotation, 2),
-        "pressure": np.round(all_pressure, 2),
-        "vibration": np.round(all_vibration, 2),
-    })
+    telemetry = pd.DataFrame(
+        {
+            "datetime": all_datetimes,
+            "machine_id": all_machine_ids,
+            "voltage": np.round(all_voltage, 2),
+            "rotation": np.round(all_rotation, 2),
+            "pressure": np.round(all_pressure, 2),
+            "vibration": np.round(all_vibration, 2),
+        }
+    )
 
     telemetry["datetime"] = pd.to_datetime(telemetry["datetime"])
     telemetry = telemetry.sort_values(["machine_id", "datetime"]).reset_index(drop=True)
@@ -314,11 +318,13 @@ def generate_failures(
 
                 failure_mode = rng.choice(FAILURE_MODES)
 
-                failure_records.append({
-                    "datetime": failure_time,
-                    "machine_id": mid,
-                    "failure": failure_mode,
-                })
+                failure_records.append(
+                    {
+                        "datetime": failure_time,
+                        "machine_id": mid,
+                        "failure": failure_mode,
+                    }
+                )
 
                 # Track for telemetry degradation
                 if mid not in failure_windows:
@@ -371,11 +377,13 @@ def generate_errors(
                 days=int(day_offset), hours=int(hour_offset)
             )
 
-            error_records.append({
-                "datetime": error_time,
-                "machine_id": mid,
-                "error_id": rng.choice(ERROR_TYPES),
-            })
+            error_records.append(
+                {
+                    "datetime": error_time,
+                    "machine_id": mid,
+                    "error_id": rng.choice(ERROR_TYPES),
+                }
+            )
 
         # Extra errors near failure windows
         if failure_windows and mid in failure_windows:
@@ -386,11 +394,13 @@ def generate_errors(
                     hours_before = rng.integers(1, 168)  # Up to 1 week
                     error_time = failure_time - timedelta(hours=int(hours_before))
                     if error_time >= start_date:
-                        error_records.append({
-                            "datetime": error_time,
-                            "machine_id": mid,
-                            "error_id": rng.choice(ERROR_TYPES),
-                        })
+                        error_records.append(
+                            {
+                                "datetime": error_time,
+                                "machine_id": mid,
+                                "error_id": rng.choice(ERROR_TYPES),
+                            }
+                        )
 
     errors = pd.DataFrame(error_records)
     if not errors.empty:
@@ -431,11 +441,13 @@ def generate_maintenance(
                     days=int(current_day),
                     hours=int(rng.integers(8, 17)),  # During work hours
                 )
-                maint_records.append({
-                    "datetime": maint_time,
-                    "machine_id": mid,
-                    "comp": comp,
-                })
+                maint_records.append(
+                    {
+                        "datetime": maint_time,
+                        "machine_id": mid,
+                        "comp": comp,
+                    }
+                )
                 # Next maintenance with some variance
                 current_day += rng.integers(
                     int(interval * 0.8), int(interval * 1.2) + 1
@@ -480,16 +492,10 @@ def generate_dataset(
 
     # Generate in dependency order
     machines = generate_machines(n_machines, rng)
-    failures, failure_windows = generate_failures(
-        machines, start_date, n_days, rng
-    )
-    errors = generate_errors(
-        machines, start_date, n_days, rng, failure_windows
-    )
+    failures, failure_windows = generate_failures(machines, start_date, n_days, rng)
+    errors = generate_errors(machines, start_date, n_days, rng, failure_windows)
     maintenance = generate_maintenance(machines, start_date, n_days, rng)
-    telemetry = generate_telemetry(
-        machines, start_date, n_days, rng, failure_windows
-    )
+    telemetry = generate_telemetry(machines, start_date, n_days, rng, failure_windows)
 
     dataset = {
         "machines": machines,
@@ -530,23 +536,32 @@ def main():
         description="Generate synthetic predictive maintenance data"
     )
     parser.add_argument(
-        "--machines", type=int, default=100,
+        "--machines",
+        type=int,
+        default=100,
         help="Number of machines (default: 100)",
     )
     parser.add_argument(
-        "--days", type=int, default=365,
+        "--days",
+        type=int,
+        default=365,
         help="Number of days of data (default: 365)",
     )
     parser.add_argument(
-        "--seed", type=int, default=42,
+        "--seed",
+        type=int,
+        default=42,
         help="Random seed for reproducibility (default: 42)",
     )
     parser.add_argument(
-        "--sample", action="store_true",
+        "--sample",
+        action="store_true",
         help="Generate a small sample dataset (10 machines, 30 days)",
     )
     parser.add_argument(
-        "--output", type=str, default=None,
+        "--output",
+        type=str,
+        default=None,
         help="Output directory (default: data/raw/)",
     )
 

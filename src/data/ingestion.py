@@ -286,6 +286,4 @@ class DataIngestion:
         for col in df.columns:
             col_null_pct = df[col].isnull().mean() * 100
             if col_null_pct > 5:
-                logger.warning(
-                    f"  ⚠ High null rate in '{col}': {col_null_pct:.1f}%"
-                )
+                logger.warning(f"  ⚠ High null rate in '{col}': {col_null_pct:.1f}%")
