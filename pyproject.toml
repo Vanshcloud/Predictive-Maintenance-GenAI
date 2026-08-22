@@ -11,10 +11,10 @@ name = "predictive-maintenance-genai"
 version = "0.1.0"
 description = "End-to-end Predictive Maintenance platform with TensorFlow and LangChain-powered GenAI insights"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.13"  # TensorFlow has no wheels for 3.13+; 3.12 is what this project is developed on
 license = {text = "MIT"}
 authors = [
-    {name = "Your Name", email = "your.email@example.com"},
+    {name = "Vansh Tomar", email = "vanshwar@gmail.com"},
 ]
 keywords = [
     "predictive-maintenance",
@@ -67,8 +67,22 @@ markers = [
 # ---- mypy (Type Checking) ----
 # WHY: Catches type errors before runtime. Essential for production code.
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false  # Start lenient, tighten later
 ignore_missing_imports = true
+
+# ---- coverage.py ----
+# WHY: `make test-cov` measures src/ and config/; everything else is either
+# tooling or generated. Test files themselves are excluded from the report.
+[tool.coverage.run]
+source = ["src", "config"]
+omit = ["*/__init__.py", "*/tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]

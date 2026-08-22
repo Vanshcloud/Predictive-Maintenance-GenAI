@@ -24,9 +24,11 @@ env/
 ENV/
 
 # --- Environment Variables (SECRETS!) ---
+# Ignore every .env variant, but keep the committed template.
 .env
-.env.local
-.env.production
+.env.*
+!.env.example
+.streamlit/secrets.toml
 
 # --- IDE ---
 .vscode/
@@ -49,26 +51,55 @@ data/processed/*
 !data/sample/
 
 # --- Model Artifacts (too large for Git) ---
+# metrics.json and training_history.json are deliberately NOT ignored:
+# they are small, and they are the auditable evidence of what a given
+# commit's model actually achieved.
 models/*.h5
 models/*.keras
 models/*.pkl
 models/*.joblib
 models/*.pb
+models/*.ckpt
+models/*.pt
+models/*.pth
+models/*.onnx
+models/*.tflite
 models/saved_model/
+models/checkpoints/
 !models/.gitkeep
+
+# --- Experiment tracking (if added later) ---
+mlruns/
+wandb/
+.tensorboard/
+runs/
 
 # --- Logs ---
 logs/
 *.log
 
-# --- Testing ---
+# --- Testing & Tooling Caches ---
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.hypothesis/
 
 # --- Docker ---
 docker-compose.override.yml
+
+# --- Merge / patch leftovers ---
+*.orig
+*.rej
+*.bak
+
+# --- Local agent & editor state ---
+.claude/settings.local.json
 
 # --- OS ---
 .DS_Store
