@@ -4,6 +4,8 @@ tests/unit/test_model.py
 Tests for LSTM Model, Trainer, and Evaluator.
 """
 
+import json
+
 import numpy as np
 import pytest
 import tensorflow as tf
@@ -11,6 +13,7 @@ import tensorflow as tf
 from src.models.evaluator import ModelEvaluator
 from src.models.lstm_model import PredictiveMaintenanceModel
 from src.models.trainer import ModelTrainer, iter_batches
+from src.utils.exceptions import ModelTrainingError
 
 
 @pytest.fixture
@@ -115,7 +118,204 @@ class TestModelTrainer:
         )
 
 
+class TestMonitorAndResume:
+    def test_monitor_defaults_to_val_f1_and_history_records_it(
+        self, model, mock_data, tmp_path
+    ):
+        """Validation history must expose val_f1, the default selection metric."""
+        X, y = mock_data
+        trainer = ModelTrainer(model=model)
+        trainer.compile(learning_rate=0.01)
+
+        history = trainer.train(
+            X_train=X,
+            y_train=y,
+            X_val=X,
+            y_val=y,
+            epochs=2,
+            batch_size=4,
+            checkpoint_path=str(tmp_path / "m.keras"),
+        )
+
+        assert "val_f1" in history and len(history["val_f1"]) >= 1
+        for f1 in history["val_f1"]:
+            assert 0.0 <= f1 <= 1.0
+
+    def test_unknown_monitor_is_rejected(self, model, mock_data, tmp_path):
+        """A typo in the monitor name must fail loudly, not silently pick a default."""
+        X, y = mock_data
+        trainer = ModelTrainer(model=model)
+        trainer.compile(learning_rate=0.01)
+
+        with pytest.raises(ModelTrainingError, match="Unknown monitor"):
+            trainer.train(
+                X_train=X,
+                y_train=y,
+                X_val=X,
+                y_val=y,
+                epochs=1,
+                batch_size=4,
+                checkpoint_path=str(tmp_path / "m.keras"),
+                monitor="val_accuracy",
+            )
+
+    def test_resume_continues_from_saved_epoch(self, model, mock_data, tmp_path):
+        """A resumed run picks up after the last completed epoch, not from 1."""
+        X, y = mock_data
+        ckpt = tmp_path / "m.keras"
+
+        first = ModelTrainer(model=model)
+        first.compile(learning_rate=0.01)
+        h1 = first.train(
+            X_train=X,
+            y_train=y,
+            X_val=X,
+            y_val=y,
+            epochs=2,
+            batch_size=4,
+            checkpoint_path=str(ckpt),
+        )
+        assert ckpt.with_suffix(".state.json").exists()
+
+        # State is written only when the checkpoint improves, so resume picks
+        # up after the BEST epoch — keeping the weights on disk and the
+        # recorded epoch describing the same moment.
+        saved_epoch = json.loads(ckpt.with_suffix(".state.json").read_text())["epoch"]
+        assert 1 <= saved_epoch <= 2
+
+        second = ModelTrainer(model=PredictiveMaintenanceModel(24, 63))
+        second.compile(learning_rate=0.01)
+        h2 = second.train(
+            X_train=X,
+            y_train=y,
+            X_val=X,
+            y_val=y,
+            epochs=4,
+            batch_size=4,
+            checkpoint_path=str(ckpt),
+            resume=True,
+        )
+
+        # Epochs up to the checkpoint are carried forward verbatim; the run
+        # then continues to the requested total rather than restarting at 1.
+        assert h2["loss"][:saved_epoch] == h1["loss"][:saved_epoch]
+        assert len(h2["loss"]) == 4
+        assert len(h2["loss"]) > len(h1["loss"])
+
+    def test_resume_without_state_starts_fresh(self, model, mock_data, tmp_path):
+        """resume=True on a clean directory must train normally, not crash."""
+        X, y = mock_data
+        trainer = ModelTrainer(model=model)
+        trainer.compile(learning_rate=0.01)
+
+        history = trainer.train(
+            X_train=X,
+            y_train=y,
+            epochs=1,
+            batch_size=4,
+            checkpoint_path=str(tmp_path / "nothing-here.keras"),
+            resume=True,
+        )
+        assert len(history["loss"]) == 1
+
+
+class TestThresholdSweep:
+    def test_sweep_finds_the_perfect_split_on_separable_scores(self, model):
+        """With cleanly separable scores, the best-F1 point should be perfect."""
+        evaluator = ModelEvaluator(model=model)
+        y_true = np.array([0, 0, 0, 0, 0, 0, 1, 1])
+        y_prob = np.array([0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.95, 0.97])
+
+        sweep = evaluator.sweep_thresholds(y_true, y_prob)
+
+        assert sweep["n_positive"] == 2
+        assert sweep["n_negative"] == 6
+        assert np.isclose(sweep["best_f1"]["f1"], 1.0)
+        assert np.isclose(sweep["best_f1"]["precision"], 1.0)
+        assert np.isclose(sweep["best_f1"]["recall"], 1.0)
+        assert np.isclose(sweep["average_precision"], 1.0)
+
+    def test_cost_ratio_shifts_the_operating_point_toward_recall(self, model):
+        """
+        Making misses expensive must not make the chosen threshold stricter.
+
+        This is the whole reason the sweep is cost-weighted: at a 1:864 base
+        rate, a missed failure and a false alarm are not equally bad, and the
+        threshold should follow the cost ratio.
+        """
+        evaluator = ModelEvaluator(model=model)
+        rng = np.random.default_rng(0)
+        y_true = np.concatenate([np.zeros(400), np.ones(20)])
+        y_prob = np.concatenate(
+            [rng.beta(1.2, 8, 400), rng.beta(4, 3, 20)]  # overlapping, not separable
+        )
+
+        cheap_miss = evaluator.sweep_thresholds(y_true, y_prob, cost_fn=1, cost_fp=1)
+        costly_miss = evaluator.sweep_thresholds(y_true, y_prob, cost_fn=500, cost_fp=1)
+
+        assert (
+            costly_miss["lowest_cost"]["threshold"]
+            <= cheap_miss["lowest_cost"]["threshold"]
+        )
+        assert (
+            costly_miss["lowest_cost"]["recall"] >= cheap_miss["lowest_cost"]["recall"]
+        )
+
+    def test_degenerate_cost_optimum_is_flagged(self, model):
+        """
+        A near-zero cost-optimal threshold must warn, not pass silently.
+
+        With cost_fn >> cost_fp the objective collapses to "reach recall 1.0
+        at any price", and on a small positive sample the cheapest way there
+        is a threshold in the noise floor. Day 5 hit exactly this: t=0.0003
+        won on validation and cost 15 points of test F1.
+        """
+        evaluator = ModelEvaluator(model=model)
+        rng = np.random.default_rng(3)
+        # Heavily overlapping scores: no threshold separates the classes, so
+        # the only way to zero false negatives is to accept nearly everything.
+        y_true = np.concatenate([np.zeros(500), np.ones(10)])
+        y_prob = np.concatenate([rng.random(500), rng.random(10)])
+
+        sweep = evaluator.sweep_thresholds(y_true, y_prob, cost_fn=1000.0, cost_fp=1.0)
+
+        assert sweep["lowest_cost"]["recall"] == 1.0
+        assert sweep["lowest_cost_is_degenerate"] is True
+
+        # A cleanly separable problem must NOT be flagged.
+        clean = evaluator.sweep_thresholds(
+            np.array([0, 0, 0, 0, 1, 1]),
+            np.array([0.01, 0.02, 0.03, 0.04, 0.96, 0.98]),
+            cost_fn=1000.0,
+            cost_fp=1.0,
+        )
+        assert clean["lowest_cost_is_degenerate"] is False
+
+    def test_sweep_reports_consistent_confusion_counts(self, model):
+        """FN + TP must equal the positive count at every reported point."""
+        evaluator = ModelEvaluator(model=model)
+        rng = np.random.default_rng(7)
+        y_true = np.concatenate([np.zeros(200), np.ones(15)])
+        y_prob = np.concatenate([rng.random(200) * 0.6, rng.random(15) * 0.6 + 0.4])
+
+        sweep = evaluator.sweep_thresholds(y_true, y_prob)
+
+        for key in ("best_f1", "lowest_cost"):
+            pt = sweep[key]
+            tp = round(pt["recall"] * sweep["n_positive"])
+            assert pt["false_negatives"] + tp == sweep["n_positive"]
+            assert 0 <= pt["false_positives"] <= sweep["n_negative"]
+
+
 class TestModelEvaluator:
+    def test_predict_proba_returns_flat_probabilities(self, model, mock_data):
+        """predict_proba should give one probability in [0, 1] per sample."""
+        X, _ = mock_data
+        probs = ModelEvaluator(model=model).predict_proba(X)
+
+        assert probs.shape == (len(X),)
+        assert np.all((probs >= 0.0) & (probs <= 1.0))
+
     def test_evaluator_metrics(self, model, mock_data):
         """Test if evaluator correctly returns expected metric types."""
         X, y = mock_data

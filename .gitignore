@@ -66,6 +66,8 @@ models/*.onnx
 models/*.tflite
 models/saved_model/
 models/checkpoints/
+# Resume state pairs with a checkpoint — useless without the .keras it describes.
+models/*.state.json
 !models/.gitkeep
 
 # --- Experiment tracking (if added later) ---

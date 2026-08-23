@@ -40,6 +40,7 @@ HOW IT WORKS:
     same semantics, ~20 lines of explicit state.
 """
 
+import json
 from pathlib import Path
 from typing import Dict, Iterator, List, Optional, Tuple
 
@@ -195,6 +196,14 @@ class ModelTrainer:
 
         results = {name: float(metric.result()) for name, metric in metrics.items()}
         results["loss"] = loss_sum / max(n_seen, 1)
+
+        # F1 is derived rather than tracked by a Keras metric, because Keras
+        # has no streaming F1. It is the metric worth selecting on: at a
+        # ~1:740 base rate, val_auc saturates in the first epoch or two and
+        # then wanders in its fourth decimal place while precision swings
+        # between 0.13 and 0.81. AUC says "nothing is happening"; F1 sees it.
+        prec, rec = results["precision"], results["recall"]
+        results["f1"] = (2 * prec * rec / (prec + rec)) if (prec + rec) > 0 else 0.0
         return results
 
     def train(
@@ -206,12 +215,34 @@ class ModelTrainer:
         epochs: int = 50,
         batch_size: int = 256,
         checkpoint_path: str = "models/best_model.keras",
+        monitor: str = "val_f1",
+        resume: bool = False,
         patience: int = 5,
         lr_patience: int = 3,
         min_lr: float = 1e-6,
     ) -> Dict[str, List[float]]:
         """
         Execute the training loop.
+
+        Args:
+            monitor: Validation metric driving early stopping and
+                checkpointing — one of "val_f1", "val_auc", "val_loss",
+                "val_precision", "val_recall". Defaults to **val_f1**.
+
+                WHY NOT val_auc (the obvious choice): with ~1:740 imbalance
+                it saturates almost immediately. Day 5's run held val_auc
+                between 0.9991 and 1.0000 for ten epochs — four decimal
+                places of noise — while validation precision swung from 0.21
+                to 0.81 over the same epochs. Selecting on a saturated metric
+                means selecting on noise. F1 moves with the model.
+
+                Ignored when no validation data is supplied; training loss is
+                monitored instead.
+            resume: Continue from the state file written alongside
+                `checkpoint_path`, restoring epoch number, best score, and
+                per-epoch history. The weights come from the checkpoint
+                itself, so a resumed run picks up from the best model seen,
+                not the last one. Silently starts fresh if no state exists.
 
         Returns a history dict (``{"loss": [...], "auc": [...], ...}``) rather
         than a Keras ``History`` object, since fit() is not used.
@@ -243,16 +274,47 @@ class ModelTrainer:
                         "val_auc": [],
                         "val_precision": [],
                         "val_recall": [],
+                        "val_f1": [],
                     }
                 )
 
-            # Early stopping / checkpointing track val AUC when we have a
+            # Early stopping / checkpointing follow `monitor` when we have a
             # validation set (higher is better), and training loss otherwise.
-            best_score = -np.inf if has_val else np.inf
+            # "lower is better" only for losses; every other metric maximises.
+            minimising = (not has_val) or monitor.endswith("loss")
+            if has_val and monitor not in (
+                "val_f1",
+                "val_auc",
+                "val_loss",
+                "val_precision",
+                "val_recall",
+            ):
+                raise ModelTrainingError(f"Unknown monitor metric: {monitor!r}")
+
+            best_score = np.inf if minimising else -np.inf
             best_weights = None
             epochs_without_improvement = 0
             lr_wait = 0
             best_lr_loss = np.inf
+            start_epoch = 1
+
+            if resume:
+                state = self._load_state(checkpoint_path)
+                if state:
+                    history = state["history"]
+                    best_score = state["best_score"]
+                    start_epoch = state["epoch"] + 1
+                    best_weights = [w.copy() for w in self.model.get_weights()]
+                    logger.info(
+                        f"Resuming at epoch {start_epoch} "
+                        f"(best {monitor}={best_score:.4f} from epoch {state['epoch']})"
+                    )
+                    if start_epoch > epochs:
+                        logger.info(
+                            "Nothing to resume — requested epochs already done."
+                        )
+                        self.history = history
+                        return history
 
             train_metrics = {
                 "auc": AUC(name="auc"),
@@ -260,7 +322,7 @@ class ModelTrainer:
                 "recall": Recall(name="recall"),
             }
 
-            for epoch in range(1, epochs + 1):
+            for epoch in range(start_epoch, epochs + 1):
                 for metric in train_metrics.values():
                     metric.reset_state()
 
@@ -309,20 +371,27 @@ class ModelTrainer:
                         f" || val_loss: {val['loss']:.4f} | "
                         f"val_auc: {val['auc']:.4f} | "
                         f"val_precision: {val['precision']:.4f} | "
-                        f"val_recall: {val['recall']:.4f}"
+                        f"val_recall: {val['recall']:.4f} | "
+                        f"val_f1: {val['f1']:.4f}"
                     )
 
                 logger.info(msg)
 
                 # --- Checkpoint + early stopping -----------------------------
-                current = history["val_auc"][-1] if has_val else epoch_loss
-                improved = current > best_score if has_val else current < best_score
+                current = history[monitor][-1] if has_val else epoch_loss
+                improved = current < best_score if minimising else current > best_score
 
                 if improved:
                     best_score = current
                     best_weights = [w.copy() for w in self.model.get_weights()]
                     epochs_without_improvement = 0
-                    self._save_checkpoint(checkpoint_path, epoch, best_score, has_val)
+                    self._save_checkpoint(
+                        checkpoint_path,
+                        epoch,
+                        best_score,
+                        monitor if has_val else "loss",
+                    )
+                    self._save_state(checkpoint_path, epoch, best_score, history)
                 else:
                     epochs_without_improvement += 1
                     if epochs_without_improvement >= patience:
@@ -361,14 +430,63 @@ class ModelTrainer:
             logger.error(f"Training failed: {str(e)}")
             raise ModelTrainingError(f"Training failed: {str(e)}")
 
+    @staticmethod
+    def _state_path(checkpoint_path: str) -> Path:
+        """State file sits beside the checkpoint: model.keras -> model.state.json."""
+        return Path(checkpoint_path).with_suffix(".state.json")
+
+    def _save_state(
+        self, checkpoint_path: str, epoch: int, best_score: float, history: Dict
+    ) -> None:
+        """
+        Persist resume state next to the checkpoint.
+
+        Written only when the checkpoint is, so the two always agree: the
+        weights on disk are the best-so-far, and this records which epoch
+        produced them and what the history was up to that point.
+
+        NOT saved: optimizer slot variables. Adam's moment estimates are
+        rebuilt from scratch on resume, so a resumed run is not bit-identical
+        to an uninterrupted one — it re-warms over a few batches. That is a
+        deliberate trade: persisting optimizer state means serialising every
+        slot variable for marginal benefit on a run this short.
+        """
+        payload = {
+            "epoch": epoch,
+            "best_score": float(best_score),
+            "history": history,
+        }
+        self._state_path(checkpoint_path).write_text(json.dumps(payload, indent=2))
+
+    def _load_state(self, checkpoint_path: str) -> Optional[Dict]:
+        """Read resume state, or None if absent/unreadable."""
+        path = self._state_path(checkpoint_path)
+        if not path.exists():
+            logger.info(f"No resume state at {path} — starting from scratch.")
+            return None
+        try:
+            state = json.loads(path.read_text())
+            ckpt = Path(checkpoint_path)
+            if not ckpt.exists():
+                logger.warning(
+                    f"Resume state exists but {ckpt} does not — starting fresh."
+                )
+                return None
+            # The weights themselves come from the checkpoint on disk.
+            self.model_wrapper = PredictiveMaintenanceModel.load(ckpt)
+            self.model = self.model_wrapper.model
+            return state
+        except (json.JSONDecodeError, KeyError, OSError) as e:
+            logger.warning(f"Could not read resume state ({e}) — starting fresh.")
+            return None
+
     def _save_checkpoint(
-        self, checkpoint_path: str, epoch: int, score: float, has_val: bool
+        self, checkpoint_path: str, epoch: int, score: float, monitored: str
     ) -> None:
         """Persist the current (best-so-far) weights."""
         path = Path(checkpoint_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         self.model.save(path)
-        monitored = "val_auc" if has_val else "loss"
         logger.info(
             f"Epoch {epoch}: {monitored} improved to {score:.4f} — saved {path}"
         )
