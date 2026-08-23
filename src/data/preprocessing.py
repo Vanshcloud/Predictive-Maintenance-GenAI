@@ -47,6 +47,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
+from src.utils.exceptions import DataPreprocessingError
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -91,6 +92,7 @@ class DataPreprocessor:
         prediction_horizon: int = 24,
         sequence_length: int = 24,
         test_ratio: float = 0.2,
+        val_ratio: float = 0.15,
         sensor_columns: Optional[List[str]] = None,
     ) -> None:
         """
@@ -101,12 +103,19 @@ class DataPreprocessor:
                 24 = "will this machine fail within the next 24 hours?"
             sequence_length: Number of timesteps per LSTM input sequence.
                 24 = "use the last 24 hours of features as input."
-            test_ratio: Fraction of data reserved for testing (temporal).
+            test_ratio: Fraction of data reserved for testing (temporal, the
+                most recent slice).
+            val_ratio: Fraction reserved for validation (temporal, the slice
+                immediately before the test period). Model selection — early
+                stopping, checkpointing, threshold choice — must use this, so
+                that the test set is touched exactly once, at the very end.
+                Set to 0.0 for a two-way split.
             sensor_columns: Override default sensor column names.
         """
         self.prediction_horizon = prediction_horizon
         self.sequence_length = sequence_length
         self.test_ratio = test_ratio
+        self.val_ratio = val_ratio
         self.sensor_columns = sensor_columns or SENSOR_COLUMNS
         self.scaler: Optional[StandardScaler] = None
         self.feature_columns: List[str] = []
@@ -448,9 +457,9 @@ class DataPreprocessor:
     def temporal_split(
         self,
         df: pd.DataFrame,
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """
-        Split data temporally — NO random shuffling.
+        Split data temporally into train / validation / test — NO shuffling.
 
         WHY temporal:
             In production, the model only has past data. If we randomly
@@ -458,46 +467,65 @@ class DataPreprocessor:
             it literally sees the future. This is DATA LEAKAGE and makes
             metrics look great but production performance terrible.
 
-        The split point is chosen so that:
-            - Train = first (1 - test_ratio) of the data by time
-            - Test = last test_ratio of the data by time
+        WHY a separate validation split:
+            Early stopping, checkpoint selection, and threshold tuning all
+            *choose* something based on the data they observe. If that data
+            is the test set, the reported test score has been optimised
+            against and is no longer an unbiased estimate of generalisation.
+            The validation slice absorbs every one of those decisions so the
+            test set can be touched exactly once, at the very end.
+
+        Layout, oldest to newest:
+
+            |<------- train ------->|<-- val -->|<-- test -->|
+             1 - val_ratio - test_ratio  val_ratio  test_ratio
+
+        The test boundary is defined by `test_ratio` alone, so introducing a
+        validation split shrinks the *training* period and leaves the test
+        period exactly where it was — results stay comparable across runs.
 
         Args:
             df: Labeled DataFrame sorted by datetime.
 
         Returns:
-            Tuple of (train_df, test_df).
+            Tuple of (train_df, val_df, test_df). When `val_ratio` is 0,
+            `val_df` is an empty DataFrame with the same columns.
         """
-        logger.info("Step 4: Temporal train/test split...")
+        logger.info("Step 4: Temporal train/val/test split...")
 
         df = df.sort_values("datetime").reset_index(drop=True)
 
-        # Find the split timestamp
-        split_idx = int(len(df) * (1 - self.test_ratio))
-        split_time = df.iloc[split_idx]["datetime"]
+        # Boundaries are positional, then converted to timestamps so that all
+        # rows sharing a timestamp land in the same split.
+        test_idx = int(len(df) * (1 - self.test_ratio))
+        test_time = df.iloc[test_idx]["datetime"]
 
-        train_df = df[df["datetime"] < split_time].copy()
-        test_df = df[df["datetime"] >= split_time].copy()
+        if self.val_ratio > 0:
+            val_idx = int(len(df) * (1 - self.test_ratio - self.val_ratio))
+            if val_idx <= 0:
+                raise DataPreprocessingError(
+                    f"val_ratio={self.val_ratio} and test_ratio={self.test_ratio} "
+                    f"leave no training data for {len(df)} rows."
+                )
+            val_time = df.iloc[val_idx]["datetime"]
+        else:
+            val_time = test_time
 
-        logger.info(f"  Split point: {split_time}")
-        logger.info(
-            f"  Train: {len(train_df):,} rows "
-            f"({train_df['datetime'].min()} → {train_df['datetime'].max()})"
-        )
-        logger.info(
-            f"  Test:  {len(test_df):,} rows "
-            f"({test_df['datetime'].min()} → {test_df['datetime'].max()})"
-        )
-        logger.info(
-            f"  Train labels: {train_df['label'].sum():,} positive "
-            f"/ {len(train_df):,} total"
-        )
-        logger.info(
-            f"  Test labels:  {test_df['label'].sum():,} positive "
-            f"/ {len(test_df):,} total"
-        )
+        train_df = df[df["datetime"] < val_time].copy()
+        val_df = df[(df["datetime"] >= val_time) & (df["datetime"] < test_time)].copy()
+        test_df = df[df["datetime"] >= test_time].copy()
 
-        return train_df, test_df
+        for name, part in (("Train", train_df), ("Val", val_df), ("Test", test_df)):
+            if part.empty:
+                logger.info(f"  {name}:  (empty)")
+                continue
+            logger.info(
+                f"  {name}: {len(part):,} rows "
+                f"({part['datetime'].min()} -> {part['datetime'].max()}) "
+                f"| {int(part['label'].sum()):,} positive"
+            )
+
+        return train_df, val_df, test_df
 
     # ==================================================================
     # STEP 5: NORMALIZATION
@@ -567,6 +595,40 @@ class DataPreprocessor:
         logger.info("  Scaler fitted on training data (mean=0, std=1)")
 
         return train_scaled, test_scaled, feature_cols
+
+    def apply_scaler(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Transform a split using the scaler already fitted on training data.
+
+        WHY this exists separately from normalize():
+            `normalize()` *fits* the scaler, and it must only ever see the
+            training split. Any additional split — validation here, live
+            sensor data at inference time — has to be transformed with those
+            same training-time statistics, never re-fitted. Refitting per
+            split is the classic training/serving skew bug: it leaks the new
+            split's distribution into its own features and silently degrades
+            predictions while every test still passes.
+
+        Args:
+            df: DataFrame to transform.
+
+        Returns:
+            A scaled copy. Empty input is returned unchanged.
+
+        Raises:
+            DataPreprocessingError: if the scaler has not been fitted yet.
+        """
+        if self.scaler is None:
+            raise DataPreprocessingError(
+                "apply_scaler() called before normalize() fitted the scaler."
+            )
+        if df.empty:
+            return df.copy()
+
+        scaled = df.copy()
+        scaled[self.feature_columns] = self.scaler.transform(df[self.feature_columns])
+        scaled[self.feature_columns] = scaled[self.feature_columns].fillna(0)
+        return scaled
 
     # ==================================================================
     # STEP 6: LSTM SEQUENCE WINDOWING
@@ -679,20 +741,29 @@ class DataPreprocessor:
         failures = dataset.get("failures", pd.DataFrame())
         labeled = self.create_labels(featured, failures)
 
-        # Step 4: Temporal Split
-        train_df, test_df = self.temporal_split(labeled)
+        # Step 4: Temporal Split (train / val / test)
+        train_df, val_df, test_df = self.temporal_split(labeled)
 
-        # Step 5: Normalize
+        # Step 5: Normalize — scaler is fitted on TRAIN ONLY, then applied
+        # to the other splits.
         train_scaled, test_scaled, feature_cols = self.normalize(train_df, test_df)
+        val_scaled = self.apply_scaler(val_df)
 
         # Step 6: Create Sequences
         X_train, y_train = self.create_sequences(train_scaled, feature_cols)
         X_test, y_test = self.create_sequences(test_scaled, feature_cols)
+        if not val_scaled.empty:
+            X_val, y_val = self.create_sequences(val_scaled, feature_cols)
+        else:
+            X_val = np.empty(
+                (0, self.sequence_length, len(feature_cols)), dtype=np.float32
+            )
+            y_val = np.empty((0,), dtype=np.float32)
 
         # Save if requested
         if save_dir:
             self._save_artifacts(
-                save_dir, X_train, y_train, X_test, y_test, feature_cols
+                save_dir, X_train, y_train, X_val, y_val, X_test, y_test, feature_cols
             )
 
         # Summary
@@ -702,6 +773,8 @@ class DataPreprocessor:
         logger.info("=" * 60)
         logger.info(f"  X_train: {X_train.shape}")
         logger.info(f"  y_train: {y_train.shape} ({y_train.sum():.0f} positive)")
+        logger.info(f"  X_val:   {X_val.shape}")
+        logger.info(f"  y_val:   {y_val.shape} ({y_val.sum():.0f} positive)")
         logger.info(f"  X_test:  {X_test.shape}")
         logger.info(f"  y_test:  {y_test.shape} ({y_test.sum():.0f} positive)")
         logger.info(f"  Features: {len(feature_cols)}")
@@ -710,6 +783,8 @@ class DataPreprocessor:
         return {
             "X_train": X_train,
             "y_train": y_train,
+            "X_val": X_val,
+            "y_val": y_val,
             "X_test": X_test,
             "y_test": y_test,
             "feature_columns": feature_cols,
@@ -730,6 +805,8 @@ class DataPreprocessor:
         save_dir: Path,
         X_train: np.ndarray,
         y_train: np.ndarray,
+        X_val: np.ndarray,
+        y_val: np.ndarray,
         X_test: np.ndarray,
         y_test: np.ndarray,
         feature_cols: List[str],
@@ -742,6 +819,9 @@ class DataPreprocessor:
         np.save(save_dir / "y_train.npy", y_train)
         np.save(save_dir / "X_test.npy", X_test)
         np.save(save_dir / "y_test.npy", y_test)
+        if len(X_val):
+            np.save(save_dir / "X_val.npy", X_val)
+            np.save(save_dir / "y_val.npy", y_val)
 
         if self.scaler:
             joblib.dump(self.scaler, save_dir / "scaler.joblib")

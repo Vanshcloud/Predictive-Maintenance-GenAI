@@ -28,6 +28,7 @@ import pandas as pd
 import pytest
 
 from src.data.preprocessing import DataPreprocessor
+from src.utils.exceptions import DataPreprocessingError
 
 # ===========================================================================
 # FIXTURES
@@ -308,7 +309,7 @@ class TestTemporalSplit:
         merged = preprocessor.merge_tables(small_dataset)
         featured = preprocessor.engineer_features(merged)
         labeled = preprocessor.create_labels(featured, small_dataset["failures"])
-        train, test = preprocessor.temporal_split(labeled)
+        train, _val, test = preprocessor.temporal_split(labeled)
 
         assert len(train) > 0
         assert len(test) > 0
@@ -318,7 +319,7 @@ class TestTemporalSplit:
         merged = preprocessor.merge_tables(small_dataset)
         featured = preprocessor.engineer_features(merged)
         labeled = preprocessor.create_labels(featured, small_dataset["failures"])
-        train, test = preprocessor.temporal_split(labeled)
+        train, _val, test = preprocessor.temporal_split(labeled)
 
         assert (
             train["datetime"].max() <= test["datetime"].min()
@@ -329,13 +330,62 @@ class TestTemporalSplit:
         merged = preprocessor.merge_tables(small_dataset)
         featured = preprocessor.engineer_features(merged)
         labeled = preprocessor.create_labels(featured, small_dataset["failures"])
-        train, test = preprocessor.temporal_split(labeled)
+        train, _val, test = preprocessor.temporal_split(labeled)
 
         train_times = set(zip(train["machine_id"], train["datetime"]))
         test_times = set(zip(test["machine_id"], test["datetime"]))
         overlap = train_times & test_times
 
         assert len(overlap) == 0, f"Found {len(overlap)} overlapping rows"
+
+    def test_val_sits_between_train_and_test(self, preprocessor, small_dataset):
+        """Chronological order must be strict: train < val < test."""
+        merged = preprocessor.merge_tables(small_dataset)
+        featured = preprocessor.engineer_features(merged)
+        labeled = preprocessor.create_labels(featured, small_dataset["failures"])
+        train, val, test = preprocessor.temporal_split(labeled)
+
+        assert not val.empty, "default val_ratio should produce a validation split"
+        assert train["datetime"].max() < val["datetime"].min(), "train leaks into val"
+        assert val["datetime"].max() < test["datetime"].min(), "val leaks into test"
+
+    def test_splits_are_disjoint_and_complete(self, preprocessor, small_dataset):
+        """Every row lands in exactly one split — none lost, none duplicated."""
+        merged = preprocessor.merge_tables(small_dataset)
+        featured = preprocessor.engineer_features(merged)
+        labeled = preprocessor.create_labels(featured, small_dataset["failures"])
+        train, val, test = preprocessor.temporal_split(labeled)
+
+        key = lambda d: set(zip(d["machine_id"], d["datetime"]))  # noqa: E731
+        tr, va, te = key(train), key(val), key(test)
+
+        assert not (tr & va) and not (va & te) and not (tr & te)
+        assert len(tr) + len(va) + len(te) == len(labeled)
+
+    def test_val_split_does_not_move_the_test_boundary(self, small_dataset):
+        """
+        Introducing a validation split must shrink TRAIN, never TEST.
+
+        This is what keeps metrics comparable across runs: the held-out test
+        period is defined by test_ratio alone.
+        """
+        merged_kwargs = dict(prediction_horizon=24, sequence_length=12, test_ratio=0.2)
+        two_way = DataPreprocessor(**merged_kwargs, val_ratio=0.0)
+        three_way = DataPreprocessor(**merged_kwargs, val_ratio=0.15)
+
+        def split(pre):
+            merged = pre.merge_tables(small_dataset)
+            featured = pre.engineer_features(merged)
+            labeled = pre.create_labels(featured, small_dataset["failures"])
+            return pre.temporal_split(labeled)
+
+        _, val_a, test_a = split(two_way)
+        train_b, val_b, test_b = split(three_way)
+
+        assert val_a.empty, "val_ratio=0 should yield no validation split"
+        assert test_a["datetime"].min() == test_b["datetime"].min()
+        assert len(test_a) == len(test_b)
+        assert not val_b.empty and len(train_b) < len(test_a) + len(train_b)
 
 
 # ===========================================================================
@@ -351,7 +401,7 @@ class TestNormalization:
         merged = preprocessor.merge_tables(small_dataset)
         featured = preprocessor.engineer_features(merged)
         labeled = preprocessor.create_labels(featured, small_dataset["failures"])
-        train, test = preprocessor.temporal_split(labeled)
+        train, _val, test = preprocessor.temporal_split(labeled)
         preprocessor.normalize(train, test)
 
         assert preprocessor.scaler is not None
@@ -361,7 +411,7 @@ class TestNormalization:
         merged = preprocessor.merge_tables(small_dataset)
         featured = preprocessor.engineer_features(merged)
         labeled = preprocessor.create_labels(featured, small_dataset["failures"])
-        train, test = preprocessor.temporal_split(labeled)
+        train, _val, test = preprocessor.temporal_split(labeled)
         train_scaled, _, feature_cols = preprocessor.normalize(train, test)
 
         # Check a few feature columns
@@ -372,10 +422,56 @@ class TestNormalization:
             # std should be close to 1 (with some tolerance for small data)
             assert 0.5 < std < 1.5, f"{col} std should be ≈1, got {std}"
 
+    # ===========================================================================
+    # SEQUENCE WINDOWING TESTS
+    # ===========================================================================
 
-# ===========================================================================
-# SEQUENCE WINDOWING TESTS
-# ===========================================================================
+    def test_apply_scaler_uses_training_statistics_not_its_own(
+        self, preprocessor, small_dataset
+    ):
+        """
+        The validation split must be transformed with TRAIN statistics.
+
+        If apply_scaler refitted on its own input, the validation features
+        would come out with mean 0 / std 1 by construction. They must not:
+        a different period has a different distribution, and seeing that
+        difference is the entire point of holding it out.
+        """
+        merged = preprocessor.merge_tables(small_dataset)
+        featured = preprocessor.engineer_features(merged)
+        labeled = preprocessor.create_labels(featured, small_dataset["failures"])
+        train, val, test = preprocessor.temporal_split(labeled)
+
+        preprocessor.normalize(train, test)
+        val_scaled = preprocessor.apply_scaler(val)
+
+        # Same rows, same order, same columns — only the values are scaled.
+        assert len(val_scaled) == len(val)
+        assert list(val_scaled.columns) == list(val.columns)
+
+        # Reproduce the transform by hand from the fitted scaler.
+        cols = preprocessor.feature_columns
+        expected = preprocessor.scaler.transform(val[cols])
+        np.testing.assert_allclose(
+            val_scaled[cols].values, np.nan_to_num(expected), rtol=1e-6
+        )
+
+    def test_apply_scaler_before_fitting_raises(self, preprocessor, small_dataset):
+        """Calling apply_scaler() before normalize() is a programming error."""
+        merged = preprocessor.merge_tables(small_dataset)
+        with pytest.raises(DataPreprocessingError, match="before normalize"):
+            preprocessor.apply_scaler(merged)
+
+    def test_apply_scaler_on_empty_frame_is_a_noop(self, preprocessor, small_dataset):
+        """val_ratio=0 produces an empty split; scaling it must not explode."""
+        merged = preprocessor.merge_tables(small_dataset)
+        featured = preprocessor.engineer_features(merged)
+        labeled = preprocessor.create_labels(featured, small_dataset["failures"])
+        train, _val, test = preprocessor.temporal_split(labeled)
+        preprocessor.normalize(train, test)
+
+        empty = labeled.iloc[0:0]
+        assert preprocessor.apply_scaler(empty).empty
 
 
 class TestSequenceWindowing:
@@ -386,7 +482,7 @@ class TestSequenceWindowing:
         merged = preprocessor.merge_tables(small_dataset)
         featured = preprocessor.engineer_features(merged)
         labeled = preprocessor.create_labels(featured, small_dataset["failures"])
-        train, test = preprocessor.temporal_split(labeled)
+        train, _val, test = preprocessor.temporal_split(labeled)
         train_scaled, _, feature_cols = preprocessor.normalize(train, test)
 
         X, y = preprocessor.create_sequences(train_scaled, feature_cols)
@@ -400,7 +496,7 @@ class TestSequenceWindowing:
         merged = preprocessor.merge_tables(small_dataset)
         featured = preprocessor.engineer_features(merged)
         labeled = preprocessor.create_labels(featured, small_dataset["failures"])
-        train, test = preprocessor.temporal_split(labeled)
+        train, _val, test = preprocessor.temporal_split(labeled)
         train_scaled, _, feature_cols = preprocessor.normalize(train, test)
 
         X, y = preprocessor.create_sequences(train_scaled, feature_cols)
@@ -413,7 +509,7 @@ class TestSequenceWindowing:
         merged = preprocessor.merge_tables(small_dataset)
         featured = preprocessor.engineer_features(merged)
         labeled = preprocessor.create_labels(featured, small_dataset["failures"])
-        train, test = preprocessor.temporal_split(labeled)
+        train, _val, test = preprocessor.temporal_split(labeled)
         train_scaled, _, feature_cols = preprocessor.normalize(train, test)
 
         X, y = preprocessor.create_sequences(train_scaled, feature_cols)

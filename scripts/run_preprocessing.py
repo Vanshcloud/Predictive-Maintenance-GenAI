@@ -61,7 +61,17 @@ def main():
         "--test-ratio",
         type=float,
         default=0.2,
-        help="Test set ratio (default: 0.2)",
+        help="Test set ratio, the most recent slice (default: 0.2)",
+    )
+    parser.add_argument(
+        "--val-ratio",
+        type=float,
+        default=0.15,
+        help=(
+            "Validation ratio, the slice just before the test period "
+            "(default: 0.15). Model selection uses this so the test set is "
+            "touched once. Pass 0 for a two-way split."
+        ),
     )
     args = parser.parse_args()
 
@@ -101,6 +111,7 @@ def main():
         prediction_horizon=args.horizon,
         sequence_length=args.seq_len,
         test_ratio=args.test_ratio,
+        val_ratio=args.val_ratio,
     )
 
     output_dir = (

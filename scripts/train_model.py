@@ -26,26 +26,39 @@ from src.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-def load_data(data_dir: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Load preprocessed numpy arrays from disk."""
+def load_data(data_dir: Path) -> dict:
+    """
+    Load preprocessed numpy arrays from disk as memmaps.
+
+    Returns a dict with train/test always present and val present only if
+    run_preprocessing.py produced a validation split.
+    """
     logger.info(f"Loading data from {data_dir}...")
     try:
-        X_train = np.load(data_dir / "X_train.npy", mmap_mode="r")
-        y_train = np.load(data_dir / "y_train.npy", mmap_mode="r")
-        X_test = np.load(data_dir / "X_test.npy", mmap_mode="r")
-        y_test = np.load(data_dir / "y_test.npy", mmap_mode="r")
-
-        logger.info(f"Loaded X_train shape: {X_train.shape}")
-        logger.info(
-            f"Loaded y_train shape: {y_train.shape} (positives: {np.sum(y_train)})"
-        )
-        logger.info(f"Loaded X_test shape:  {X_test.shape}")
-
-        return X_train, y_train, X_test, y_test
+        data = {
+            "X_train": np.load(data_dir / "X_train.npy", mmap_mode="r"),
+            "y_train": np.load(data_dir / "y_train.npy", mmap_mode="r"),
+            "X_test": np.load(data_dir / "X_test.npy", mmap_mode="r"),
+            "y_test": np.load(data_dir / "y_test.npy", mmap_mode="r"),
+        }
     except FileNotFoundError as e:
         logger.error(f"Failed to load data: {e}")
         logger.error("Please run scripts/run_preprocessing.py first.")
         sys.exit(1)
+
+    val_x, val_y = data_dir / "X_val.npy", data_dir / "y_val.npy"
+    if val_x.exists() and val_y.exists():
+        data["X_val"] = np.load(val_x, mmap_mode="r")
+        data["y_val"] = np.load(val_y, mmap_mode="r")
+
+    for name in ("train", "val", "test"):
+        key = f"X_{name}"
+        if key in data:
+            logger.info(
+                f"  {key:<8} {str(data[key].shape):<22} "
+                f"positives: {int(np.sum(data[f'y_{name}'])):,}"
+            )
+    return data
 
 
 def main():
@@ -61,12 +74,44 @@ def main():
     parser.add_argument(
         "--learning-rate", type=float, default=0.001, help="Adam learning rate"
     )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Continue from the checkpoint and state file left by a previous run",
+    )
+    parser.add_argument(
+        "--monitor",
+        default="val_f1",
+        choices=["val_f1", "val_auc", "val_loss", "val_precision", "val_recall"],
+        help=(
+            "Validation metric driving early stopping and checkpointing "
+            "(default: val_f1). val_auc saturates under this class imbalance "
+            "and selects on noise — see docs/Day5.md."
+        ),
+    )
     args = parser.parse_args()
 
     settings = get_settings()
 
     # 1. Load Data
-    X_train, y_train, X_test, y_test = load_data(settings.processed_data_path)
+    data = load_data(settings.processed_data_path)
+    X_train, y_train = data["X_train"], data["y_train"]
+    X_test, y_test = data["X_test"], data["y_test"]
+
+    # Model selection (early stopping, checkpointing) monitors the VALIDATION
+    # split so the test set stays untouched until the final evaluation below.
+    # Falling back to the test set would make the reported metrics optimistic;
+    # warn loudly rather than doing it silently.
+    if "X_val" in data:
+        X_val, y_val = data["X_val"], data["y_val"]
+    else:
+        logger.warning(
+            "No X_val.npy found — falling back to monitoring the TEST set. "
+            "Reported metrics will be optimistic because early stopping and "
+            "checkpoint selection will have observed them. Re-run "
+            "scripts/run_preprocessing.py to generate a validation split."
+        )
+        X_val, y_val = X_test, y_test
 
     seq_length = X_train.shape[1]
     n_features = X_train.shape[2]
@@ -88,11 +133,13 @@ def main():
     history = trainer.train(
         X_train=X_train,
         y_train=y_train,
-        X_val=X_test,  # Monitoring via test set
-        y_val=y_test,
+        X_val=X_val,
+        y_val=y_val,
         epochs=args.epochs,
         batch_size=args.batch_size,
         checkpoint_path=str(model_save_path),
+        monitor=args.monitor,
+        resume=args.resume,
     )
 
     # Per-epoch curves, kept for the Day 5 evaluation plots.
@@ -101,7 +148,7 @@ def main():
         json.dump(history, f, indent=4)
     logger.info(f"Saved training history to {history_path}")
 
-    # 4. Evaluate
+    # 4. Evaluate — the ONLY place the test set is scored.
     logger.info("Starting final evaluation on best model checkpoint...")
     best_model = PredictiveMaintenanceModel.load(model_save_path)
     evaluator = ModelEvaluator(model=best_model)
