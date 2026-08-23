@@ -8,13 +8,13 @@ immediately. It must be updated whenever meaningful progress is made.
 
 | Field | Value |
 |---|---|
-| **Last updated** | 2026-08-23 (end of Day 4) |
-| **Current milestone** | Day 4 of 12 — LSTM Model Architecture & Training — ✅ **complete** |
-| **Overall completion** | ~35% |
+| **Last updated** | 2026-08-23 (end of Day 5) |
+| **Current milestone** | Day 5 of 12 — Model Evaluation & Optimization — ✅ **complete** |
+| **Overall completion** | ~42% |
 | **Repository** | https://github.com/Vanshcloud/vigilant-lamp |
 | **Branch** | `main` |
 | **Latest commit at time of writing** | `79c094a` (Day 3); Day 4 work is staged in the working tree |
-| **Companion documents** | `docs/Day1.md` … `docs/Day4.md`, `docs/handoff.md` (long-form narrative history), `CLAUDE.md` (agent instructions) |
+| **Companion documents** | `docs/Day1.md` … `docs/Day5.md`, `docs/handoff.md` (long-form narrative history), `CLAUDE.md` (agent instructions) |
 
 
 > **History note (2026-08-23).** Every commit in this repository was rewritten to
@@ -87,7 +87,7 @@ probability of `0.87` means nothing to a maintenance technician on a factory flo
 | 1 | Reproducible synthetic dataset generator (5 tables, 883K rows) | ✅ Done (Day 2) |
 | 2 | Data ingestion + validation layer | ✅ Done (Day 2) |
 | 3 | Feature engineering + LSTM sequence pipeline | ✅ Done (Day 3) |
-| 4 | Trained LSTM model + evaluation metrics | ✅ Done (Day 4) — AUC 0.9999, F1 0.7530; see caveat TD-1 |
+| 4 | Trained LSTM model + evaluation metrics | ✅ Done (Day 5) — **AUC 0.9997, F1 0.8949** on a clean 3-way split |
 | 5 | Inference/prediction pipeline | 🔒 Day 6 |
 | 6 | LangChain report generator + Q&A assistant | 🔒 Day 7–8 |
 | 7 | FastAPI REST API | 🔒 Day 9 |
@@ -1664,7 +1664,7 @@ checkout, which doubles as validation of the installation instructions above.
 | **Effort** | 1 day + deadlock debugging. |
 | **Success criteria** | `make test` green (75/75) ✅; training runs to completion without hanging ✅; `metrics.json` written with AUC > 0.5 ✅ (**0.9999**). All met. |
 
-## M5 — Evaluation & optimization (Day 5) 🔒
+## M5 — Evaluation & optimization (Day 5) ✅
 
 | Field | Detail |
 |---|---|
@@ -1673,7 +1673,7 @@ checkout, which doubles as validation of the installation instructions above.
 | **Deliverables** | Evaluation report, plots, tuned model, updated `metrics.json`. |
 | **Dependencies** | M4. |
 | **Effort** | 1 day. |
-| **Success criteria** | AUC ≥ 0.85 with a defensible operating point; validation set no longer the test set. |
+| **Success criteria** | AUC ≥ 0.85 with a defensible operating point ✅ (0.9997 at t=0.6678, chosen on validation); validation set no longer the test set ✅. All met. |
 
 ## M6 — Prediction pipeline (Day 6) 🔒
 
@@ -1764,8 +1764,8 @@ Each day has a matching document in `docs/`.
 | **Day 2** | 2026-08-20 | Dataset, EDA & data pipeline | `docs/Day2.md` | ✅ Complete — commit `6ed62e9` |
 | **Day 3** | 2026-08-21 | Feature engineering & preprocessing | `docs/Day3.md` | ✅ Complete — commit `79c094a` |
 | **Day 4** | 2026-08-22/23 | LSTM architecture & training | `docs/Day4.md` | ✅ Complete — 75/75 tests, trained model, AUC 0.9999 |
-| **Day 5** | — | Model evaluation & optimization | `docs/Day5.md` | 🔒 Next |
-| **Day 6** | — | Prediction pipeline & inference | `docs/Day6.md` | 🔒 |
+| **Day 5** | 2026-08-23 | Model evaluation & optimization | `docs/Day5.md` | ✅ Complete — 3-way split, F1 0.8949, 90 tests |
+| **Day 6** | — | Prediction pipeline & inference | `docs/Day6.md` | 🔒 Next |
 | **Day 7** | — | LangChain setup & report generation | `docs/Day7.md` | 🔒 |
 | **Day 8** | — | GenAI assistant & maintenance Q&A | `docs/Day8.md` | 🔒 |
 | **Day 9** | — | FastAPI REST API | `docs/Day9.md` | 🔒 |
@@ -1778,8 +1778,8 @@ Day 1  ✅ Foundation
 Day 2  ✅ Data + EDA
 Day 3  ✅ Features + LSTM tensors
 Day 4  ✅ Model + training loop
-Day 5  🔒 Evaluation + tuning          ← YOU ARE HERE
-Day 6  🔒 Inference pipeline
+Day 5  ✅ Evaluation + tuning
+Day 6  🔒 Inference pipeline          ← YOU ARE HERE
 Day 7  🔒 LLM reports
 Day 8  🔒 LLM assistant
 Day 9  🔒 REST API
@@ -1837,11 +1837,37 @@ Benchmarks: training 36 ms/batch (~1.7 min/epoch train-only); single-sequence in
 **54.0 ms median / 55.4 ms p95** — NFR-3 (<100 ms) **PASS**. The saved artifact was
 reloaded in a fresh process and verified to predict.
 
-> **Read these numbers with TD-1 in mind.** `X_val=X_test`, so early stopping and
-> checkpoint selection observed the test set — the metrics are optimistic and are **not**
-> a clean generalization estimate. The data is also synthetic, with a degradation ramp
-> designed to be detectable. Day 5's chronological validation split produces the number
-> worth quoting.
+> **Superseded by Day 5.** These Day 4 numbers came from a run where `X_val=X_test`, so
+> early stopping and checkpoint selection observed the test set. Day 5 replaced the split
+> and retrained; the current figures are below.
+
+## Day 5 results (2026-08-23) — current
+
+Retrained on a clean three-way split (567,000 train / 129,000 validation / 172,800 test),
+monitoring `val_f1`. Early stopping at epoch 20 of 30; best weights from epoch 15.
+Threshold chosen on **validation** (best-F1, t=0.6678), then test scored once.
+
+| Metric | Day 4 (peeked) | Day 5 |
+|---|---|---|
+| ROC-AUC | 0.9999 | 0.9997 |
+| Precision | 0.6258 | **0.8756** |
+| Recall | 0.9450 | 0.9150 |
+| **F1** | 0.7530 | **0.8949** |
+| Missed failures | 11 | 17 |
+| **False alarms** | 113 | **26** |
+
+183 of 200 failures caught, 26 false alarms across 172,800 hourly readings.
+
+**Why the honest split scored higher.** Day 4 monitored `val_auc`, which saturates under
+this imbalance — it peaked in epoch 1 and early stopping kept those weights. With a real
+validation set and `val_f1` as the monitor, training ran to epoch 20 and kept epoch 15,
+whose validation precision was 0.913 against epoch 1's 0.214. AUC had been reporting a
+flat quantity while precision improved underneath it.
+
+**One reversal worth recording.** Selecting the operating point by cost (100:1 FN:FP) chose
+t=0.0003 — a noise-floor threshold that reached recall 1.0 on 175 validation positives and
+cost 15 points of test F1. The default is now best-F1; `sweep_thresholds()` returns a
+`lowest_cost_is_degenerate` flag so the failure mode cannot recur silently.
 
 ## In progress
 
@@ -1863,12 +1889,12 @@ deadlock) are resolved.
 
 | ID | Item | Why it exists | Repayment |
 |---|---|---|---|
-| **TD-1** | Validation set *is* the test set (`X_val=X_test`) | Day 4's goal was "does it train at all", and a third split was scope creep | Day 5 — chronological validation slice from the training tail |
-| **TD-2** | No checkpoint resume | Not needed until a run was long enough to be worth resuming; it now is | Day 5 — persist epoch/history/optimizer state, add `--resume` |
-| **TD-3** | No TensorBoard | Callbacks require `fit()`, which is unusable | Day 5 — plot `training_history.json`, or call `tf.summary` from the loop |
+| ~~TD-1~~ | ~~Validation set *is* the test set~~ | — | ✅ **Repaid Day 5** — 3-way chronological split; test period unchanged |
+| ~~TD-2~~ | ~~No checkpoint resume~~ | — | ✅ **Repaid Day 5** — `--resume` + `<checkpoint>.state.json` |
+| ~~TD-3~~ | ~~No training curves~~ | — | ✅ **Repaid Day 5** — `training_curves.png`, `pr_curve.png` |
 | **TD-4** | `docs/handoff.md` overlaps this plan | It predates the documentation system | Day 5 — reduce it to a narrative log, or fold it in and delete it |
 | ~~TD-5~~ | ~~`CLAUDE.md` referenced a `tf.data` trainer and root-level `debug_fit*.py` files~~ | Drift during Day 4's debugging | ✅ **Repaid Day 4** — `CLAUDE.md` corrected |
-| **TD-6** | Threshold fixed at 0.5 | Placeholder | Day 5 — cost-based operating point from a PR sweep |
+| ~~TD-6~~ | ~~Threshold fixed at 0.5~~ | — | ✅ **Repaid Day 5** — validation sweep; deployed t=0.6678 |
 | **TD-7** | No integration tests | Nothing to integrate until Day 6 | Day 9 |
 
 ## Known issues
@@ -1896,11 +1922,11 @@ Beyond the 12-day scope, in rough priority order:
 
 ## Completion percentage
 
-**~35%**
+**~42%**
 
 ```
-[███████████░░░░░░░░░░░░░░░░░░░] 35%
- Foundation ✅  Data ✅  Features ✅  Model ✅  Inference 🔒  GenAI 🔒  API 🔒  UI 🔒  Deploy 🔒
+[█████████████░░░░░░░░░░░░░░░░░] 42%
+ Foundation ✅  Data ✅  Features ✅  Model ✅  Eval ✅  Inference 🔒  GenAI 🔒  API 🔒  UI 🔒  Deploy 🔒
 ```
 
 | Module | Completion |
@@ -1915,7 +1941,7 @@ Beyond the 12-day scope, in rough priority order:
 | `dashboard/` | 0% |
 | `docker/` + CI | 0% |
 | Documentation | 95% |
-| Tests | 75 passing, `src/` core covered |
+| Tests | 90 passing; flake8 0 issues; Black and isort clean |
 
 ---
 

@@ -7,8 +7,8 @@
 ![LangChain](https://img.shields.io/badge/LangChain-0.2%2B-green?logo=chainlink&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-teal?logo=fastapi&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
-![Tests](https://img.shields.io/badge/tests-75%20passing-brightgreen)
-![Model AUC](https://img.shields.io/badge/model%20AUC-0.9999-success)
+![Tests](https://img.shields.io/badge/tests-90%20passing-brightgreen)
+![Model F1](https://img.shields.io/badge/model%20F1-0.8949-success)
 
 ---
 
@@ -183,35 +183,37 @@ make quality                                  # lint + format-check + typecheck
 
 ## Results
 
-Trained on 698,400 sequences of shape `(24, 63)`. Early stopping fired at epoch 6 of 30;
-best weights came from epoch 1. Wall clock ~26 minutes, CPU-only (Apple Silicon).
+Trained on a three-way chronological split — 567,000 train / 129,000 validation /
+172,800 test sequences of shape `(24, 63)`. Early stopping at epoch 20 of 30, best
+weights from epoch 15. Wall clock ~47 minutes, CPU-only (Apple Silicon).
+
+The alert threshold (0.6678) was chosen by sweeping the precision-recall curve on the
+**validation** split; the test set is scored once, at that threshold.
 
 | Metric | Value |
 |---|---|
-| **ROC-AUC** | **0.9999** |
-| **Precision** | 0.6258 |
-| **Recall** | 0.9450 |
-| **F1** | 0.7530 |
+| **ROC-AUC** | **0.9997** |
+| **Precision** | **0.8756** |
+| **Recall** | 0.9150 |
+| **F1** | **0.8949** |
 | Single-sequence inference | 54 ms median |
 
-Confusion matrix at threshold 0.5, over 172,800 held-out sequences:
+Confusion matrix over 172,800 held-out sequences:
 
 ```
                  predicted 0   predicted 1
-actual 0            172,487           113     <- false alarms
-actual 1                 11           189     <- caught 189 of 200 failures
+actual 0            172,574            26     <- false alarms
+actual 1                 17           183     <- caught 183 of 200 failures
 ```
 
 **Accuracy is deliberately not reported.** With a 1:864 positive rate a model that
 predicts "no failure" every time scores 99.88%, so accuracy would be actively
 misleading. Quality is judged on AUC, precision, recall, and F1 only.
 
-> **Two caveats, stated plainly.** (1) The validation set is currently the test set, so
-> early stopping and checkpoint selection have seen the data they are scored on — these
-> numbers are optimistic and a clean chronological validation split is the next task.
-> (2) The dataset is synthetic, with a degradation pattern designed to be detectable;
-> these metrics reflect this dataset's difficulty, not that of real industrial equipment.
-> See `IMPLEMENTATION_PLAN.md` -> Technical debt (TD-1) for the full accounting.
+> **One caveat, stated plainly.** The dataset is synthetic, with a degradation pattern
+> deliberately designed to be detectable. These metrics reflect *this dataset's*
+> difficulty, not that of real industrial equipment. The pipeline transfers; the numbers
+> would not. Full accounting in [`docs/Day5.md`](docs/Day5.md).
 
 ---
 
@@ -288,7 +290,7 @@ make format        # black + isort (writes)
 make quality       # lint + format-check + typecheck (no writes)
 ```
 
-**Current status: 75 tests passing, 0 flake8 issues, Black and isort clean.**
+**Current status: 90 tests passing, 0 flake8 issues, Black and isort clean.**
 
 Tests run against the committed `data/sample/` fixture, so they need no generated data.
 The first run pays roughly 90 seconds for TensorFlow's initial import on ARM64 macOS;
@@ -304,13 +306,13 @@ subsequent runs finish in about 4 seconds.
 
 ## Development Progress
 
-**~35% complete (4 of 12 days).**
+**~42% complete (5 of 12 days).**
 
 - [x] **Day 1** — Project setup, folder structure, configuration, logging, testing infrastructure
 - [x] **Day 2** — Synthetic dataset (883K rows), exploratory data analysis, ingestion + validation
 - [x] **Day 3** — Feature engineering (63 features), labeling, temporal split, LSTM sequencing
-- [x] **Day 4** — LSTM architecture, training pipeline, evaluation — **AUC 0.9999, F1 0.7530**
-- [ ] **Day 5** — Model evaluation, metrics, optimization
+- [x] **Day 4** — LSTM architecture, training pipeline, evaluation
+- [x] **Day 5** — 3-way split, threshold sweep, training curves, resume — **F1 0.8949**
 - [ ] **Day 6** — Prediction pipeline, inference engine
 - [ ] **Day 7** — LangChain setup, prompt engineering, report generation
 - [ ] **Day 8** — GenAI assistant, maintenance Q&A
