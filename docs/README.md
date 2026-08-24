@@ -30,8 +30,9 @@ encountered, design decisions, remaining tasks, next-day plan, and project healt
 | [Day 6](Day6.md) | Prediction pipeline & inference | `Predictor` — training/serving parity **100%**, event-level recall **8/8** — 113 unit + 4 integration tests |
 | [Day 7](Day7.md) | LangChain setup & report generation | Grounded reports — three hallucination bugs found by a live model, R-10 closed — 141 tests |
 | [Day 8](Day8.md) | GenAI assistant & maintenance Q&A | Multi-turn sessions; live-model tests caught the assistant accepting a false premise — 161 unit + 9 integration tests |
-| Day 9 | FastAPI REST API | 🔒 Next |
-| Days 10–12 | Dashboard → deployment → demo | 🔒 Planned |
+| [Day 9](Day9.md) | FastAPI REST API | 9 endpoints, **137 ms** predictions, LLM path isolated — 185 unit + 9 integration tests |
+| Day 10 | Streamlit dashboard | 🔒 Next |
+| Days 11–12 | Deployment → demo | 🔒 Planned |
 
 > These are **daily** reports, not weekly. The project is structured as 12 one-day
 > milestones; see the Roadmap section of `IMPLEMENTATION_PLAN.md`.

@@ -8,13 +8,13 @@ immediately. It must be updated whenever meaningful progress is made.
 
 | Field | Value |
 |---|---|
-| **Last updated** | 2026-08-24 (end of Day 8) |
-| **Current milestone** | Day 8 of 12 — GenAI Assistant & Maintenance Q&A — ✅ **complete** |
-| **Overall completion** | ~67% |
+| **Last updated** | 2026-08-24 (end of Day 9) |
+| **Current milestone** | Day 9 of 12 — FastAPI REST API — ✅ **complete** |
+| **Overall completion** | ~75% |
 | **Repository** | https://github.com/Vanshcloud/vigilant-lamp |
 | **Branch** | `main` |
 | **Latest commit at time of writing** | `79c094a` (Day 3); Day 4 work is staged in the working tree |
-| **Companion documents** | `docs/Day1.md` … `docs/Day8.md`, `docs/handoff.md` (long-form narrative history), `CLAUDE.md` (agent instructions) |
+| **Companion documents** | `docs/Day1.md` … `docs/Day9.md`, `docs/handoff.md` (long-form narrative history), `CLAUDE.md` (agent instructions) |
 
 
 > **History note (2026-08-23).** Every commit in this repository was rewritten to
@@ -90,7 +90,7 @@ probability of `0.87` means nothing to a maintenance technician on a factory flo
 | 4 | Trained LSTM model + evaluation metrics | ✅ Done (Day 5) — **AUC 0.9997, F1 0.8949** on a clean 3-way split |
 | 5 | Inference/prediction pipeline | ✅ Done (Day 6) — `Predictor`, parity with training verified at 100% |
 | 6 | LangChain report generator + Q&A assistant | ✅ Done (Days 7–8) — grounded reports and multi-turn Q&A |
-| 7 | FastAPI REST API | 🔒 Day 9 |
+| 7 | FastAPI REST API | ✅ Done (Day 9) — 9 endpoints, 137 ms predictions, LLM path isolated |
 | 8 | Streamlit dashboard | 🔒 Day 10 |
 | 9 | Docker + docker-compose + GitHub Actions CI | 🔒 Day 11 |
 | 10 | Final docs, demo, README polish | 🔒 Day 12 |
@@ -1708,7 +1708,7 @@ checkout, which doubles as validation of the installation instructions above.
 | **Effort** | 1 day. |
 | **Success criteria** | Answers grounded in actual feature values, not invention ✅ — verified against a live model, which caught the assistant accepting a false premise. All met. |
 
-## M9 — REST API (Day 9) 🔒
+## M9 — REST API (Day 9) ✅
 
 | Field | Detail |
 |---|---|
@@ -1717,7 +1717,7 @@ checkout, which doubles as validation of the installation instructions above.
 | **Deliverables** | `src/api/` complete + `tests/integration/`. |
 | **Dependencies** | M8. |
 | **Effort** | 1 day. |
-| **Success criteria** | `/docs` renders; p95 `/predict` < 500 ms; malformed input returns 422, never 500. |
+| **Success criteria** | `/docs` renders ✅; p95 `/predict` < 500 ms ✅ (**137 ms median**); malformed input returns 422, never 500 ✅. All met, verified live against the real model and 100 machines. |
 
 ## M10 — Dashboard (Day 10) 🔒
 
@@ -1768,8 +1768,8 @@ Each day has a matching document in `docs/`.
 | **Day 6** | 2026-08-24 | Prediction pipeline & inference | `docs/Day6.md` | ✅ Complete — R-6 closed, 113 unit + 4 integration tests |
 | **Day 7** | 2026-08-24 | LangChain setup & report generation | `docs/Day7.md` | ✅ Complete — grounded reports, R-10 closed, 141 tests |
 | **Day 8** | 2026-08-24 | GenAI assistant & maintenance Q&A | `docs/Day8.md` | ✅ Complete — multi-turn sessions, live grounding tests, 161 tests |
-| **Day 9** | — | FastAPI REST API | `docs/Day9.md` | 🔒 Next |
-| **Day 10** | — | Streamlit dashboard | `docs/Day10.md` | 🔒 |
+| **Day 9** | 2026-08-24 | FastAPI REST API | `docs/Day9.md` | ✅ Complete — 9 endpoints, 185 unit tests |
+| **Day 10** | — | Streamlit dashboard | `docs/Day10.md` | 🔒 Next |
 | **Day 11** | — | Docker, CI/CD & deployment | `docs/Day11.md` | 🔒 |
 | **Day 12** | — | Final polish, docs & demo | `docs/Day12.md` | 🔒 |
 
@@ -1782,8 +1782,8 @@ Day 5  ✅ Evaluation + tuning
 Day 6  ✅ Inference pipeline
 Day 7  ✅ LLM reports
 Day 8  ✅ LLM assistant
-Day 9  🔒 REST API                    ← YOU ARE HERE
-Day 10 🔒 Dashboard
+Day 9  ✅ REST API
+Day 10 🔒 Dashboard                   ← YOU ARE HERE
 Day 11 🔒 Docker + CI
 Day 12 🔒 Demo
 ```
@@ -1922,11 +1922,11 @@ Beyond the 12-day scope, in rough priority order:
 
 ## Completion percentage
 
-**~67%**
+**~75%**
 
 ```
-[████████████████████░░░░░░░░░░] 67%
- Foundation ✅  Data ✅  Features ✅  Model ✅  Eval ✅  Inference ✅  GenAI ✅  API 🔒  UI 🔒  Deploy 🔒
+[███████████████████████░░░░░░░] 75%
+ Foundation ✅  Data ✅  Features ✅  Model ✅  Eval ✅  Inference ✅  GenAI ✅  API ✅  UI 🔒  Deploy 🔒
 ```
 
 | Module | Completion |
@@ -1937,11 +1937,11 @@ Beyond the 12-day scope, in rough priority order:
 | `src/models/` | 100% — trained, evaluated, artifacts on disk |
 | `src/prediction/` | 100% |
 | `src/genai/` | 100% |
-| `src/api/` | 0% |
+| `src/api/` | 100% |
 | `dashboard/` | 0% |
 | `docker/` + CI | 0% |
 | Documentation | 95% |
-| Tests | 161 unit + 9 integration passing; flake8 0 issues; Black and isort clean |
+| Tests | 185 unit + 9 integration passing; flake8 0 issues; Black and isort clean |
 
 ---
 

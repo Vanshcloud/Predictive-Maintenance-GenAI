@@ -7,7 +7,7 @@
 ![LangChain](https://img.shields.io/badge/LangChain-0.2%2B-green?logo=chainlink&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-teal?logo=fastapi&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
-![Tests](https://img.shields.io/badge/tests-170%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-194%20passing-brightgreen)
 ![Model F1](https://img.shields.io/badge/model%20F1-0.8949-success)
 
 ---
@@ -189,6 +189,12 @@ python scripts/generate_report.py --fleet
 python scripts/ask.py --machine 51
 python scripts/ask.py --machine 51 --ask "Has vibration been rising?"
 
+# REST API
+make run-api                                  # http://localhost:8000/docs
+curl localhost:8000/health
+curl localhost:8000/machines/51/predict
+curl localhost:8000/fleet?alerts_only=true
+
 # Quality
 make test                                     # 75 tests
 make quality                                  # lint + format-check + typecheck
@@ -282,7 +288,7 @@ vigilant-lamp/
 │   ├── models/              # LSTM architecture, training loop, evaluator
 │   ├── prediction/          # Predictor: raw tables -> ranked predictions
 │   ├── genai/               # LangChain prompts + report chains
-│   └── api/                 # FastAPI REST API + routes     (Day 9)
+│   └── api/                 # FastAPI REST API — 9 endpoints, /docs
 ├── dashboard/               # Streamlit dashboard           (Day 10)
 ├── docker/                  # Dockerfiles + compose         (Day 11)
 │
@@ -339,7 +345,7 @@ make format        # black + isort (writes)
 make quality       # lint + format-check + typecheck (no writes)
 ```
 
-**Current status: 161 unit + 9 integration tests passing, 0 flake8 issues, Black and isort clean.**
+**Current status: 185 unit + 9 integration tests passing, 0 flake8 issues, Black and isort clean.**
 
 Tests run against the committed `data/sample/` fixture, so they need no generated data.
 The first run pays roughly 90 seconds for TensorFlow's initial import on ARM64 macOS;
@@ -355,7 +361,7 @@ subsequent runs finish in about 4 seconds.
 
 ## Development Progress
 
-**~67% complete (8 of 12 days).**
+**~75% complete (9 of 12 days).**
 
 - [x] **Day 1** — Project setup, folder structure, configuration, logging, testing infrastructure
 - [x] **Day 2** — Synthetic dataset (883K rows), exploratory data analysis, ingestion + validation
@@ -365,7 +371,7 @@ subsequent runs finish in about 4 seconds.
 - [x] **Day 6** — Prediction pipeline — training/serving parity verified, **8/8 failure events caught**
 - [x] **Day 7** — LangChain reports — grounded in real sensor evidence, runs keyless on local Ollama
 - [x] **Day 8** — Conversational assistant — multi-turn Q&A that declines what the data cannot answer
-- [ ] **Day 9** — FastAPI REST API
+- [x] **Day 9** — FastAPI REST API — 9 endpoints, **137 ms** predictions, LLM failures degrade gracefully
 - [ ] **Day 10** — Streamlit dashboard
 - [ ] **Day 11** — Docker, CI/CD, deployment
 - [ ] **Day 12** — Final polish, documentation, demo
