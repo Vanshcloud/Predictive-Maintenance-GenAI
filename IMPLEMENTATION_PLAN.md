@@ -8,13 +8,13 @@ immediately. It must be updated whenever meaningful progress is made.
 
 | Field | Value |
 |---|---|
-| **Last updated** | 2026-08-24 (end of Day 7) |
-| **Current milestone** | Day 7 of 12 — LangChain Setup & Report Generation — ✅ **complete** |
-| **Overall completion** | ~58% |
+| **Last updated** | 2026-08-24 (end of Day 8) |
+| **Current milestone** | Day 8 of 12 — GenAI Assistant & Maintenance Q&A — ✅ **complete** |
+| **Overall completion** | ~67% |
 | **Repository** | https://github.com/Vanshcloud/vigilant-lamp |
 | **Branch** | `main` |
 | **Latest commit at time of writing** | `79c094a` (Day 3); Day 4 work is staged in the working tree |
-| **Companion documents** | `docs/Day1.md` … `docs/Day7.md`, `docs/handoff.md` (long-form narrative history), `CLAUDE.md` (agent instructions) |
+| **Companion documents** | `docs/Day1.md` … `docs/Day8.md`, `docs/handoff.md` (long-form narrative history), `CLAUDE.md` (agent instructions) |
 
 
 > **History note (2026-08-23).** Every commit in this repository was rewritten to
@@ -89,7 +89,7 @@ probability of `0.87` means nothing to a maintenance technician on a factory flo
 | 3 | Feature engineering + LSTM sequence pipeline | ✅ Done (Day 3) |
 | 4 | Trained LSTM model + evaluation metrics | ✅ Done (Day 5) — **AUC 0.9997, F1 0.8949** on a clean 3-way split |
 | 5 | Inference/prediction pipeline | ✅ Done (Day 6) — `Predictor`, parity with training verified at 100% |
-| 6 | LangChain report generator + Q&A assistant | ⏳ Reports done (Day 7); assistant is Day 8 |
+| 6 | LangChain report generator + Q&A assistant | ✅ Done (Days 7–8) — grounded reports and multi-turn Q&A |
 | 7 | FastAPI REST API | 🔒 Day 9 |
 | 8 | Streamlit dashboard | 🔒 Day 10 |
 | 9 | Docker + docker-compose + GitHub Actions CI | 🔒 Day 11 |
@@ -1697,7 +1697,7 @@ checkout, which doubles as validation of the installation instructions above.
 | **Effort** | 1 day. |
 | **Success criteria** | Report names the contributing sensors, an urgency level, and a recommended action ✅; provider swap is a config change only ✅. Verified against a live local model, which exposed three grounding bugs the mocked tests could not. All met. |
 
-## M8 — GenAI assistant (Day 8) 🔒
+## M8 — GenAI assistant (Day 8) ✅
 
 | Field | Detail |
 |---|---|
@@ -1706,7 +1706,7 @@ checkout, which doubles as validation of the installation instructions above.
 | **Deliverables** | `src/genai/assistant.py` + tests. |
 | **Dependencies** | M7. |
 | **Effort** | 1 day. |
-| **Success criteria** | Answers "why is machine 47 at risk?" grounded in actual feature values, not invention. |
+| **Success criteria** | Answers grounded in actual feature values, not invention ✅ — verified against a live model, which caught the assistant accepting a false premise. All met. |
 
 ## M9 — REST API (Day 9) 🔒
 
@@ -1767,8 +1767,8 @@ Each day has a matching document in `docs/`.
 | **Day 5** | 2026-08-23 | Model evaluation & optimization | `docs/Day5.md` | ✅ Complete — 3-way split, F1 0.8949, 90 tests |
 | **Day 6** | 2026-08-24 | Prediction pipeline & inference | `docs/Day6.md` | ✅ Complete — R-6 closed, 113 unit + 4 integration tests |
 | **Day 7** | 2026-08-24 | LangChain setup & report generation | `docs/Day7.md` | ✅ Complete — grounded reports, R-10 closed, 141 tests |
-| **Day 8** | — | GenAI assistant & maintenance Q&A | `docs/Day8.md` | 🔒 Next |
-| **Day 9** | — | FastAPI REST API | `docs/Day9.md` | 🔒 |
+| **Day 8** | 2026-08-24 | GenAI assistant & maintenance Q&A | `docs/Day8.md` | ✅ Complete — multi-turn sessions, live grounding tests, 161 tests |
+| **Day 9** | — | FastAPI REST API | `docs/Day9.md` | 🔒 Next |
 | **Day 10** | — | Streamlit dashboard | `docs/Day10.md` | 🔒 |
 | **Day 11** | — | Docker, CI/CD & deployment | `docs/Day11.md` | 🔒 |
 | **Day 12** | — | Final polish, docs & demo | `docs/Day12.md` | 🔒 |
@@ -1781,8 +1781,8 @@ Day 4  ✅ Model + training loop
 Day 5  ✅ Evaluation + tuning
 Day 6  ✅ Inference pipeline
 Day 7  ✅ LLM reports
-Day 8  🔒 LLM assistant               ← YOU ARE HERE
-Day 9  🔒 REST API
+Day 8  ✅ LLM assistant
+Day 9  🔒 REST API                    ← YOU ARE HERE
 Day 10 🔒 Dashboard
 Day 11 🔒 Docker + CI
 Day 12 🔒 Demo
@@ -1895,7 +1895,7 @@ deadlock) are resolved.
 | **TD-4** | `docs/handoff.md` overlaps this plan | It predates the documentation system | Day 5 — reduce it to a narrative log, or fold it in and delete it |
 | ~~TD-5~~ | ~~`CLAUDE.md` referenced a `tf.data` trainer and root-level `debug_fit*.py` files~~ | Drift during Day 4's debugging | ✅ **Repaid Day 4** — `CLAUDE.md` corrected |
 | ~~TD-6~~ | ~~Threshold fixed at 0.5~~ | — | ✅ **Repaid Day 5** — validation sweep; deployed t=0.6678 |
-| **TD-7** | Integration tests started (4, training/serving parity) | Full API + GenAI coverage still pending | Day 9 |
+| **TD-7** | Integration tests: 9 (training/serving parity + live-model grounding) | API coverage still pending | Day 9 |
 
 ## Known issues
 
@@ -1922,11 +1922,11 @@ Beyond the 12-day scope, in rough priority order:
 
 ## Completion percentage
 
-**~58%**
+**~67%**
 
 ```
-[█████████████████░░░░░░░░░░░░░] 58%
- Foundation ✅  Data ✅  Features ✅  Model ✅  Eval ✅  Inference ✅  Reports ✅  Assistant 🔒  API 🔒  UI 🔒  Deploy 🔒
+[████████████████████░░░░░░░░░░] 67%
+ Foundation ✅  Data ✅  Features ✅  Model ✅  Eval ✅  Inference ✅  GenAI ✅  API 🔒  UI 🔒  Deploy 🔒
 ```
 
 | Module | Completion |
@@ -1936,12 +1936,12 @@ Beyond the 12-day scope, in rough priority order:
 | `src/data/` | 100% |
 | `src/models/` | 100% — trained, evaluated, artifacts on disk |
 | `src/prediction/` | 100% |
-| `src/genai/` | 70% — reports complete; Q&A assistant is Day 8 |
+| `src/genai/` | 100% |
 | `src/api/` | 0% |
 | `dashboard/` | 0% |
 | `docker/` + CI | 0% |
 | Documentation | 95% |
-| Tests | 141 unit + 4 integration passing; flake8 0 issues; Black and isort clean |
+| Tests | 161 unit + 9 integration passing; flake8 0 issues; Black and isort clean |
 
 ---
 
