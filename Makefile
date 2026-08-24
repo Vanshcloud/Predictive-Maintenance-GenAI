@@ -42,6 +42,12 @@ install-dev: ## Install development dependencies
 test: ## Run all tests
 	python -m pytest tests/ -v --tb=short
 
+test-integration: ## Run integration tests (slow; needs the generated dataset)
+	python -m pytest tests/integration -v --tb=short -m integration
+
+test-all: ## Run unit + integration tests
+	python -m pytest tests/ -v --tb=short -m ""
+
 test-cov: ## Run tests with coverage report
 	python -m pytest tests/ -v --tb=short --cov=src --cov=config --cov-report=term-missing
 

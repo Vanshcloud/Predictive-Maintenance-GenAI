@@ -57,7 +57,10 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short --strict-markers"
+# Integration tests are excluded by default: they score the full 876K-row
+# dataset (minutes, and the data is gitignored). Run them explicitly with
+# `make test-integration` after touching feature engineering or scaling.
+addopts = "-v --tb=short --strict-markers -m 'not integration'"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks integration tests",
