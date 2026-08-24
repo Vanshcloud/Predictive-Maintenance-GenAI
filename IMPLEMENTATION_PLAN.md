@@ -1773,7 +1773,7 @@ Each day has a matching document in `docs/`.
 | **Day 11** | 2026-08-24 | Docker, CI/CD & deployment | `docs/Day11.md` | ✅ Complete — images built (2.87 GB / 803 MB), compose verified, 4 CI jobs |
 | **Day 12** | 2026-08-24 | Final polish, docs & demo | `docs/Day12.md` | ✅ Complete — clean-checkout verified, RESULTS.md, TD-4 closed |
 | **Day 13** | 2026-08-25 | Point-in-time assessment (`as_of`) | `docs/Day13.md` | ✅ Complete — post-project; 229 unit + 13 integration tests |
-| **Day 14** | 2026-08-25 | Quality-gate drift & accessibility | `docs/Day14.md` | ✅ Complete — post-project; local/CI gates unified, 2 WCAG AA failures fixed, 232 unit tests |
+| **Day 14** | 2026-08-25 | Quality-gate drift, accessibility & the horizon chart | `docs/Day14.md` | ✅ Complete — post-project; local/CI gates unified, 2 WCAG AA failures fixed, 233 unit tests, README demo asset |
 
 Days 13 and 14 sit outside the original 12 milestones. Day 13 exists because the
 finished product had a presentation defect the plan never anticipated: assessed at

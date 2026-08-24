@@ -192,6 +192,47 @@ That date has passed. The replacement needs Streamlit ≥1.49 while
 is roughly a year old and the alternative is depending on a parameter its
 maintainers consider already removed. Four call sites in `dashboard/app.py`.
 
+### 9. The central claim had never been drawn
+
+"Predicts failures 24 hours in advance" was a sentence, a metric in
+`RESULTS.md`, or something you had to install TensorFlow and train a model to
+see. Everyone who read the repository took it on trust, because the cost of
+checking it was an afternoon.
+
+`scripts/plot_horizon.py` scores one machine at every hour of the two days
+before it actually failed — each point through the API's `as_of` parameter, so
+it sees only the evidence available at that hour and nothing downstream leaks
+in. Machine 51:
+
+| Hours before failure | P(failure ≤24h) |
+|---|---|
+| −48h … −18h | 0.0000 |
+| −17h | 0.0076 |
+| −16h | 0.3474 |
+| **−15h** | **0.9896** — crosses the 0.6678 threshold |
+| −13h … 0h | 1.0000 |
+
+The flat left-hand side carries as much weight as the climb: a day out the
+model is silent, and *should* be, because 24 hours is the horizon it was
+trained to. Machine 96 crosses at −23h, so the README no longer implies 24h is
+a per-machine promise — it is the training ceiling and the median across the
+held-out failures.
+
+The script is committed next to the PNG deliberately. An image in a repository
+with no way to regenerate it is the same failure as a status badge that cannot
+go red, and this session found two of those already.
+
+The palette was validated rather than eyeballed — the same discipline as the
+badge contrast in §4. `#1d4ed8` against the project's own `critical` red passes
+all six checks of the dataviz validator on a white surface, worst-case CVD
+separation ΔE 27.6 (protan). The first render put the crossing annotation
+directly on top of the threshold line; looking at the output caught what the
+validator by design does not check.
+
+**Not done: the screen recording.** It needs a human at a display. The chart
+takes most of the pressure off it, but the dashboard walkthrough remains the
+one open item, and it is optional.
+
 ---
 
 ## Files changed
@@ -209,7 +250,9 @@ maintainers consider already removed. Four call sites in `dashboard/app.py`.
 | `dashboard/risk.py` | **New** — `RISK_COLOURS`, `RISK_ORDER`, `risk_badge`, extracted so pure logic is importable without executing the Streamlit script |
 | `dashboard/app.py` | Imports from `risk`; `use_container_width` → `width="stretch"` |
 | `requirements-dashboard.txt` | Streamlit floor 1.30 → 1.49 |
-| `README.md` | Live CI badge; test count 220 → 233 |
+| `README.md` | Live CI badge; test count 220 → 233; **"See it work"** section leading with the horizon chart |
+| `scripts/plot_horizon.py` | **New** — regenerates the chart from a running API |
+| `docs/images/horizon.png` | **New** — the committed README asset |
 | `tests/unit/test_dashboard_app.py` | `TestBadgeContrast` — 4 tests; risk invariant now spans both dashboard modules |
 | `.gitignore` | `uv.lock` — a stray 155-byte artifact resolving no dependencies; nothing here uses uv |
 
