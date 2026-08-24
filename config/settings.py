@@ -31,6 +31,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # ------------------------------------------------------------------
@@ -73,6 +74,27 @@ class Settings(BaseSettings):
     # ---- Model Configuration ----
     MODEL_DIR: str = "models"
     MODEL_NAME: str = "lstm_predictive_maintenance"
+
+    @field_validator("OPENAI_API_KEY", "GOOGLE_API_KEY", mode="after")
+    @classmethod
+    def _blank_out_placeholders(cls, value: Optional[str]) -> Optional[str]:
+        """
+        Treat the .env.example placeholders as "not configured".
+
+        WHY: the template ships `OPENAI_API_KEY=your-openai-api-key-here`, and
+        the README tells people to `cp .env.example .env`. A placeholder is a
+        non-empty string, so without this the app believes it has credentials,
+        calls the provider, and returns a 401 that reads like a broken key
+        rather than an absent one. Nulling it here means the caller gets the
+        real message — no key set, use Ollama for a keyless run.
+        """
+        if value is None:
+            return None
+        stripped = value.strip()
+        placeholder_markers = ("your-", "changeme", "xxx", "<", "replace-me")
+        if not stripped or any(m in stripped.lower() for m in placeholder_markers):
+            return None
+        return stripped
 
     # ---- Inference ----
     # Alert threshold, chosen by sweeping the precision-recall curve on the

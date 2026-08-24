@@ -355,6 +355,139 @@ class Predictor:
             logger.error(f"Prediction failed: {e}")
             raise PredictionError(f"Prediction failed: {e}") from e
 
+    # Sensors whose engineered features carry the degradation signal, with the
+    # direction that indicates trouble and the physical story behind it. Used
+    # to turn a probability into evidence a technician can check.
+    # sensor: (concerning sign, unit, what that direction typically means)
+    # +1 means high readings are the worry, -1 means low readings are.
+    # Voltage is scored on volatility rather than level, so it has no sign.
+    _SENSOR_SEMANTICS = {
+        "vibration": (+1, "mm/s", "components loosening or bearings worn"),
+        "rotation": (-1, "RPM", "bearing drag or load increase"),
+        "pressure": (-1, "PSI", "a leak or a failing seal"),
+        "voltage": (0, "V", "supply instability or winding fault"),
+    }
+
+    def _population_z(self, feature: str, value: float) -> float:
+        """
+        How unusual is `value` for `feature`, against the training population?
+
+        The fitted StandardScaler already carries `mean_` and `scale_` for
+        every one of the 63 features, so the reference distribution is the one
+        the model was actually trained on rather than a number someone picked.
+        Returns 0.0 when the feature is unknown, so an unrecognised name is
+        treated as unremarkable rather than raising mid-report.
+        """
+        try:
+            idx = self.feature_columns.index(feature)
+        except ValueError:
+            return 0.0
+        mean = float(self.scaler.mean_[idx])
+        scale = float(self.scaler.scale_[idx])
+        return (value - mean) / scale if scale > 1e-9 else 0.0
+
+    def explain_machine(
+        self, dataset: Dict[str, pd.DataFrame], machine_id: Any
+    ) -> Dict[str, Any]:
+        """
+        Score one machine and return the evidence behind the score.
+
+        WHY THIS EXISTS:
+            A probability is not an explanation, and the GenAI layer must not
+            be left to invent one. Handing an LLM only "0.87" invites it to
+            confabulate a plausible cause; handing it "vibration 61.2 mm/s, up
+            18.4 from 24h ago, 24h volatility 9.1" gives it something real to
+            report. Every number here is read from the engineered features the
+            model actually consumed — none is derived for presentation.
+
+        Returns:
+            The `predict_machine` record plus a `context` block: current
+            sensor readings, 24h changes, volatility, error counts,
+            maintenance recency, and the sensors ranked by how far they have
+            deviated from their own recent baseline.
+
+        Raises:
+            PredictionError: if the machine has too little history.
+        """
+        pre = DataPreprocessor(sequence_length=self.sequence_length)
+        merged = pre.merge_tables(dataset)
+        featured = self._reconcile_features(pre.engineer_features(merged))
+
+        rows = featured[featured["machine_id"] == machine_id]
+        if rows.empty:
+            raise PredictionError(f"Machine {machine_id!r} is not present in the data.")
+        latest = rows.sort_values("datetime").iloc[-1]
+
+        sensors = {}
+        for sensor, (concerning_sign, unit, story) in self._SENSOR_SEMANTICS.items():
+            if sensor not in latest:
+                continue
+            value = float(latest[sensor])
+            baseline = float(latest.get(f"{sensor}_rolling_mean_24h", value))
+            volatility = float(latest.get(f"{sensor}_rolling_std_24h", 0.0))
+            change_24h = float(latest.get(f"{sensor}_change_24h", 0.0))
+
+            # Deviation from the sensor's OWN recent baseline, in units of its
+            # own recent volatility — so sensors on different scales (450 RPM
+            # vs 40 mm/s) can be ranked against each other honestly.
+            deviation = (value - baseline) / volatility if volatility > 1e-9 else 0.0
+
+            # Is this sensor deviating in the direction that actually
+            # matters? Pressure 0.7 sigma HIGH is not "a pressure drop", and
+            # attaching the leak explanation to it invites a report that
+            # contradicts its own numbers.
+            if concerning_sign == 0:
+                # Voltage fails by becoming erratic, not by drifting, so it is
+                # judged on volatility. The reference is the TRAINING
+                # population's volatility, taken from the fitted scaler —
+                # never a constant invented here. An earlier hand-picked
+                # threshold sat below the population mean and so flagged every
+                # healthy machine.
+                volatility_z = self._population_z(
+                    f"{sensor}_rolling_std_24h", volatility
+                )
+                concerning = volatility_z >= 2.0
+            else:
+                concerning = (deviation * concerning_sign) >= 1.0
+
+            # `direction` always describes the LEVEL, for every sensor — it is
+            # read as "N sigma <direction> baseline", and "0.4 sigma erratic
+            # baseline" is not a sentence.
+            direction_word = "above" if deviation >= 0 else "below"
+
+            sensors[sensor] = {
+                "current": round(value, 2),
+                "baseline_24h": round(baseline, 2),
+                "change_24h": round(change_24h, 2),
+                "volatility_24h": round(volatility, 2),
+                "deviation_sigma": round(deviation, 2),
+                "unit": unit,
+                "direction": direction_word,
+                "is_concerning": bool(concerning),
+                # Only supplied when the reading actually points that way.
+                "typical_cause": story if concerning else None,
+            }
+
+        ranked = sorted(
+            sensors, key=lambda k: abs(sensors[k]["deviation_sigma"]), reverse=True
+        )
+
+        maintenance = {
+            comp: int(latest[col])
+            for comp in ("comp1", "comp2", "comp3", "comp4")
+            if (col := f"hours_since_maint_{comp}") in latest
+        }
+
+        record = self.predict_machine(dataset, machine_id)
+        record["context"] = {
+            "age_years": int(latest["age"]) if "age" in latest else None,
+            "errors_last_24h": int(latest.get("errors_last_24h", 0)),
+            "hours_since_maintenance": maintenance,
+            "sensors": sensors,
+            "most_deviant_sensors": ranked[:3],
+        }
+        return record
+
     def predict_machine(
         self, dataset: Dict[str, pd.DataFrame], machine_id: Any
     ) -> Dict[str, Any]:
