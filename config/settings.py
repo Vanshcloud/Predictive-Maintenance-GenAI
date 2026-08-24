@@ -56,6 +56,8 @@ class Settings(BaseSettings):
 
     # ---- Application ----
     APP_NAME: str = "predictive-maintenance-genai"
+    # Surfaced by /health so an operator can tell which build is running.
+    APP_VERSION: str = "0.1.0"
     APP_ENV: str = "development"  # development | staging | production
     DEBUG: bool = True
     LOG_LEVEL: str = "DEBUG"  # DEBUG | INFO | WARNING | ERROR | CRITICAL

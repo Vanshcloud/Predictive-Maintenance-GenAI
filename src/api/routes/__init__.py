@@ -1,2 +1,5 @@
-# src/api/routes/__init__.py — API Route Handlers Package
-# Modules: health, predict, reports
+"""API route modules."""
+
+from src.api.routes import health, machines, predict, reports
+
+__all__ = ["health", "machines", "predict", "reports"]
