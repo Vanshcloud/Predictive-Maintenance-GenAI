@@ -23,6 +23,7 @@ from streamlit.testing.v1 import AppTest
 
 DASHBOARD = Path(__file__).resolve().parents[2] / "dashboard"
 APP = DASHBOARD / "app.py"
+RISK_MODULE = DASHBOARD / "risk.py"
 
 # The dashboard is standalone by design — it is not a package under src/, so
 # its modules are only importable once its directory is on the path. The app
@@ -254,12 +255,13 @@ class TestRiskConsistency:
         the API is alerting on. That inconsistency destroys trust and survives
         for months because both halves look individually correct.
         """
-        source = APP.read_text()
+        # Both halves of the dashboard, since the palette moved to risk.py.
+        source = APP.read_text() + RISK_MODULE.read_text()
 
         assert "RISK_COLOURS" in source
         # Colour lookup is by level name...
         assert "RISK_COLOURS.get(level" in source
-        # ...and no threshold constants are defined here to compare against.
+        # ...and no threshold constants are defined anywhere to compare against.
         for invented in ("RISK_BAND", "> 0.9", ">= 0.9", "> 0.6", ">= 0.6"):
             assert invented not in source, (
                 f"dashboard appears to compute its own risk bands ({invented!r}); "
@@ -354,6 +356,11 @@ class TestBadgeContrast:
     survived review, and not readable in a lit workshop or with low vision.
 
     Contrast is a number, so it gets checked like one rather than eyeballed.
+
+    These import `risk`, never `app`: importing app.py *runs* it, and the
+    sidebar reaches the network on its first line. An earlier version of this
+    class did import it, passed locally against a stray container on port 8000,
+    and failed in CI where nothing answers.
     """
 
     @staticmethod
@@ -372,9 +379,9 @@ class TestBadgeContrast:
         return (light + 0.05) / (dark + 0.05)
 
     def test_every_risk_colour_carries_white_text_at_wcag_aa(self):
-        import app as dashboard_app
+        import risk
 
-        for level, colour in dashboard_app.RISK_COLOURS.items():
+        for level, colour in risk.RISK_COLOURS.items():
             ratio = self._contrast("#ffffff", colour)
             # Badge text is 0.8em bold ~= 12.8px: normal text under WCAG 2.1,
             # so the 3:1 large-text allowance does not apply.
@@ -384,11 +391,11 @@ class TestBadgeContrast:
             )
 
     def test_the_unknown_level_fallback_is_also_readable(self):
+        import risk
+
         # An unrecognised level still renders a badge; it must not render an
         # unreadable one.
-        source = APP.read_text()
-        assert '"#6b7280"' in source, "fallback colour moved; re-check its contrast"
-        assert self._contrast("#ffffff", "#6b7280") >= 4.5
+        assert self._contrast("#ffffff", risk.UNKNOWN_COLOUR) >= 4.5
 
     def test_badge_escapes_the_level_it_is_given(self):
         """
@@ -396,10 +403,14 @@ class TestBadgeContrast:
         whatever host the sidebar's API URL points at — api_client returns
         response.json() without validating it.
         """
-        import app as dashboard_app
+        import risk
 
-        badge = dashboard_app.risk_badge("<img src=x onerror=alert(1)>")
-        # The payload is upper-cased by the badge, so match on the escaped form
-        # rather than the original casing.
+        badge = risk.risk_badge("<img src=x onerror=alert(1)>")
+        # The payload is upper-cased by the badge, so match the escaped form.
         assert "&lt;IMG SRC=X ONERROR=ALERT(1)&gt;" in badge
-        assert "<img" not in badge.lower().replace("&lt;img", "")
+        assert "<img" not in badge.lower()
+
+    def test_an_unknown_level_still_renders_a_badge(self):
+        import risk
+
+        assert risk.UNKNOWN_COLOUR in risk.risk_badge("bananas")

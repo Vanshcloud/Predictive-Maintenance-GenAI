@@ -7,8 +7,8 @@
 ![LangChain](https://img.shields.io/badge/LangChain-0.2%2B-green?logo=chainlink&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-teal?logo=fastapi&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
-![Tests](https://img.shields.io/badge/tests-220%20passing-brightgreen)
-![CI](https://img.shields.io/badge/CI-passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-233%20unit%20%2B%2013%20integration-brightgreen)
+[![CI](https://github.com/Vanshcloud/vigilant-lamp/actions/workflows/ci.yml/badge.svg)](https://github.com/Vanshcloud/vigilant-lamp/actions/workflows/ci.yml)
 ![Model F1](https://img.shields.io/badge/model%20F1-0.8949-success)
 
 ---

@@ -25,7 +25,6 @@ HOW IT WORKS:
          difference between "thinking" and "broken".
 """
 
-import html
 import os
 import sys
 from datetime import datetime, time
@@ -39,44 +38,13 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from api_client import APIClient, APIDegraded, APIError, APIUnavailable  # noqa: E402
+from risk import RISK_COLOURS, RISK_ORDER, risk_badge  # noqa: E402
 
 st.set_page_config(
     page_title="Predictive Maintenance",
     page_icon="🔧",
     layout="wide",
 )
-
-# Keyed by the level name the API assigns, so the two cannot disagree.
-#
-# Every fill here carries white badge text at 12.8px bold — normal text under
-# WCAG 2.1, so it needs 4.5:1. The amber and yellow this started with (#d97706
-# and #ca8a04) measured 3.19:1 and 2.94:1: legible to most people, unreadable
-# in sunlight or with low vision, and exactly the two levels a supervisor scans
-# for. The darker shades below clear 4.5:1 while keeping the red-orange-yellow-
-# green severity ramp, and all four also clear the 3:1 that WCAG 1.4.11 asks of
-# the bar chart's fills against the white page.
-RISK_COLOURS = {
-    "critical": "#b3202c",  # 6.65:1
-    "high": "#c2410c",  # 5.18:1
-    "medium": "#a16207",  # 4.92:1
-    "low": "#15803d",  # 5.02:1
-}
-RISK_ORDER = ["critical", "high", "medium", "low"]
-
-
-def risk_badge(level: str) -> str:
-    # `level` is interpolated into markup rendered with unsafe_allow_html, and
-    # it arrives from whatever host the sidebar's API URL points at — api_client
-    # returns `response.json()` unvalidated, so the Literal in the API's schema
-    # constrains our server and nothing else. Escaping costs one stdlib call.
-    # The colour lookup is already safe: an unknown level falls back to grey
-    # rather than reaching the style attribute.
-    colour = RISK_COLOURS.get(level, "#6b7280")
-    return (
-        f"<span style='background:{colour};color:white;padding:2px 10px;"
-        f"border-radius:10px;font-size:0.8em;font-weight:600'>"
-        f"{html.escape(level.upper())}</span>"
-    )
 
 
 @st.cache_resource
@@ -256,7 +224,7 @@ if page == "Fleet overview":
     st.header("Machines, most urgent first")
     st.dataframe(
         frame[["machine_id", "probability", "risk_level", "will_fail", "datetime"]],
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         column_config={
             "machine_id": "Machine",
@@ -286,7 +254,7 @@ if page == "Fleet overview":
             ),
         )
         .properties(height=180),
-        use_container_width=True,
+        width="stretch",
     )
 
 
@@ -357,7 +325,7 @@ elif page == "Machine detail":
                     ),
                 }
             )
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
     maintenance = explained.get("hours_since_maintenance") or {}
     if maintenance:
@@ -392,7 +360,7 @@ elif page == "Machine detail":
             .properties(height=110)
             .facet(row=alt.Row("sensor:N", title=None, sort=list(sensors)))
             .resolve_scale(y="independent"),
-            use_container_width=True,
+            width="stretch",
         )
 
 

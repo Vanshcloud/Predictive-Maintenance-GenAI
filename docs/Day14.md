@@ -36,7 +36,14 @@ looking correct and being correct.
 
 ## Starting state
 
-- 13 days complete, commit `d8a02ac`, all four CI jobs green.
+- 13 days complete, commit `d8a02ac`. **CI was red**, and had been since at least
+  run #6 — the quality job was failing on the mypy step for exactly the
+  `no-any-return` reason described below. `CLAUDE.md`, `IMPLEMENTATION_PLAN.md`
+  and commit `a45d573` all asserted CI was green; that was true when written for
+  `458ce03` and went stale silently. The README's CI badge was a hardcoded
+  `shields.io/badge/CI-passing-brightgreen` — a static image that reads
+  "passing" unconditionally — so nothing contradicted the claim. Replaced with
+  the live workflow badge.
 - 229 unit + 13 integration tests; flake8/Black/isort/mypy clean and blocking.
 - Technical debt register: empty.
 
@@ -166,9 +173,24 @@ call sites use it. Test-suite warnings went 2 → 1.
 
 | Item | Why |
 |---|---|
-| `use_container_width` → `width="stretch"` | Doc-deprecated in Streamlit 1.61 but emits no runtime warning, and the replacement needs ≥1.49 while `requirements-dashboard.txt` declares `>=1.30.0`. Same tension as the 422 constant, without the runtime cost. Do it when that floor next rises. |
 | Remaining test warning | `fastapi/testclient.py` importing `httpx`. Not our code; fixed only by upgrading FastAPI. |
 | `disallow_untyped_defs` | Unchanged. Still ~100 annotations across test helpers for little safety gain. |
+
+---
+
+### 8. `use_container_width` was past its removal date
+
+Initially recorded here as deferred, on the grounds that it was only
+doc-deprecated and emitted no runtime warning. **That was wrong.** Streamlit
+prints on every render:
+
+> Please replace `use_container_width` with `width`. `use_container_width` will
+> be removed after **2025-12-31**.
+
+That date has passed. The replacement needs Streamlit ≥1.49 while
+`requirements-dashboard.txt` declared `>=1.30.0`, so the floor is raised — 1.49
+is roughly a year old and the alternative is depending on a parameter its
+maintainers consider already removed. Four call sites in `dashboard/app.py`.
 
 ---
 
@@ -184,7 +206,11 @@ call sites use it. Test-suite warnings went 2 → 1.
 | `src/api/schemas.py` | `HTTP_422` constant |
 | `src/api/main.py`, `src/api/routes/reports.py` | Four call sites use it |
 | `dashboard/app.py` | Accessible risk palette; `html.escape` in `risk_badge`; heading levels |
-| `tests/unit/test_dashboard_app.py` | `TestBadgeContrast` — 3 tests |
+| `dashboard/risk.py` | **New** — `RISK_COLOURS`, `RISK_ORDER`, `risk_badge`, extracted so pure logic is importable without executing the Streamlit script |
+| `dashboard/app.py` | Imports from `risk`; `use_container_width` → `width="stretch"` |
+| `requirements-dashboard.txt` | Streamlit floor 1.30 → 1.49 |
+| `README.md` | Live CI badge; test count 220 → 233 |
+| `tests/unit/test_dashboard_app.py` | `TestBadgeContrast` — 4 tests; risk invariant now spans both dashboard modules |
 | `.gitignore` | `uv.lock` — a stray 155-byte artifact resolving no dependencies; nothing here uses uv |
 
 ---
@@ -193,7 +219,7 @@ call sites use it. Test-suite warnings went 2 → 1.
 
 | Check | State |
 |---|---|
-| Unit tests | **232 passing** (229 + 3) |
+| Unit tests | **233 passing** (229 + 4) |
 | Integration tests | 13 passing |
 | flake8 / Black / isort | Clean across **five** paths, locally and in CI |
 | mypy | 0 errors across 29 files, in **both** modes |

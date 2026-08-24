@@ -14,7 +14,10 @@
 # Install: pip install -r requirements-dashboard.txt
 # ============================================================
 
-streamlit>=1.30.0,<2.0.0
+# Floor raised to 1.49: `use_container_width` warns on every render and
+# Streamlit's own notice says it is removed after 2025-12-31, which has
+# passed. `width="stretch"` replaces it and landed in 1.49.
+streamlit>=1.49.0,<2.0.0
 altair>=5.0.0,<7.0.0
 pandas>=2.0.0,<3.0.0
 requests>=2.31.0,<3.0.0
