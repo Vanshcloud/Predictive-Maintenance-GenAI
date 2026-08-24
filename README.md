@@ -7,7 +7,7 @@
 ![LangChain](https://img.shields.io/badge/LangChain-0.2%2B-green?logo=chainlink&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-teal?logo=fastapi&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
-![Tests](https://img.shields.io/badge/tests-117%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-145%20passing-brightgreen)
 ![Model F1](https://img.shields.io/badge/model%20F1-0.8949-success)
 
 ---
@@ -180,6 +180,11 @@ python scripts/predict.py                     # current fleet status, most urgen
 python scripts/predict.py --machine 47        # one machine, as JSON
 python scripts/predict.py --alerts-only -o alerts.csv
 
+# AI maintenance reports
+python scripts/generate_report.py --machine 51 --dry-run    # prompt only — no API key needed
+python scripts/generate_report.py --machine 51              # full report
+python scripts/generate_report.py --fleet
+
 # Quality
 make test                                     # 75 tests
 make quality                                  # lint + format-check + typecheck
@@ -232,6 +237,23 @@ event recall says nothing about alert fatigue.
 predicts "no failure" every time scores 99.88%, so accuracy would be actively
 misleading. Quality is judged on AUC, precision, recall, and F1 only.
 
+### From prediction to work order
+
+Reports are grounded in the engineered features the model actually consumed —
+never in the model's imagination. Each sensor line carries an explicit verdict,
+and causal explanations are attached *only* when a reading deviates in the
+direction that matters:
+
+```
+pressure: 65.89 PSI (24h baseline 93.47 PSI, 1.91 sigma below; -32.06 PSI over 24h)
+    -> ABNORMAL; typically indicates a leak or a failing seal
+rotation: 400.04 RPM (24h baseline 418.31 RPM, 0.33 sigma below)
+    -> within normal variation; no action indicated by this sensor
+```
+
+Run it with no API key at all: `--dry-run` prints the grounded facts, and a
+local Ollama model generates the full report keyless.
+
 > **One caveat, stated plainly.** The dataset is synthetic, with a degradation pattern
 > deliberately designed to be detectable. These metrics reflect *this dataset's*
 > difficulty, not that of real industrial equipment. The pipeline transfers; the numbers
@@ -255,7 +277,7 @@ vigilant-lamp/
 │   ├── data/                # Ingestion, validation, preprocessing + feature engineering
 │   ├── models/              # LSTM architecture, training loop, evaluator
 │   ├── prediction/          # Predictor: raw tables -> ranked predictions
-│   ├── genai/               # LangChain chains, prompts     (Day 7-8)
+│   ├── genai/               # LangChain prompts + report chains
 │   └── api/                 # FastAPI REST API + routes     (Day 9)
 ├── dashboard/               # Streamlit dashboard           (Day 10)
 ├── docker/                  # Dockerfiles + compose         (Day 11)
@@ -313,7 +335,7 @@ make format        # black + isort (writes)
 make quality       # lint + format-check + typecheck (no writes)
 ```
 
-**Current status: 113 unit + 4 integration tests passing, 0 flake8 issues, Black and isort clean.**
+**Current status: 141 unit + 4 integration tests passing, 0 flake8 issues, Black and isort clean.**
 
 Tests run against the committed `data/sample/` fixture, so they need no generated data.
 The first run pays roughly 90 seconds for TensorFlow's initial import on ARM64 macOS;
@@ -329,7 +351,7 @@ subsequent runs finish in about 4 seconds.
 
 ## Development Progress
 
-**~50% complete (6 of 12 days).**
+**~58% complete (7 of 12 days).**
 
 - [x] **Day 1** — Project setup, folder structure, configuration, logging, testing infrastructure
 - [x] **Day 2** — Synthetic dataset (883K rows), exploratory data analysis, ingestion + validation
@@ -337,7 +359,7 @@ subsequent runs finish in about 4 seconds.
 - [x] **Day 4** — LSTM architecture, training pipeline, evaluation
 - [x] **Day 5** — 3-way split, threshold sweep, training curves, resume — **F1 0.8949**
 - [x] **Day 6** — Prediction pipeline — training/serving parity verified, **8/8 failure events caught**
-- [ ] **Day 7** — LangChain setup, prompt engineering, report generation
+- [x] **Day 7** — LangChain reports — grounded in real sensor evidence, runs keyless on local Ollama
 - [ ] **Day 8** — GenAI assistant, maintenance Q&A
 - [ ] **Day 9** — FastAPI REST API
 - [ ] **Day 10** — Streamlit dashboard

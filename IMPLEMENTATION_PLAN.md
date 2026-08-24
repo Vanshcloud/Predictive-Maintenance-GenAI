@@ -8,13 +8,13 @@ immediately. It must be updated whenever meaningful progress is made.
 
 | Field | Value |
 |---|---|
-| **Last updated** | 2026-08-24 (end of Day 6) |
-| **Current milestone** | Day 6 of 12 — Prediction Pipeline & Inference — ✅ **complete** |
-| **Overall completion** | ~50% |
+| **Last updated** | 2026-08-24 (end of Day 7) |
+| **Current milestone** | Day 7 of 12 — LangChain Setup & Report Generation — ✅ **complete** |
+| **Overall completion** | ~58% |
 | **Repository** | https://github.com/Vanshcloud/vigilant-lamp |
 | **Branch** | `main` |
 | **Latest commit at time of writing** | `79c094a` (Day 3); Day 4 work is staged in the working tree |
-| **Companion documents** | `docs/Day1.md` … `docs/Day6.md`, `docs/handoff.md` (long-form narrative history), `CLAUDE.md` (agent instructions) |
+| **Companion documents** | `docs/Day1.md` … `docs/Day7.md`, `docs/handoff.md` (long-form narrative history), `CLAUDE.md` (agent instructions) |
 
 
 > **History note (2026-08-23).** Every commit in this repository was rewritten to
@@ -89,7 +89,7 @@ probability of `0.87` means nothing to a maintenance technician on a factory flo
 | 3 | Feature engineering + LSTM sequence pipeline | ✅ Done (Day 3) |
 | 4 | Trained LSTM model + evaluation metrics | ✅ Done (Day 5) — **AUC 0.9997, F1 0.8949** on a clean 3-way split |
 | 5 | Inference/prediction pipeline | ✅ Done (Day 6) — `Predictor`, parity with training verified at 100% |
-| 6 | LangChain report generator + Q&A assistant | 🔒 Day 7–8 |
+| 6 | LangChain report generator + Q&A assistant | ⏳ Reports done (Day 7); assistant is Day 8 |
 | 7 | FastAPI REST API | 🔒 Day 9 |
 | 8 | Streamlit dashboard | 🔒 Day 10 |
 | 9 | Docker + docker-compose + GitHub Actions CI | 🔒 Day 11 |
@@ -1581,7 +1581,7 @@ checkout, which doubles as validation of the installation instructions above.
 | **Likelihood** | Medium over the project's life. |
 | **Mitigation** | Three interchangeable providers (OpenAI / Gemini / **local Ollama**) selected by config; `LLMConnectionError` is a distinct exception type so the API can degrade gracefully; report generation will be async so it never blocks a prediction. |
 | **Recovery** | Switch provider via `.env`; fall back to a deterministic template-generated report. |
-| **Status** | Mitigated by design (Day 7–8). |
+| **Status** | ✅ **Closed Day 7.** Three interchangeable providers; `LLMConnectionError` is distinct from `ReportGenerationError`, and the CLI prints the prediction when the report fails. Exercised for real — every run before Ollama was configured took this path. |
 
 ## R-11 — Deployment failure
 
@@ -1686,7 +1686,7 @@ checkout, which doubles as validation of the installation instructions above.
 | **Effort** | 1 day. |
 | **Success criteria** | Identical predictions via the pipeline and via direct model call ✅ (100% alert agreement over 172,800 sequences); < 100 ms single-sequence latency ✅ (54 ms). All met. |
 
-## M7 — GenAI report generation (Day 7) 🔒
+## M7 — GenAI report generation (Day 7) ✅
 
 | Field | Detail |
 |---|---|
@@ -1695,7 +1695,7 @@ checkout, which doubles as validation of the installation instructions above.
 | **Deliverables** | `src/genai/prompts.py`, `chains.py` + tests with a mocked LLM. |
 | **Dependencies** | M6. |
 | **Effort** | 1 day. |
-| **Success criteria** | Report names the contributing sensors, an urgency level, and a recommended action; provider swap is a config change only. |
+| **Success criteria** | Report names the contributing sensors, an urgency level, and a recommended action ✅; provider swap is a config change only ✅. Verified against a live local model, which exposed three grounding bugs the mocked tests could not. All met. |
 
 ## M8 — GenAI assistant (Day 8) 🔒
 
@@ -1766,8 +1766,8 @@ Each day has a matching document in `docs/`.
 | **Day 4** | 2026-08-22/23 | LSTM architecture & training | `docs/Day4.md` | ✅ Complete — 75/75 tests, trained model, AUC 0.9999 |
 | **Day 5** | 2026-08-23 | Model evaluation & optimization | `docs/Day5.md` | ✅ Complete — 3-way split, F1 0.8949, 90 tests |
 | **Day 6** | 2026-08-24 | Prediction pipeline & inference | `docs/Day6.md` | ✅ Complete — R-6 closed, 113 unit + 4 integration tests |
-| **Day 7** | — | LangChain setup & report generation | `docs/Day7.md` | 🔒 Next |
-| **Day 8** | — | GenAI assistant & maintenance Q&A | `docs/Day8.md` | 🔒 |
+| **Day 7** | 2026-08-24 | LangChain setup & report generation | `docs/Day7.md` | ✅ Complete — grounded reports, R-10 closed, 141 tests |
+| **Day 8** | — | GenAI assistant & maintenance Q&A | `docs/Day8.md` | 🔒 Next |
 | **Day 9** | — | FastAPI REST API | `docs/Day9.md` | 🔒 |
 | **Day 10** | — | Streamlit dashboard | `docs/Day10.md` | 🔒 |
 | **Day 11** | — | Docker, CI/CD & deployment | `docs/Day11.md` | 🔒 |
@@ -1780,8 +1780,8 @@ Day 3  ✅ Features + LSTM tensors
 Day 4  ✅ Model + training loop
 Day 5  ✅ Evaluation + tuning
 Day 6  ✅ Inference pipeline
-Day 7  🔒 LLM reports                 ← YOU ARE HERE
-Day 8  🔒 LLM assistant
+Day 7  ✅ LLM reports
+Day 8  🔒 LLM assistant               ← YOU ARE HERE
 Day 9  🔒 REST API
 Day 10 🔒 Dashboard
 Day 11 🔒 Docker + CI
@@ -1922,11 +1922,11 @@ Beyond the 12-day scope, in rough priority order:
 
 ## Completion percentage
 
-**~50%**
+**~58%**
 
 ```
-[███████████████░░░░░░░░░░░░░░░] 50%
- Foundation ✅  Data ✅  Features ✅  Model ✅  Eval ✅  Inference ✅  GenAI 🔒  API 🔒  UI 🔒  Deploy 🔒
+[█████████████████░░░░░░░░░░░░░] 58%
+ Foundation ✅  Data ✅  Features ✅  Model ✅  Eval ✅  Inference ✅  Reports ✅  Assistant 🔒  API 🔒  UI 🔒  Deploy 🔒
 ```
 
 | Module | Completion |
@@ -1936,12 +1936,12 @@ Beyond the 12-day scope, in rough priority order:
 | `src/data/` | 100% |
 | `src/models/` | 100% — trained, evaluated, artifacts on disk |
 | `src/prediction/` | 100% |
-| `src/genai/` | 0% |
+| `src/genai/` | 70% — reports complete; Q&A assistant is Day 8 |
 | `src/api/` | 0% |
 | `dashboard/` | 0% |
 | `docker/` + CI | 0% |
 | Documentation | 95% |
-| Tests | 113 unit + 4 integration passing; flake8 0 issues; Black and isort clean |
+| Tests | 141 unit + 4 integration passing; flake8 0 issues; Black and isort clean |
 
 ---
 
