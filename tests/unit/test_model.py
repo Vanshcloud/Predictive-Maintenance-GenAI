@@ -7,6 +7,7 @@ Tests for LSTM Model, Trainer, and Evaluator.
 import json
 
 import numpy as np
+import pandas as pd
 import pytest
 import tensorflow as tf
 
@@ -305,6 +306,99 @@ class TestThresholdSweep:
             tp = round(pt["recall"] * sweep["n_positive"])
             assert pt["false_negatives"] + tp == sweep["n_positive"]
             assert 0 <= pt["false_positives"] <= sweep["n_negative"]
+
+
+class TestEventLevelRecall:
+    """
+    Recall over failure events, not hours.
+
+    Every hour in a 24h pre-failure window carries label 1, so hourly recall
+    penalises a model that warned once and correctly. These tests pin the
+    distinction Day 6 measured on real data: 91.5% sequence-level recall
+    against 100% event-level recall.
+    """
+
+    @staticmethod
+    def _window(machine, start_hour, hours, caught_hours):
+        """One machine's warning window, with `caught_hours` alerted."""
+        return [
+            {
+                "machine_id": machine,
+                "datetime": pd.Timestamp("2024-06-01")
+                + pd.Timedelta(hours=start_hour + h),
+                "y": 1,
+                "pred": h in caught_hours,
+            }
+            for h in range(hours)
+        ]
+
+    def test_one_alerted_hour_catches_the_whole_event(self):
+        """Warned once is warned: hourly recall says 25%, event recall 100%."""
+        df = pd.DataFrame(self._window(1, 0, 4, {2}))
+
+        result = ModelEvaluator.event_level_recall(
+            df["machine_id"].values,
+            df["datetime"].values,
+            df["y"].values,
+            df["pred"].values,
+        )
+
+        assert result["n_events"] == 1
+        assert result["n_caught"] == 1
+        assert result["event_recall"] == 1.0
+        assert np.isclose(result["sequence_recall"], 0.25)
+
+    def test_events_split_by_machine_and_by_time_gap(self):
+        """Two machines, and a gap in time, must not merge into one event."""
+        rows = self._window(1, 0, 3, {0})
+        rows += self._window(1, 50, 3, set())
+        rows += self._window(2, 0, 3, {1})
+        df = pd.DataFrame(rows)
+
+        result = ModelEvaluator.event_level_recall(
+            df["machine_id"].values,
+            df["datetime"].values,
+            df["y"].values,
+            df["pred"].values,
+        )
+
+        assert result["n_events"] == 3
+        assert result["n_caught"] == 2
+        assert np.isclose(result["event_recall"], 2 / 3)
+
+    def test_lead_time_measures_notice_given(self):
+        """Lead time runs from the first alert to the end of the warning window."""
+        df = pd.DataFrame(self._window(1, 0, 25, {0}))
+
+        result = ModelEvaluator.event_level_recall(
+            df["machine_id"].values,
+            df["datetime"].values,
+            df["y"].values,
+            df["pred"].values,
+        )
+
+        assert result["lead_time_hours"]["median"] == 24.0
+
+    def test_no_positives_is_handled(self):
+        """data/sample has zero failures — this must not divide by zero."""
+        df = pd.DataFrame(
+            {
+                "machine_id": [1, 1, 2],
+                "datetime": pd.to_datetime(["2024-06-01", "2024-06-02", "2024-06-01"]),
+                "y": [0, 0, 0],
+                "pred": [False, True, False],
+            }
+        )
+
+        result = ModelEvaluator.event_level_recall(
+            df["machine_id"].values,
+            df["datetime"].values,
+            df["y"].values,
+            df["pred"].values,
+        )
+
+        assert result["n_events"] == 0
+        assert result["event_recall"] == 0.0
 
 
 class TestModelEvaluator:

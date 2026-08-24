@@ -9,6 +9,7 @@ WHY THIS FILE EXISTS:
 from typing import Any, Dict
 
 import numpy as np
+import pandas as pd
 from sklearn.metrics import (
     average_precision_score,
     confusion_matrix,
@@ -175,6 +176,110 @@ class ModelEvaluator:
             f"R={result['lowest_cost']['recall']:.4f} "
             f"(FN={result['lowest_cost']['false_negatives']}, "
             f"FP={result['lowest_cost']['false_positives']})"
+        )
+        return result
+
+    @staticmethod
+    def event_level_recall(
+        machine_ids: np.ndarray,
+        timestamps: np.ndarray,
+        y_true: np.ndarray,
+        y_pred: np.ndarray,
+        max_gap_hours: float = 1.0,
+    ) -> Dict[str, Any]:
+        """
+        Recall measured over failure EVENTS rather than hourly sequences.
+
+        WHY THIS EXISTS:
+            Sequence-level recall counts hours, and every hour in the 24h
+            window before a failure carries label 1. Missing 9 of those 24
+            hours while catching the other 15 scores as 9 failures "missed" —
+            but operationally the technician was warned, once, which is all
+            that was needed. The hourly number understates the model and
+            misdirects tuning toward smoothing predictions inside a window
+            instead of catching more windows.
+
+            Measured on Day 6: sequence-level recall 91.5% against
+            event-level recall 100% (8 of 8 events). The 17 "missed"
+            sequences were 3 events, all of which were flagged at other
+            hours.
+
+        An event is a contiguous run of y_true == 1 for one machine. It
+        counts as caught if ANY hour in it was predicted positive.
+
+        Args:
+            machine_ids: Machine identifier per sequence.
+            timestamps: Timestamp per sequence.
+            y_true: Ground-truth labels.
+            y_pred: Binary predictions (already thresholded).
+            max_gap_hours: Positives for one machine separated by more than
+                this are treated as separate events. Defaults to the 1-hour
+                telemetry cadence.
+
+        Returns:
+            Dict with event counts, event-level recall, and lead-time stats.
+        """
+        df = pd.DataFrame(
+            {
+                "machine_id": machine_ids,
+                "datetime": pd.to_datetime(timestamps),
+                "y": np.asarray(y_true).astype(int),
+                "pred": np.asarray(y_pred).astype(bool),
+            }
+        ).sort_values(["machine_id", "datetime"], kind="stable")
+
+        # A new event starts wherever a positive follows a non-positive, the
+        # machine changes, OR there is a gap in time.
+        #
+        # The time-gap clause matters: detecting boundaries by label
+        # transitions alone assumes every hour is present in the input, so two
+        # separate warning windows for one machine would silently merge into a
+        # single event if the negative rows between them were absent. That
+        # holds for the full test tensor and fails for any filtered subset.
+        gap_hours = (
+            df.groupby("machine_id")["datetime"].diff().dt.total_seconds() / 3600
+        )
+        starts_event = (df["y"] == 1) & (
+            (df["y"].shift() != 1)
+            | (df["machine_id"].shift() != df["machine_id"])
+            | (gap_hours > max_gap_hours)
+        )
+        df["event_id"] = np.where(df["y"] == 1, starts_event.cumsum(), np.nan)
+
+        positives = df[df["y"] == 1]
+        if positives.empty:
+            logger.warning("No positive labels — event-level recall is undefined.")
+            return {"n_events": 0, "n_caught": 0, "event_recall": 0.0}
+
+        grouped = positives.groupby("event_id")
+        caught = grouped["pred"].any()
+        window_end = grouped["datetime"].max()
+
+        # Lead time: from the first alerted hour to the end of the warning
+        # window, i.e. how much notice the technician actually got.
+        alerted = positives[positives["pred"]]
+        lead_hours = []
+        if not alerted.empty:
+            first_alert = alerted.groupby("event_id")["datetime"].min()
+            lead = (window_end.loc[first_alert.index] - first_alert).dt.total_seconds()
+            lead_hours = (lead / 3600).tolist()
+
+        result = {
+            "n_events": int(len(caught)),
+            "n_caught": int(caught.sum()),
+            "event_recall": float(caught.mean()),
+            "sequence_recall": float(positives["pred"].mean()),
+            "lead_time_hours": {
+                "median": float(np.median(lead_hours)) if lead_hours else 0.0,
+                "min": float(np.min(lead_hours)) if lead_hours else 0.0,
+                "max": float(np.max(lead_hours)) if lead_hours else 0.0,
+            },
+        }
+
+        logger.info(
+            f"Event-level recall: {result['n_caught']}/{result['n_events']} events "
+            f"({result['event_recall'] * 100:.1f}%) vs sequence-level "
+            f"{result['sequence_recall'] * 100:.1f}%"
         )
         return result
 
