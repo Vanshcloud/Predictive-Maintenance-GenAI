@@ -7,7 +7,7 @@
 ![LangChain](https://img.shields.io/badge/LangChain-0.2%2B-green?logo=chainlink&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-teal?logo=fastapi&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
-![Tests](https://img.shields.io/badge/tests-90%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-117%20passing-brightgreen)
 ![Model F1](https://img.shields.io/badge/model%20F1-0.8949-success)
 
 ---
@@ -172,7 +172,13 @@ python scripts/run_preprocessing.py           # raw CSVs -> LSTM tensors + scale
 
 # Model
 python scripts/train_model.py                 # train, evaluate, write metrics
-python scripts/train_model.py --epochs 50 --batch-size 512 --learning-rate 0.0005
+python scripts/train_model.py --epochs 50 --monitor val_f1 --resume
+python scripts/evaluate_model.py              # threshold sweep + curves
+
+# Predict
+python scripts/predict.py                     # current fleet status, most urgent first
+python scripts/predict.py --machine 47        # one machine, as JSON
+python scripts/predict.py --alerts-only -o alerts.csv
 
 # Quality
 make test                                     # 75 tests
@@ -203,8 +209,24 @@ Confusion matrix over 172,800 held-out sequences:
 ```
                  predicted 0   predicted 1
 actual 0            172,574            26     <- false alarms
-actual 1                 17           183     <- caught 183 of 200 failures
+actual 1                 17           183     <- caught 183 of 200 hourly labels
 ```
+
+### Failures caught, measured over events
+
+Every hour in the 24 hours before a failure carries a positive label, so the
+hourly figures above count *hours*, not failures. Measured over failure events —
+where catching any hour means the technician was warned:
+
+| Metric | Value |
+|---|---|
+| Failure events in the test period | 8 |
+| **Events warned about** | **8 (100%)** |
+| Lead time (median / min) | **24h / 15h** |
+
+Eight events is a small sample: this says the model warned in 8 of 8 cases, not
+that it never misses. Reported alongside precision, never instead of it —
+event recall says nothing about alert fatigue.
 
 **Accuracy is deliberately not reported.** With a 1:864 positive rate a model that
 predicts "no failure" every time scores 99.88%, so accuracy would be actively
@@ -232,17 +254,18 @@ vigilant-lamp/
 │   ├── utils/               # Logging, exception hierarchy
 │   ├── data/                # Ingestion, validation, preprocessing + feature engineering
 │   ├── models/              # LSTM architecture, training loop, evaluator
-│   ├── prediction/          # Inference pipeline            (Day 6)
+│   ├── prediction/          # Predictor: raw tables -> ranked predictions
 │   ├── genai/               # LangChain chains, prompts     (Day 7-8)
 │   └── api/                 # FastAPI REST API + routes     (Day 9)
 ├── dashboard/               # Streamlit dashboard           (Day 10)
 ├── docker/                  # Dockerfiles + compose         (Day 11)
 │
-├── scripts/                 # Entry points: generate_data, eda, preprocessing, train
+├── scripts/                 # Entry points: generate_data, eda, preprocessing,
+│                            #   train_model, evaluate_model, predict
 ├── tests/
 │   ├── conftest.py          # Session bootstrap (import order matters — see the file)
-│   ├── unit/                # 75 tests
-│   └── integration/         # (Day 9)
+│   ├── unit/                # 113 tests, ~18s
+│   └── integration/         # 4 tests — training/serving parity; `make test-integration`
 ├── docs/
 │   ├── README.md            # Documentation index
 │   ├── architecture.md      # System architecture diagram
@@ -290,7 +313,7 @@ make format        # black + isort (writes)
 make quality       # lint + format-check + typecheck (no writes)
 ```
 
-**Current status: 90 tests passing, 0 flake8 issues, Black and isort clean.**
+**Current status: 113 unit + 4 integration tests passing, 0 flake8 issues, Black and isort clean.**
 
 Tests run against the committed `data/sample/` fixture, so they need no generated data.
 The first run pays roughly 90 seconds for TensorFlow's initial import on ARM64 macOS;
@@ -306,14 +329,14 @@ subsequent runs finish in about 4 seconds.
 
 ## Development Progress
 
-**~42% complete (5 of 12 days).**
+**~50% complete (6 of 12 days).**
 
 - [x] **Day 1** — Project setup, folder structure, configuration, logging, testing infrastructure
 - [x] **Day 2** — Synthetic dataset (883K rows), exploratory data analysis, ingestion + validation
 - [x] **Day 3** — Feature engineering (63 features), labeling, temporal split, LSTM sequencing
 - [x] **Day 4** — LSTM architecture, training pipeline, evaluation
 - [x] **Day 5** — 3-way split, threshold sweep, training curves, resume — **F1 0.8949**
-- [ ] **Day 6** — Prediction pipeline, inference engine
+- [x] **Day 6** — Prediction pipeline — training/serving parity verified, **8/8 failure events caught**
 - [ ] **Day 7** — LangChain setup, prompt engineering, report generation
 - [ ] **Day 8** — GenAI assistant, maintenance Q&A
 - [ ] **Day 9** — FastAPI REST API

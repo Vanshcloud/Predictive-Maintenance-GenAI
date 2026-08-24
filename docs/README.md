@@ -27,8 +27,9 @@ encountered, design decisions, remaining tasks, next-day plan, and project healt
 | [Day 3](Day3.md) | Feature engineering & preprocessing | 63 features, leak-free temporal split, `(698400, 24, 63)` tensors, 68 tests |
 | [Day 4](Day4.md) | LSTM architecture & training | Trained model — 75 tests, and an abseil symbol-collision deadlock diagnosed and fixed |
 | [Day 5](Day5.md) | Model evaluation & optimization | Clean 3-way split — **F1 0.8949, 26 false alarms** — 90 tests; TD-1/2/3/6 repaid |
-| Day 6 | Prediction pipeline & inference | 🔒 Next |
-| Days 7–12 | GenAI → API → dashboard → deployment → demo | 🔒 Planned |
+| [Day 6](Day6.md) | Prediction pipeline & inference | `Predictor` — training/serving parity **100%**, event-level recall **8/8** — 113 unit + 4 integration tests |
+| Day 7 | LangChain setup & report generation | 🔒 Next |
+| Days 8–12 | GenAI assistant → API → dashboard → deployment → demo | 🔒 Planned |
 
 > These are **daily** reports, not weekly. The project is structured as 12 one-day
 > milestones; see the Roadmap section of `IMPLEMENTATION_PLAN.md`.
