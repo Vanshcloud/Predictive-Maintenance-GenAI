@@ -62,10 +62,11 @@ jobs:
         run: isort --check-only src/ config/ tests/ scripts/ dashboard/
 
       - name: mypy
-        # Type checking is advisory for now: the codebase is not fully
-        # annotated and failing the build on it would block real work. It
-        # still reports, so the debt stays visible.
-        run: mypy src/ config/ || true
+        # Blocking as of Day 12: src/ and config/ are clean (0 errors across
+        # 29 files). It was advisory while 159 errors stood, because a build
+        # that is permanently red teaches people to ignore red builds — that
+        # reasoning no longer applies now the debt is paid.
+        run: mypy src/ config/
 
   test:
     name: Tests

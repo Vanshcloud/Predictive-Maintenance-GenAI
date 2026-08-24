@@ -42,7 +42,7 @@ HOW IT WORKS:
 
 import json
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -364,6 +364,10 @@ class ModelTrainer:
                 )
 
                 if has_val:
+                    # has_val was computed from these two being non-None;
+                    # asserting restates that for the type checker without
+                    # changing behaviour.
+                    assert X_val is not None and y_val is not None
                     val = self._run_validation(X_val, y_val, batch_size)
                     for name, value in val.items():
                         history[f"val_{name}"].append(value)
@@ -465,7 +469,7 @@ class ModelTrainer:
             logger.info(f"No resume state at {path} — starting from scratch.")
             return None
         try:
-            state = json.loads(path.read_text())
+            state: Dict[str, Any] = json.loads(path.read_text())
             ckpt = Path(checkpoint_path)
             if not ckpt.exists():
                 logger.warning(

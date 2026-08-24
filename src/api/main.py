@@ -62,7 +62,7 @@ async def lifespan(app: FastAPI):
     """Load the model and dataset once, and release them on shutdown."""
     logger.info("API starting up — loading model and dataset...")
     state.startup()
-    if state.is_ready:
+    if state.is_ready and state.store is not None:
         logger.info(f"API ready — {len(state.store.machine_ids)} machines.")
     else:
         logger.warning("API started DEGRADED — see /health.")

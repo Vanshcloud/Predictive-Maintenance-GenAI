@@ -267,7 +267,8 @@ class Predictor:
         for start in range(0, len(X), batch_size):
             batch = np.asarray(X[start : start + batch_size], dtype=np.float32)
             outputs.append(self.model(batch, training=False).numpy())
-        return np.concatenate(outputs, axis=0).flatten()
+        flattened: np.ndarray = np.concatenate(outputs, axis=0).flatten()
+        return flattened
 
     def predict(
         self,
@@ -428,7 +429,7 @@ class Predictor:
             raise PredictionError(f"Machine {machine_id!r} is not present in the data.")
         latest = rows.sort_values("datetime").iloc[-1]
 
-        sensors = {}
+        sensors: Dict[str, Dict[str, Any]] = {}
         for sensor, (concerning_sign, unit, story) in self._SENSOR_SEMANTICS.items():
             if sensor not in latest:
                 continue

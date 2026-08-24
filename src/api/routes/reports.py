@@ -72,8 +72,13 @@ async def generate_report(request: ReportRequest) -> ReportResponse:
     from src.genai import ReportGenerator
 
     def _generate() -> str:
-        llm_kwargs = {"model": request.model} if request.model else {}
-        generator = ReportGenerator(provider=request.provider, **llm_kwargs)
+        # Passed by keyword rather than splatted: **{"model": ...} lines up
+        # against ReportGenerator's positional parameters and a type checker
+        # reads it as overriding `llm` and `temperature`.
+        if request.model:
+            generator = ReportGenerator(provider=request.provider, model=request.model)
+        else:
+            generator = ReportGenerator(provider=request.provider)
         if request.question:
             return generator.answer_question(record, request.question)
         return generator.generate_report(record)

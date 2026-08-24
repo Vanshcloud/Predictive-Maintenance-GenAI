@@ -40,7 +40,7 @@ USAGE:
 """
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union, overload
 
 import joblib
 import numpy as np
@@ -634,13 +634,37 @@ class DataPreprocessor:
     # STEP 6: LSTM SEQUENCE WINDOWING
     # ==================================================================
 
+    # The return SHAPE depends on `return_index`, so overloads state that
+    # honestly. The previous annotation — Tuple[np.ndarray, ...] — claimed
+    # every element was an ndarray, which made callers of the 3-tuple form
+    # see the index DataFrame as an array and fail on `.sort_values`.
+    @overload
+    def create_sequences(
+        self,
+        df: pd.DataFrame,
+        feature_cols: List[str],
+        return_index: Literal[False] = False,
+        require_labels: bool = True,
+    ) -> Tuple[np.ndarray, np.ndarray]: ...
+
+    @overload
+    def create_sequences(
+        self,
+        df: pd.DataFrame,
+        feature_cols: List[str],
+        return_index: Literal[True],
+        require_labels: bool = True,
+    ) -> Tuple[np.ndarray, np.ndarray, pd.DataFrame]: ...
+
     def create_sequences(
         self,
         df: pd.DataFrame,
         feature_cols: List[str],
         return_index: bool = False,
         require_labels: bool = True,
-    ) -> Tuple[np.ndarray, ...]:
+    ) -> Union[
+        Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, pd.DataFrame]
+    ]:
         """
         Create sliding window sequences for the LSTM.
 
@@ -698,8 +722,10 @@ class DataPreprocessor:
                 X_window = features[i - self.sequence_length : i]
 
                 all_X.append(X_window)
-                if has_labels:
-                    # y = label at the current timestep
+                if labels is not None:
+                    # y = label at the current timestep. Testing `labels`
+                    # rather than `has_labels` says the same thing and lets a
+                    # type checker see why the index is safe.
                     all_y.append(labels[i])
                 if return_index:
                     # The window ends at i-1, so the prediction is made

@@ -35,8 +35,21 @@ USAGE:
 """
 
 import sys
+from typing import TYPE_CHECKING
 
 from loguru import logger
+
+if TYPE_CHECKING:
+    # `Logger` exists only in loguru's type stubs — `from loguru import Logger`
+    # raises ImportError at runtime, because loguru exports `logger` as an
+    # instance and keeps the class private as `_Logger`.
+    #
+    # The guard is load-bearing: annotating with the real class is what lets
+    # every `logger.info(...)` in the codebase type-check (this one line
+    # accounted for 128 of the project's 159 mypy errors), but importing it
+    # unguarded would break the application at import time while leaving mypy
+    # perfectly happy. Verified both ways.
+    from loguru import Logger
 
 from config.settings import PROJECT_ROOT, get_settings
 
@@ -113,7 +126,7 @@ def setup_logger() -> None:
     )
 
 
-def get_logger(name: str = __name__) -> logger:
+def get_logger(name: str = __name__) -> "Logger":
     """
     Get a logger instance bound with the module name.
 

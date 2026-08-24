@@ -126,7 +126,7 @@ class ModelEvaluator:
                 "total_cost": float(total_cost[i]),
             }
 
-        result = {
+        result: Dict[str, Any] = {
             "average_precision": float(average_precision_score(y_true, y_prob)),
             "n_positive": n_pos,
             "n_negative": n_neg,
@@ -264,7 +264,7 @@ class ModelEvaluator:
             lead = (window_end.loc[first_alert.index] - first_alert).dt.total_seconds()
             lead_hours = (lead / 3600).tolist()
 
-        result = {
+        result: Dict[str, Any] = {
             "n_events": int(len(caught)),
             "n_caught": int(caught.sum()),
             "event_recall": float(caught.mean()),

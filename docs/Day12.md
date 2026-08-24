@@ -188,6 +188,48 @@ succession, each superseding the last.
 
 ---
 
+# TD-8 closed: 159 mypy errors → 0
+
+## 128 of them were one line
+
+`get_logger()` was annotated `-> logger`. loguru exports `logger` as an
+*instance*, not a class, so mypy rejected it as a type — which made the return
+type invalid and every `logger.info(...)` in the codebase fail with
+`logger? has no attribute "info"`.
+
+One root cause, 128 downstream errors, across every module in `src/`.
+
+**The fix nearly introduced a worse bug.** `from loguru import Logger`
+satisfies mypy — loguru's type stubs export it — but raises `ImportError` at
+runtime, because the real class is private as `_Logger`. That would have
+broken the entire application at import time while the type checker reported
+success. Caught by running it, and the correct form is a `TYPE_CHECKING`
+guard with a string annotation, verified both ways.
+
+## The other 31 were real
+
+| Fix | Errors | What it was |
+|---|---|---|
+| `@overload` on `create_sequences` | 3 | The signature said `Tuple[np.ndarray, ...]`, but with `return_index=True` the third element is a **DataFrame**. Callers saw the index as an array and `.sort_values` failed. The annotation was lying. |
+| Annotate heterogeneous result dicts | 17 | `result = {...}` mixing str/float/dict infers `object`, so every nested lookup failed |
+| Narrow `Optional` at the guard | 6 | `state.is_ready` and `has_val` guarantee non-None, but they are properties and flags a checker cannot follow. Spelled out once, at the guard. |
+| `SecretStr` for the OpenAI key | 1 | What the client actually expects — and it keeps the key out of a repr |
+| Keyword args instead of `**dict` | 2 | `**{"model": ...}` lines up against positional params |
+| Explicit locals for `Any` returns | 2 | Untyped stubs returning `Any` from typed functions |
+
+## mypy is now a blocking CI gate
+
+It was advisory while 159 errors stood, on the grounds that a permanently red
+build teaches people to ignore red builds. That reasoning expires the moment
+the debt is paid, so `|| true` is gone.
+
+Verified after every change: **211 tests pass, flake8 clean, all modules import,
+and the prediction and explain paths run end to end** — the fixes touching
+`create_sequences` and the evidence dict were exercised against real data
+rather than assumed safe.
+
+---
+
 # Technical Debt — final register
 
 | ID | Status |
@@ -199,7 +241,7 @@ succession, each superseding the last.
 | TD-5 stale `CLAUDE.md` | ✅ repaid Day 4 |
 | TD-6 threshold hardcoded at 0.5 | ✅ repaid Day 5 |
 | TD-7 no integration tests | ✅ 9 tests (parity + live grounding); API coverage via `TestClient` |
-| **TD-8 mypy: 159 errors, advisory in CI** | ⏳ **open** — mostly loguru's dynamic `logger`; plan is to annotate incrementally, tighten per-module, then make it blocking |
+| TD-8 mypy: 159 errors | ✅ **repaid Day 12** — 0 errors, CI check now blocking (see below) |
 
 ## Deliberate v1 omissions — decisions, not oversights
 
@@ -221,7 +263,7 @@ succession, each superseding the last.
 | **Overall completion** | **100% of the 12-day plan** |
 | **Modules** | config · utils · data · models · prediction · genai · api · dashboard · docker/CI — all complete |
 | **Risks** | ~~R-6 training/serving skew~~ ✅ · ~~R-10 LLM failure~~ ✅ · ~~R-11 deployment~~ ✅ · R-12 partially mitigated (no auth, by design) |
-| **Debt** | TD-8 open with a plan |
+| **Debt** | none open |
 | **Quality gates** | 211 unit + 9 integration · flake8 0 · Black/isort clean · mypy advisory |
 | **CI** | ✅ green — all four jobs pass on `458ce03` |
 

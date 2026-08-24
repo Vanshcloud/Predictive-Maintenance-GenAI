@@ -73,7 +73,11 @@ markers = [
 python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = false  # Start lenient, tighten later
+# Kept off deliberately. src/ and config/ pass mypy cleanly as of Day 12, but
+# turning this on adds ~100 signature annotations across test helpers and
+# private methods for little safety gain. The blocking gate is the clean run,
+# not maximal strictness.
+disallow_untyped_defs = false
 ignore_missing_imports = true
 
 # ---- coverage.py ----

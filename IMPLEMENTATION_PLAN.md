@@ -1893,7 +1893,7 @@ deadlock) are resolved.
 | ~~TD-2~~ | ~~No checkpoint resume~~ | — | ✅ **Repaid Day 5** — `--resume` + `<checkpoint>.state.json` |
 | ~~TD-3~~ | ~~No training curves~~ | — | ✅ **Repaid Day 5** — `training_curves.png`, `pr_curve.png` |
 | ~~TD-4~~ | ~~`docs/handoff.md` overlaps this plan~~ | — | ✅ **Repaid Day 12** — removed; superseded by this plan and by `docs/Day1-3.md`, and preserved in git history |
-| **TD-8** | mypy reports 159 errors; the CI check is advisory | Mostly loguru's dynamic `logger`, plus genuinely missing annotations. Day 1 called mypy "strict-mode ready" — it was configured, never run against the full codebase | Annotate incrementally, tighten per-module, then make it blocking |
+| ~~TD-8~~ | ~~mypy reports 159 errors~~ | — | ✅ **Repaid Day 12** — 0 errors across 29 files; the CI check is now **blocking**. 128 of the 159 came from one line: `get_logger()` annotated with `loguru.logger`, an instance rather than a class |
 | ~~TD-5~~ | ~~`CLAUDE.md` referenced a `tf.data` trainer and root-level `debug_fit*.py` files~~ | Drift during Day 4's debugging | ✅ **Repaid Day 4** — `CLAUDE.md` corrected |
 | ~~TD-6~~ | ~~Threshold fixed at 0.5~~ | — | ✅ **Repaid Day 5** — validation sweep; deployed t=0.6678 |
 | **TD-7** | Integration tests: 9 (training/serving parity + live-model grounding) | API coverage still pending | Day 9 |

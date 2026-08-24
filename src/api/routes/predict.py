@@ -20,13 +20,20 @@ from src.api.schemas import (
     PredictionResponse,
     PredictRequest,
 )
-from src.api.service import state
+from src.api.service import PredictionService, state
 
 router = APIRouter(tags=["predictions"])
 
 
-def _require_service():
-    if not state.is_ready:
+def _require_service() -> "PredictionService":
+    """
+    Return the service, or 503.
+
+    Also narrows the type: `state.is_ready` guarantees the service and store
+    are present, but it is a property and a type checker cannot follow it, so
+    the check is spelled out here once instead of at every call site.
+    """
+    if not state.is_ready or state.service is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
@@ -51,9 +58,14 @@ def predict_from_readings(request: PredictRequest) -> PredictionResponse:
             detail=f"Model not loaded. {state.model_error or ''}".strip(),
         )
 
-    from src.api.service import PredictionService
+    from src.api.service import MachineDataStore, PredictionService
 
-    service = state.service or PredictionService(state.predictor, state.store)
+    # Scoring caller-supplied readings needs no dataset, so this endpoint
+    # works even when the store failed to load — hence the empty fallback
+    # rather than requiring a ready service.
+    service = state.service or PredictionService(
+        state.predictor, state.store or MachineDataStore({})
+    )
     return PredictionResponse(**service.predict_from_readings(request))
 
 
@@ -89,10 +101,11 @@ def machine_history(
     hours: int = Query(48, ge=1, le=720),
 ) -> list:
     """Recent hourly sensor readings for one machine."""
-    _require_service()
-    state.store.require_machine(machine_id)
+    service = _require_service()
+    store = service.store
+    store.require_machine(machine_id)
 
-    telemetry = state.store.dataset["telemetry"]
+    telemetry = store.dataset["telemetry"]
     rows = (
         telemetry[telemetry["machine_id"] == machine_id]
         .sort_values("datetime")

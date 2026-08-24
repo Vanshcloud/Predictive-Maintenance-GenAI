@@ -30,6 +30,7 @@ from typing import Any, Dict, Optional
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.output_parsers import StrOutputParser
+from pydantic import SecretStr
 
 from config.settings import get_settings
 from src.genai.prompts import QA_TEMPLATE, REPORT_TEMPLATE, format_machine_facts
@@ -85,7 +86,9 @@ def get_llm(
 
             return ChatOpenAI(
                 model=settings.OPENAI_MODEL,
-                api_key=settings.OPENAI_API_KEY,
+                # SecretStr is what the client expects, and it keeps the key
+                # from appearing in a repr() or a traceback.
+                api_key=SecretStr(settings.OPENAI_API_KEY),
                 temperature=temperature,
                 **kwargs,
             )
@@ -100,12 +103,13 @@ def get_llm(
                     "Google provider requires `pip install langchain-google-genai`."
                 ) from e
 
-            return ChatGoogleGenerativeAI(
+            google_llm: BaseChatModel = ChatGoogleGenerativeAI(
                 model=settings.GOOGLE_MODEL,
                 google_api_key=settings.GOOGLE_API_KEY,
                 temperature=temperature,
                 **kwargs,
             )
+            return google_llm
 
         # Ollama: local, no key. The zero-cost path, and the reason this
         # project does not require anyone to hold an API key.
@@ -119,12 +123,13 @@ def get_llm(
         except ImportError:
             from langchain_community.chat_models import ChatOllama
 
-        return ChatOllama(
+        ollama_llm: BaseChatModel = ChatOllama(
             model=kwargs.pop("model", None) or settings.OLLAMA_MODEL,
             base_url=settings.OLLAMA_BASE_URL,
             temperature=temperature,
             **kwargs,
         )
+        return ollama_llm
 
     except LLMConnectionError:
         raise
