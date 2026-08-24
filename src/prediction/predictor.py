@@ -387,7 +387,10 @@ class Predictor:
         return (value - mean) / scale if scale > 1e-9 else 0.0
 
     def explain_machine(
-        self, dataset: Dict[str, pd.DataFrame], machine_id: Any
+        self,
+        dataset: Dict[str, pd.DataFrame],
+        machine_id: Any,
+        history_hours: int = 0,
     ) -> Dict[str, Any]:
         """
         Score one machine and return the evidence behind the score.
@@ -399,6 +402,13 @@ class Predictor:
             18.4 from 24h ago, 24h volatility 9.1" gives it something real to
             report. Every number here is read from the engineered features the
             model actually consumed — none is derived for presentation.
+
+        Args:
+            history_hours: Also include the last N hourly readings per sensor.
+                A snapshot answers "is it failing?"; a conversation needs
+                "has vibration been climbing all week?", which a single row
+                cannot support. 0 (the default) keeps the record small for
+                one-shot reports.
 
         Returns:
             The `predict_machine` record plus a `context` block: current
@@ -478,6 +488,21 @@ class Predictor:
             if (col := f"hours_since_maint_{comp}") in latest
         }
 
+        trend = []
+        if history_hours > 0:
+            recent = rows.sort_values("datetime").tail(history_hours)
+            for _, r in recent.iterrows():
+                trend.append(
+                    {
+                        "datetime": str(r["datetime"]),
+                        **{
+                            sensor: round(float(r[sensor]), 2)
+                            for sensor in self._SENSOR_SEMANTICS
+                            if sensor in r
+                        },
+                    }
+                )
+
         record = self.predict_machine(dataset, machine_id)
         record["context"] = {
             "age_years": int(latest["age"]) if "age" in latest else None,
@@ -485,6 +510,7 @@ class Predictor:
             "hours_since_maintenance": maintenance,
             "sensors": sensors,
             "most_deviant_sensors": ranked[:3],
+            "recent_readings": trend,
         }
         return record
 

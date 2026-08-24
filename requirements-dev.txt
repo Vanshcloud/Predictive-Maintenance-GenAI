@@ -27,4 +27,8 @@ seaborn>=0.13.0,<1.0.0
 
 # --- Development Utilities ---
 httpx>=0.27.0,<1.0.0
+
+# Used by tests/integration/test_llm_grounding.py to probe whether a local
+# Ollama server is running before attempting a live-model check.
+requests>=2.31,<3.0
 pre-commit>=3.6.0,<4.0.0
