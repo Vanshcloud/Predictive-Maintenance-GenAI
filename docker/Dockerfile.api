@@ -1,0 +1,70 @@
+# =============================================================================
+# docker/Dockerfile.api — Prediction API
+# =============================================================================
+# WHY MULTI-STAGE: the build stage needs a compiler toolchain to build any
+# wheel that lacks a manylinux build; the runtime stage must not ship one. A
+# compiler in a production image is both ~200 MB of dead weight and a useful
+# tool for anyone who gets a shell in the container.
+#
+# WHY 3.12 EXACTLY: TensorFlow publishes no wheels for 3.13+. This is the same
+# constraint that forced a virtualenv rebuild on Day 1, and pinning it here
+# stops a base-image bump from silently breaking the install.
+# =============================================================================
+
+FROM python:3.12-slim AS builder
+
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /build
+
+# Build tools live only in this stage and are discarded with it.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Dependencies are copied and installed before the source, so editing a source
+# file does not invalidate the (very slow) TensorFlow install layer.
+COPY requirements.txt .
+RUN python -m venv /opt/venv \
+    && /opt/venv/bin/pip install --upgrade pip \
+    && /opt/venv/bin/pip install -r requirements.txt
+
+
+# -----------------------------------------------------------------------------
+FROM python:3.12-slim AS runtime
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/opt/venv/bin:$PATH"
+
+# Non-root. A container that does not need to write to its own filesystem
+# should not be able to.
+RUN useradd --create-home --shell /bin/bash appuser
+
+WORKDIR /app
+
+COPY --from=builder /opt/venv /opt/venv
+COPY --chown=appuser:appuser config/ ./config/
+COPY --chown=appuser:appuser src/ ./src/
+COPY --chown=appuser:appuser scripts/ ./scripts/
+
+# Mount points for artifacts. They are deliberately NOT baked into the image:
+# a retrained model should be a volume swap, not an image rebuild, and the
+# processed tensors are ~5 GB.
+RUN mkdir -p /app/models /app/data /app/logs \
+    && chown -R appuser:appuser /app/models /app/data /app/logs
+
+USER appuser
+
+EXPOSE 8000
+
+# Uses the API's own readiness check rather than a TCP probe: the process can
+# be listening while the model failed to load, and /health reports "degraded"
+# in exactly that case. A TCP check would call that healthy.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+    CMD python -c "import sys, urllib.request, json; \
+r = json.load(urllib.request.urlopen('http://localhost:8000/health', timeout=5)); \
+sys.exit(0 if r.get('status') == 'ok' else 1)"
+
+CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

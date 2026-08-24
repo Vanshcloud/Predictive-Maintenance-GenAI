@@ -1,0 +1,193 @@
+# =============================================================================
+# .github/workflows/ci.yml
+# =============================================================================
+# WHY THIS EXISTS:
+#   `make quality` was configured on Day 1 and never actually run until Day 4,
+#   by which point 14 files had drifted out of Black compliance and flake8
+#   reported 51 issues. A gate nobody runs is not a gate. This runs it on every
+#   push and pull request.
+#
+# WHY IT WORKS WITHOUT THE DATASET:
+#   data/raw/ and models/ are gitignored — together about 5 GB. The suite is
+#   built to survive their absence: tests needing a trained model skip rather
+#   than fail, and everything else runs against the committed data/sample/
+#   fixture. Verified locally by hiding both and re-running: 193 pass, 18 skip.
+#   That is precisely the state this job sees.
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A new push to the same branch cancels the previous run — no point finishing
+# a build for a commit that has already been superseded.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # TensorFlow publishes no wheels for 3.13+. Pinned here for the same reason
+  # it is pinned in pyproject.toml and the Dockerfiles.
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  quality:
+    name: Lint, format, types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install tooling
+        # Only the linters — this job does not need TensorFlow, and skipping
+        # it turns a multi-minute install into seconds.
+        run: pip install black isort flake8 mypy
+
+      - name: flake8
+        run: flake8 src/ config/ tests/ scripts/ dashboard/
+
+      - name: black --check
+        run: black --check src/ config/ tests/ scripts/ dashboard/
+
+      - name: isort --check
+        run: isort --check-only src/ config/ tests/ scripts/ dashboard/
+
+      - name: mypy
+        # Type checking is advisory for now: the codebase is not fully
+        # annotated and failing the build on it would block real work. It
+        # still reports, so the debt stays visible.
+        run: mypy src/ config/ || true
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Unit tests
+        # data/sample/ is committed precisely so this works on a clean
+        # checkout. Tests needing a trained model skip themselves.
+        run: python -m pytest tests/ -v --tb=short
+
+      - name: Integration tests
+        # Excluded from the default run because they are slow; they skip
+        # cleanly here since the generated dataset is absent. Kept in CI so
+        # the marker itself does not rot.
+        run: python -m pytest tests/integration -v --tb=short -m integration
+
+      - name: Coverage
+        run: |
+          python -m pytest tests/ --cov=src --cov=config \
+            --cov-report=term-missing --cov-report=xml
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.xml
+          retention-days: 7
+
+  security:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: pip-audit
+        # Advisory: a transitive CVE in TensorFlow's dependency tree should
+        # surface, but should not block a documentation commit. Revisit once
+        # the noise level is known.
+        run: |
+          pip install pip-audit
+          pip-audit --requirement requirements.txt --desc || true
+
+  docker:
+    name: Build images
+    runs-on: ubuntu-latest
+    # Only worth the minutes if the code is already known good.
+    needs: [quality, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.api
+          push: false
+          load: true
+          tags: predictive-maintenance-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build dashboard image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.dashboard
+          push: false
+          load: true
+          tags: predictive-maintenance-dashboard:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Report image sizes
+        # The dashboard image should be a fraction of the API's. If that gap
+        # closes, something has started importing the ML stack into the UI —
+        # exactly what the dashboard's import tests exist to prevent.
+        run: |
+          docker images predictive-maintenance-api:ci \
+            --format 'API image:       {{.Size}}'
+          docker images predictive-maintenance-dashboard:ci \
+            --format 'Dashboard image: {{.Size}}'
+
+      - name: Smoke-test the API image
+        # No model or dataset is mounted, so the API must start DEGRADED and
+        # still answer /health. That is the behaviour AppState.startup() was
+        # written for, and this is the only place it gets exercised for real.
+        run: |
+          docker run -d --name api-smoke -p 8000:8000 predictive-maintenance-api:ci
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/health > /dev/null; then break; fi
+            sleep 3
+          done
+          echo "--- /health ---"
+          curl -s http://localhost:8000/health
+          echo
+          status=$(curl -s http://localhost:8000/health | python -c \
+            'import sys,json; print(json.load(sys.stdin)["status"])')
+          echo "status: $status"
+          if [ "$status" != "degraded" ]; then
+            echo "Expected 'degraded' with no model mounted, got '$status'"
+            docker logs api-smoke
+            exit 1
+          fi
+          docker rm -f api-smoke

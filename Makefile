@@ -8,7 +8,8 @@
 # USAGE: Run `make help` to see all available commands.
 # ============================================================
 
-.PHONY: help install install-dev test lint format clean run-api run-dashboard setup
+.PHONY: help install install-dev test test-integration test-all lint format \
+	clean run-api run-dashboard setup docker-build docker-up docker-down
 
 # Default target when you just type `make`
 help: ## Show this help message
@@ -76,6 +77,15 @@ run-dashboard: ## Start Streamlit dashboard
 	streamlit run dashboard/app.py --server.port 8501
 
 # ---- Utilities ----
+
+docker-build: ## Build both container images
+	docker compose -f docker/docker-compose.yml build
+
+docker-up: ## Run API + dashboard in containers (needs a trained model)
+	docker compose -f docker/docker-compose.yml up
+
+docker-down: ## Stop the containers
+	docker compose -f docker/docker-compose.yml down
 
 clean: ## Remove auto-generated files
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true

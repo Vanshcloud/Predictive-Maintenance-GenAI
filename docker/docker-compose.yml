@@ -1,0 +1,77 @@
+# =============================================================================
+# docker/docker-compose.yml — Local production topology
+# =============================================================================
+# Mirrors how the two services actually deploy: separate images, separate
+# lifecycles, talking over HTTP. Running them together locally is what proves
+# the dashboard really is a client and not a co-process.
+#
+# Usage, from the repository root:
+#     docker compose -f docker/docker-compose.yml up --build
+#
+# The API needs a trained model and the generated dataset, both of which are
+# gitignored. Produce them first:
+#     python scripts/generate_data.py
+#     python scripts/run_preprocessing.py
+#     python scripts/train_model.py
+# =============================================================================
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    image: predictive-maintenance-api:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      # Artifacts are MOUNTED, not baked in. A retrained model should be a
+      # volume swap and a restart, never an image rebuild — and the processed
+      # tensors are around 5 GB, which has no business in a layer.
+      # Read-only: the API scores, it does not train.
+      - ../models:/app/models:ro
+      - ../data:/app/data:ro
+      - ../logs:/app/logs
+    environment:
+      - APP_ENV=production
+      - LOG_LEVEL=INFO
+      # Passed through from the host shell if set; absent is fine, the
+      # settings validator treats a placeholder or missing key as "not
+      # configured" and the report endpoint degrades rather than 500s.
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      # host.docker.internal reaches an Ollama running on the host, which is
+      # the keyless path — the container itself has no model server.
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import sys, urllib.request, json
+          r = json.load(urllib.request.urlopen("http://localhost:8000/health", timeout=5))
+          sys.exit(0 if r.get("status") == "ok" else 1)
+      interval: 30s
+      timeout: 10s
+      start_period: 90s
+      retries: 3
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dashboard
+    image: predictive-maintenance-dashboard:latest
+    ports:
+      - "8501:8501"
+    environment:
+      # Service name, not localhost: inside the compose network the API is
+      # reachable at http://api:8000.
+      - API_BASE_URL=http://api:8000
+    depends_on:
+      api:
+        # Waits for /health to report ok, not merely for the process to
+        # start. The model takes ~2 s to load and the dataset longer; without
+        # this the dashboard's first render races the API's startup.
+        condition: service_healthy
+    restart: unless-stopped

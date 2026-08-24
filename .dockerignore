@@ -1,0 +1,70 @@
+# =============================================================================
+# .dockerignore
+# =============================================================================
+# WHY THIS MATTERS MORE THAN IT LOOKS:
+#   Everything not excluded here is uploaded to the Docker daemon as build
+#   context before a single instruction runs. Without this file that is
+#   venv/ (2.3 GB) plus data/ (5 GB) plus .git — around 8 GB copied on every
+#   build, to produce an image that needs none of it.
+#
+#   Artifacts are mounted as volumes at runtime, never baked in, so excluding
+#   them here is not a compromise — it is the design.
+# =============================================================================
+
+# --- Virtual environments (rebuilt inside the image) ---
+venv/
+.venv/
+env/
+ENV/
+
+# --- Data: 5 GB, and mounted as a volume at runtime ---
+data/raw/
+data/processed/
+# data/sample/ is deliberately NOT excluded — it is small, committed, and
+# what the test suite runs against.
+
+# --- Model artifacts: mounted as a volume so a retrain is not a rebuild ---
+models/*.keras
+models/*.h5
+models/*.pkl
+models/*.joblib
+models/*.state.json
+
+# --- Version control and CI ---
+.git/
+.github/
+.gitignore
+
+# --- Python bytecode and tooling caches ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# --- Logs ---
+logs/
+*.log
+
+# --- Secrets: must never enter an image layer ---
+.env
+.env.*
+!.env.example
+
+# --- Docs and notebooks (not needed at runtime) ---
+docs/
+notebooks/
+*.md
+!README.md
+
+# --- Editor / OS ---
+.vscode/
+.idea/
+.DS_Store
+
+# --- Docker's own files ---
+docker/

@@ -26,11 +26,13 @@ HOW IT WORKS:
     to restart.
 """
 
+import os
 from typing import Any, Dict, List, Optional
 
 import requests
 
-DEFAULT_BASE_URL = "http://localhost:8000"
+# Overridable so a container can be pointed at the API by service name.
+DEFAULT_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
 
 # Predictions are ~140 ms; this is generous for those and for /fleet's cold
 # path. Report generation gets its own, much longer, timeout.

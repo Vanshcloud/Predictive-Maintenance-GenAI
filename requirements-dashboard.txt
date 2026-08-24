@@ -1,0 +1,20 @@
+# ============================================================
+# Dashboard-Only Dependencies
+# ============================================================
+# WHY THIS FILE EXISTS:
+#   The dashboard is a pure HTTP client — it holds no model and does no
+#   scoring (see dashboard/app.py, and the tests that parse its imports to
+#   prove it). Installing requirements.txt into the dashboard image would
+#   pull TensorFlow, scikit-learn, and LangChain to render charts: roughly
+#   1.5 GB of wheels for code that only calls `requests`.
+#
+#   Keeping this list separate is what turns Day 10's import boundary into
+#   an actual deployment saving rather than a stylistic preference.
+#
+# Install: pip install -r requirements-dashboard.txt
+# ============================================================
+
+streamlit>=1.30.0,<2.0.0
+altair>=5.0.0,<7.0.0
+pandas>=2.0.0,<3.0.0
+requests>=2.31.0,<3.0.0

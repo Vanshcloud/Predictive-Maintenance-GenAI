@@ -25,6 +25,7 @@ HOW IT WORKS:
          difference between "thinking" and "broken".
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -99,7 +100,11 @@ def show_api_problem(error: Exception) -> None:
 # ---------------------------------------------------------------------------
 
 st.sidebar.title("🔧 Predictive Maintenance")
-base_url = st.sidebar.text_input("API URL", value="http://localhost:8000")
+# Read from the environment so the container can be pointed at the API by
+# service name. Inside docker-compose "localhost" is the dashboard itself, so
+# a hardcoded default would leave the packaged app unable to reach anything.
+DEFAULT_API_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
+base_url = st.sidebar.text_input("API URL", value=DEFAULT_API_URL)
 client = get_client(base_url)
 
 try:
