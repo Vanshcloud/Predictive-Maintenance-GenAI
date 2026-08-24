@@ -33,7 +33,7 @@ encountered, design decisions, remaining tasks, next-day plan, and project healt
 | [Day 9](Day9.md) | FastAPI REST API | 9 endpoints, **137 ms** predictions, LLM path isolated — 185 unit + 9 integration tests |
 | [Day 10](Day10.md) | Streamlit dashboard | Pure API client — three views, risk colours owned by the API — 211 unit + 9 integration tests |
 | [Day 11](Day11.md) | Docker, CI/CD & deployment | 2 images built and verified (**2.87 GB** / **803 MB**), compose stack healthy, build context 7.3 GB → 2.9 MB |
-| Day 12 | Final polish & demo | 🔒 Next |
+| [Day 12](Day12.md) | Final polish, docs & demo | Clean-checkout verified (193 pass / 18 skip), dataset MD5 reproducible, TD-4 closed |
 
 > These are **daily** reports, not weekly. The project is structured as 12 one-day
 > milestones; see the Roadmap section of `IMPLEMENTATION_PLAN.md`.
@@ -44,8 +44,9 @@ encountered, design decisions, remaining tasks, next-day plan, and project healt
 
 | Document | Purpose |
 |---|---|
+| [**`RESULTS.md`**](RESULTS.md) | **Every metric in one place**, each with the caveat it needs, plus what the numbers do *not* establish. |
 | [`architecture.md`](architecture.md) | Design-level system architecture: layer diagram, technology stack, design principles, the layer dependency rule, and the non-negotiable invariants. Describes the finished system, including layers not yet built. |
-| [`handoff.md`](handoff.md) | **Historical.** The original long-form narrative handoff document, accurate through Day 3 and **frozen on 2026-08-22**. Superseded by `IMPLEMENTATION_PLAN.md`; kept because it is the source from which the retroactive `Day1.md`–`Day3.md` reports were reconstructed. Where it disagrees with the plan, the plan wins. |
+| ~~`handoff.md`~~ | **Removed on Day 12.** The original 1,377-line handoff document, superseded section-by-section by `IMPLEMENTATION_PLAN.md`. Its Day 1–3 detail lives on in `Day1.md`–`Day3.md`, which were reconstructed from it. Nothing is lost — retrieve it with `git show 9ceb349:docs/handoff.md`. It was kept for eight days with a "superseded" banner, which is its own kind of clutter: a 60 KB file whose only message is "read something else". |
 
 ---
 

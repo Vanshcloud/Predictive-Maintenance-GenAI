@@ -31,6 +31,14 @@
 
 ## Overview
 
+> **At a glance:** an LSTM predicts equipment failure 24 hours ahead from four
+> sensors, and an LLM turns each prediction into a work order a technician can
+> act on. On held-out data it caught **8 of 8 failure events** with a median
+> 24 hours of warning, at **26 false alarms across 172,800 hourly readings**.
+> Predictions serve in **137 ms**; the whole thing runs with no API key.
+>
+> Full numbers, with their caveats, in **[docs/RESULTS.md](docs/RESULTS.md)**.
+
 Industrial equipment failures cost the global manufacturing industry **$50 billion per year** in unplanned downtime. This project implements a **Predictive Maintenance** system that:
 
 1. **Predicts failures** — Uses an LSTM (Long Short-Term Memory) neural network trained on sensor telemetry data to predict when equipment will fail.
@@ -51,16 +59,32 @@ Industrial equipment failures cost the global manufacturing industry **$50 billi
 ## Architecture
 
 ```
-Sensor Data → Data Pipeline → Feature Engineering → LSTM Model (TensorFlow)
-                                                         ↓
-                                                    Predictions
-                                                         ↓
-                                                LangChain + LLM
-                                                         ↓
-                                              Maintenance Reports
-                                                         ↓
-                                              FastAPI + Streamlit
+ 5 raw sensor tables  (telemetry · machines · errors · maintenance · failures)
+          │
+          ▼
+ DataIngestion → DataValidator → DataPreprocessor
+          │        merge · 63 engineered features · 24h labels
+          │        temporal split · scale on train only · 24-step windows
+          ▼
+ LSTM  (128 → 64 → 32 → 1)          class-weighted, {0: 0.50, 1: 364.89}
+          │
+          ▼
+ Predictor          raw tables in → probability + risk band + evidence out
+          │         reuses the SAME feature code as training (verified: 100%
+          │         alert agreement over 172,800 sequences)
+          ▼
+ ReportGenerator / MaintenanceAssistant     LangChain · OpenAI|Gemini|Ollama
+          │         every figure it cites is supplied; nothing is invented
+          ▼
+ FastAPI  ── 137 ms predictions ─────────────────────┐
+          │  /report isolated so a 21 s LLM call     │
+          │  can never delay or break a prediction   │
+          ▼                                          ▼
+ Streamlit dashboard  ── pure HTTP client, holds no model ──
 ```
+
+Each layer depends only on the ones above it. `src/data/` imports no
+TensorFlow; `src/models/` imports no pandas; the dashboard imports neither.
 
 See [docs/architecture.md](docs/architecture.md) for the detailed architecture diagram.
 
@@ -308,8 +332,8 @@ vigilant-lamp/
 ├── docs/
 │   ├── README.md            # Documentation index
 │   ├── architecture.md      # System architecture diagram
-│   ├── Day1.md … Day4.md    # One report per implementation day
-│   └── handoff.md           # Frozen Day 1-3 narrative log (superseded)
+│   ├── Day1.md … Day12.md   # One report per implementation day
+│   ├── RESULTS.md           # Every metric, with its caveats
 │
 ├── data/
 │   ├── raw/                 # gitignored — regenerate with generate_data.py
@@ -335,9 +359,9 @@ config/ -> src/utils/ -> src/data/ -> src/models/ -> src/prediction/ -> src/gena
 |---|---|
 | [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) | **Start here.** Single source of truth — objectives, requirements, stack, architecture, dataset, model, training, evaluation, deployment, coding standards, testing strategy, risk register, milestones, and current status |
 | [`docs/README.md`](docs/README.md) | Documentation index |
+| [`docs/RESULTS.md`](docs/RESULTS.md) | **Every metric in one place**, each with the caveat it needs |
 | [`docs/architecture.md`](docs/architecture.md) | System architecture diagram and layer responsibilities |
-| [`docs/Day1.md`](docs/Day1.md) … [`docs/Day4.md`](docs/Day4.md) | One report per implementation day: plan, work done, code changes, training results, bugs, design decisions, next steps |
-| [`docs/handoff.md`](docs/handoff.md) | Historical narrative log, frozen at end of Day 3 |
+| [`docs/Day1.md`](docs/Day1.md) … [`docs/Day12.md`](docs/Day12.md) | One report per implementation day: plan, work done, code changes, training results, bugs, design decisions, next steps |
 | [`CLAUDE.md`](CLAUDE.md) | Repo conventions and non-negotiable invariants, for AI agents |
 
 ---
@@ -368,7 +392,7 @@ subsequent runs finish in about 4 seconds.
 
 ## Development Progress
 
-**~93% complete (11 of 12 days).**
+**Complete — 12 of 12 days.**
 
 - [x] **Day 1** — Project setup, folder structure, configuration, logging, testing infrastructure
 - [x] **Day 2** — Synthetic dataset (883K rows), exploratory data analysis, ingestion + validation
@@ -381,7 +405,7 @@ subsequent runs finish in about 4 seconds.
 - [x] **Day 9** — FastAPI REST API — 9 endpoints, **137 ms** predictions, LLM failures degrade gracefully
 - [x] **Day 10** — Streamlit dashboard — pure API client, holds no model of its own
 - [x] **Day 11** — Docker + GitHub Actions CI — two images (**2.87 GB** API, **803 MB** UI), compose verified
-- [ ] **Day 12** — Final polish, documentation, demo
+- [x] **Day 12** — Clean-checkout verified, consolidated results, docs complete
 
 ---
 

@@ -8,13 +8,13 @@ immediately. It must be updated whenever meaningful progress is made.
 
 | Field | Value |
 |---|---|
-| **Last updated** | 2026-08-24 (end of Day 11) |
-| **Current milestone** | Day 11 of 12 — Docker, CI/CD & Deployment — ✅ **complete**, images built and verified |
-| **Overall completion** | ~93% |
+| **Last updated** | 2026-08-24 (end of Day 12 — project complete) |
+| **Current milestone** | **Day 12 of 12 — complete.** All milestones delivered. |
+| **Overall completion** | **100% of the 12-day plan** |
 | **Repository** | https://github.com/Vanshcloud/vigilant-lamp |
 | **Branch** | `main` |
 | **Latest commit at time of writing** | `79c094a` (Day 3); Day 4 work is staged in the working tree |
-| **Companion documents** | `docs/Day1.md` … `docs/Day11.md`, `docs/handoff.md` (long-form narrative history), `CLAUDE.md` (agent instructions) |
+| **Companion documents** | `docs/Day1.md` … `docs/Day12.md`, `docs/RESULTS.md` (consolidated metrics), `CLAUDE.md` (agent instructions) |
 
 
 > **History note (2026-08-23).** Every commit in this repository was rewritten to
@@ -93,7 +93,7 @@ probability of `0.87` means nothing to a maintenance technician on a factory flo
 | 7 | FastAPI REST API | ✅ Done (Day 9) — 9 endpoints, 137 ms predictions, LLM path isolated |
 | 8 | Streamlit dashboard | ✅ Done (Day 10) — pure API client, three views |
 | 9 | Docker + docker-compose + GitHub Actions CI | ✅ Done (Day 11) — API 2.87 GB, dashboard 803 MB, compose verified |
-| 10 | Final docs, demo, README polish | 🔒 Day 12 |
+| 10 | Final docs, demo, README polish | ✅ Done (Day 12) — clean-checkout verified, `docs/RESULTS.md` written |
 
 ## Target users
 
@@ -577,8 +577,8 @@ predictive-maintenance-genai/
 │
 ├── docs/                         # ══ DOCUMENTATION ══
 │   ├── README.md                 # Documentation index
+│   ├── RESULTS.md                # Every metric, with its caveats
 │   ├── architecture.md           # Architecture diagram + tech stack
-│   ├── handoff.md                # Frozen Day 1-3 narrative log (superseded)
 │   ├── Day1.md                   # One file per implementation day
 │   ├── Day2.md
 │   ├── Day3.md
@@ -1741,7 +1741,7 @@ checkout, which doubles as validation of the installation instructions above.
 | **Effort** | 1 day. |
 | **Success criteria** | `docker compose up` yields a working API + dashboard ✅ — both containers healthy, health-gated ordering confirmed, containerised prediction byte-identical to the host run; CI green on push — ⏳ pending first push. |
 
-## M12 — Polish & demo (Day 12) 🔒
+## M12 — Polish & demo (Day 12) ✅
 
 | Field | Detail |
 |---|---|
@@ -1750,7 +1750,7 @@ checkout, which doubles as validation of the installation instructions above.
 | **Deliverables** | Final docs, demo. |
 | **Dependencies** | M11. |
 | **Effort** | 1 day. |
-| **Success criteria** | A stranger can clone, follow the README, and reach a working dashboard. |
+| **Success criteria** | A stranger can clone, follow the README, and reach a working state ✅ — verified on a fresh clone: 193 passed / 18 skipped in 20.5 s, and a regenerated dataset with an MD5 identical to the original. |
 
 ---
 
@@ -1771,7 +1771,7 @@ Each day has a matching document in `docs/`.
 | **Day 9** | 2026-08-24 | FastAPI REST API | `docs/Day9.md` | ✅ Complete — 9 endpoints, 185 unit tests |
 | **Day 10** | 2026-08-24 | Streamlit dashboard | `docs/Day10.md` | ✅ Complete — 3 views, 211 unit tests |
 | **Day 11** | 2026-08-24 | Docker, CI/CD & deployment | `docs/Day11.md` | ✅ Complete — images built (2.87 GB / 803 MB), compose verified, 4 CI jobs |
-| **Day 12** | — | Final polish, docs & demo | `docs/Day12.md` | 🔒 Next |
+| **Day 12** | 2026-08-24 | Final polish, docs & demo | `docs/Day12.md` | ✅ Complete — clean-checkout verified, RESULTS.md, TD-4 closed |
 
 ```
 Day 1  ✅ Foundation
@@ -1785,7 +1785,7 @@ Day 8  ✅ LLM assistant
 Day 9  ✅ REST API
 Day 10 ✅ Dashboard
 Day 11 ✅ Docker + CI
-Day 12 🔒 Demo                        ← YOU ARE HERE
+Day 12 ✅ Demo
 ```
 
 ---
@@ -1892,7 +1892,7 @@ deadlock) are resolved.
 | ~~TD-1~~ | ~~Validation set *is* the test set~~ | — | ✅ **Repaid Day 5** — 3-way chronological split; test period unchanged |
 | ~~TD-2~~ | ~~No checkpoint resume~~ | — | ✅ **Repaid Day 5** — `--resume` + `<checkpoint>.state.json` |
 | ~~TD-3~~ | ~~No training curves~~ | — | ✅ **Repaid Day 5** — `training_curves.png`, `pr_curve.png` |
-| **TD-4** | `docs/handoff.md` overlaps this plan | It predates the documentation system | Day 12 — reduce it to a narrative log, or fold it in and delete it |
+| ~~TD-4~~ | ~~`docs/handoff.md` overlaps this plan~~ | — | ✅ **Repaid Day 12** — removed; superseded by this plan and by `docs/Day1-3.md`, and preserved in git history |
 | **TD-8** | mypy reports 159 errors; the CI check is advisory | Mostly loguru's dynamic `logger`, plus genuinely missing annotations. Day 1 called mypy "strict-mode ready" — it was configured, never run against the full codebase | Annotate incrementally, tighten per-module, then make it blocking |
 | ~~TD-5~~ | ~~`CLAUDE.md` referenced a `tf.data` trainer and root-level `debug_fit*.py` files~~ | Drift during Day 4's debugging | ✅ **Repaid Day 4** — `CLAUDE.md` corrected |
 | ~~TD-6~~ | ~~Threshold fixed at 0.5~~ | — | ✅ **Repaid Day 5** — validation sweep; deployed t=0.6678 |
@@ -1923,10 +1923,10 @@ Beyond the 12-day scope, in rough priority order:
 
 ## Completion percentage
 
-**~93%**
+**100%**
 
 ```
-[███████████████████████████░░░] 93%
+[██████████████████████████████] 100%
  Foundation ✅  Data ✅  Features ✅  Model ✅  Eval ✅  Inference ✅  GenAI ✅  API ✅  UI ✅  Deploy ✅
 ```
 

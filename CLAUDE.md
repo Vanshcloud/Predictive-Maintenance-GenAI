@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-An end-to-end Predictive Maintenance platform: a TensorFlow LSTM predicts equipment failures 24h in advance from sensor telemetry, and LangChain + an LLM turns those predictions into plain-English maintenance reports, exposed via FastAPI and a Streamlit dashboard. It's being built incrementally as a 12-day/12-milestone portfolio project — read **`IMPLEMENTATION_PLAN.md`** first — it is the single source of truth for scope, architecture, risks, milestones, and current status — then the latest `docs/DayX.md` for what the last session actually did. Both must be updated before a session ends; docs and code ship in the same commit. `docs/handoff.md` is the older long-form narrative log, kept for history.
+An end-to-end Predictive Maintenance platform: a TensorFlow LSTM predicts equipment failures 24h in advance from sensor telemetry, and LangChain + an LLM turns those predictions into plain-English maintenance reports, exposed via FastAPI and a Streamlit dashboard. It's being built incrementally as a 12-day/12-milestone portfolio project — read **`IMPLEMENTATION_PLAN.md`** first — it is the single source of truth for scope, architecture, risks, milestones, and current status — then the latest `docs/DayX.md` for what the last session actually did. Both must be updated before a session ends; docs and code ship in the same commit.
 
 Progress: data pipeline and feature engineering are complete (Days 1-3); model training (Day 4) is complete — the LSTM trains end-to-end on the full dataset and writes `models/metrics.json` + `models/training_history.json`. Prediction pipeline, GenAI, API, and dashboard layers are scaffolded but not yet implemented (`src/prediction/`, `src/genai/`, `src/api/`, `dashboard/`).
 
@@ -47,7 +47,7 @@ config/  ->  src/utils/  ->  src/data/  ->  src/models/  ->  src/prediction/  ->
   - `ModelTrainer.train()` is a hand-written `GradientTape` loop over `iter_batches()` rather than `model.fit()`, with early stopping, LR reduction, and checkpointing implemented inline (Keras callbacks only run inside `fit()`). `ModelEvaluator` likewise calls `model(x, training=False)` rather than `model.predict()`. Both were written while the deadlock was misattributed to Keras's background prefetch threads; the real cause was the abseil collision above. They are kept because they work, are tested, and keep class weighting and callbacks explicit — but `fit()` has not been re-benchmarked since the real fix, so don't claim it is broken.
 - **`src/prediction/`, `src/genai/`, `src/api/`, `dashboard/`** — currently empty scaffolds (`__init__.py` only); build in that order since each depends on the previous.
 
-### Non-negotiable invariants (stated explicitly in `docs/handoff.md` §34 as "must never change")
+### Non-negotiable invariants (each enforced by a test — see `docs/RESULTS.md`)
 
 - Temporal train/test split only — a random split silently leaks the future into training for time-series data.
 - `StandardScaler` (and any future encoder) is fit on training data only, then applied to test.
