@@ -344,3 +344,62 @@ class TestRewind:
         as_of = client.explain.call_args.kwargs["as_of"]
         assert as_of is not None, "rewind did not reach the prediction call"
         assert client.history.call_args.kwargs["as_of"] == as_of
+
+
+class TestBadgeContrast:
+    """
+    The risk badge is white text on the risk colour, and it is the thing a
+    supervisor scans the fleet table for. Two of the four colours once sat at
+    3.19:1 and 2.94:1 — readable on a good monitor, which is exactly why it
+    survived review, and not readable in a lit workshop or with low vision.
+
+    Contrast is a number, so it gets checked like one rather than eyeballed.
+    """
+
+    @staticmethod
+    def _contrast(hex_a: str, hex_b: str) -> float:
+        """WCAG 2.1 relative-luminance contrast ratio."""
+
+        def luminance(value: str) -> float:
+            channels = [int(value[i : i + 2], 16) / 255 for i in (1, 3, 5)]
+            linear = [
+                c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+                for c in channels
+            ]
+            return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+        light, dark = sorted((luminance(hex_a), luminance(hex_b)), reverse=True)
+        return (light + 0.05) / (dark + 0.05)
+
+    def test_every_risk_colour_carries_white_text_at_wcag_aa(self):
+        import app as dashboard_app
+
+        for level, colour in dashboard_app.RISK_COLOURS.items():
+            ratio = self._contrast("#ffffff", colour)
+            # Badge text is 0.8em bold ~= 12.8px: normal text under WCAG 2.1,
+            # so the 3:1 large-text allowance does not apply.
+            assert ratio >= 4.5, (
+                f"risk level {level!r} ({colour}) gives {ratio:.2f}:1 against "
+                f"white badge text; WCAG 2.1 AA requires 4.5:1"
+            )
+
+    def test_the_unknown_level_fallback_is_also_readable(self):
+        # An unrecognised level still renders a badge; it must not render an
+        # unreadable one.
+        source = APP.read_text()
+        assert '"#6b7280"' in source, "fallback colour moved; re-check its contrast"
+        assert self._contrast("#ffffff", "#6b7280") >= 4.5
+
+    def test_badge_escapes_the_level_it_is_given(self):
+        """
+        The badge is rendered with unsafe_allow_html, and the level comes from
+        whatever host the sidebar's API URL points at — api_client returns
+        response.json() without validating it.
+        """
+        import app as dashboard_app
+
+        badge = dashboard_app.risk_badge("<img src=x onerror=alert(1)>")
+        # The payload is upper-cased by the badge, so match on the escaped form
+        # rather than the original casing.
+        assert "&lt;IMG SRC=X ONERROR=ALERT(1)&gt;" in badge
+        assert "<img" not in badge.lower().replace("&lt;img", "")

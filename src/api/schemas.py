@@ -18,6 +18,15 @@ from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+# Not `status.HTTP_422_UNPROCESSABLE_ENTITY`. Starlette renamed that constant to
+# ...UNPROCESSABLE_CONTENT (RFC 9110 dropped "Entity") and deprecated the old
+# spelling, so every 422 we returned emitted a DeprecationWarning. Reaching for
+# the new name instead would break the lower end of the fastapi>=0.110 range
+# declared in requirements.txt, which predates the rename. The status code
+# itself is a fixed integer that no rename can change, so bind it directly and
+# let the name carry the meaning.
+HTTP_422 = 422
+
 # Physical bounds from the data dictionary. A reading outside these is a
 # broken sensor or a unit mix-up, and either way should be rejected at the
 # door rather than scored — the model has never seen values like that and its

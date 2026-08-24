@@ -40,7 +40,7 @@ from fastapi.responses import JSONResponse
 
 from config.settings import get_settings
 from src.api.routes import health, machines, predict, reports
-from src.api.schemas import ErrorResponse
+from src.api.schemas import HTTP_422, ErrorResponse
 from src.api.service import state
 from src.utils.exceptions import (
     DataValidationError,
@@ -126,19 +126,17 @@ async def _llm_down(request: Request, exc: LLMConnectionError):
 
 @app.exception_handler(DataValidationError)
 async def _bad_data(request: Request, exc: DataValidationError):
-    return _error(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc), "DataValidationError")
+    return _error(HTTP_422, str(exc), "DataValidationError")
 
 
 @app.exception_handler(PredictionError)
 async def _bad_prediction(request: Request, exc: PredictionError):
-    return _error(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc), "PredictionError")
+    return _error(HTTP_422, str(exc), "PredictionError")
 
 
 @app.exception_handler(ReportGenerationError)
 async def _bad_report(request: Request, exc: ReportGenerationError):
-    return _error(
-        status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc), "ReportGenerationError"
-    )
+    return _error(HTTP_422, str(exc), "ReportGenerationError")
 
 
 @app.exception_handler(PredMaintenanceError)

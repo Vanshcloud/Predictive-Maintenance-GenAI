@@ -28,7 +28,7 @@ from functools import partial
 from fastapi import APIRouter, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
 
-from src.api.schemas import PredictionResponse, ReportRequest, ReportResponse
+from src.api.schemas import HTTP_422, PredictionResponse, ReportRequest, ReportResponse
 from src.api.service import state
 from src.utils.exceptions import LLMConnectionError, ReportGenerationError
 from src.utils.logger import get_logger
@@ -119,9 +119,7 @@ async def generate_report(request: ReportRequest) -> ReportResponse:
             ),
         )
     except ReportGenerationError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
-        )
+        raise HTTPException(status_code=HTTP_422, detail=str(e))
 
     return ReportResponse(
         machine_id=request.machine_id,

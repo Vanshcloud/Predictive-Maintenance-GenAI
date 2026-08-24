@@ -6,7 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 An end-to-end Predictive Maintenance platform: a TensorFlow LSTM predicts equipment failures 24h in advance from sensor telemetry, and LangChain + an LLM turns those predictions into plain-English maintenance reports, exposed via FastAPI and a Streamlit dashboard. It was built incrementally as a 12-day/12-milestone portfolio project — read **`IMPLEMENTATION_PLAN.md`** first — it is the single source of truth for scope, architecture, risks, milestones, and current status — then the latest `docs/DayX.md` for what the last session actually did. Both must be updated before a session ends; docs and code ship in the same commit.
 
-Progress: **all 12 milestones are delivered**, plus a post-project Day 13 (`docs/Day13.md`). Every layer is implemented and tested end to end: data pipeline, LSTM (test F1 0.8949, 8/8 failure events caught), prediction pipeline, LangChain reports and assistant, FastAPI, Streamlit dashboard, and two Docker images wired by compose. 229 unit + 13 integration tests; flake8/Black/isort/mypy all clean and blocking in CI. Work from here is enhancement, not construction.
+Progress: **all 12 milestones are delivered**, plus post-project Days 13 (`docs/Day13.md`) and 14 (`docs/Day14.md`). Every layer is implemented and tested end to end: data pipeline, LSTM (test F1 0.8949, 8/8 failure events caught), prediction pipeline, LangChain reports and assistant, FastAPI, Streamlit dashboard, and two Docker images wired by compose. 232 unit + 13 integration tests; flake8/Black/isort/mypy all clean and blocking in CI.
+The lint paths are declared once as `PY_PATHS` in the Makefile and CI calls `make lint` /
+`make format-check` rather than repeating them; `make typecheck` runs mypy twice, because
+CI installs no ML stack and therefore type-checks a different program than a full venv does. Work from here is enhancement, not construction.
 
 ## Commands
 

@@ -8,8 +8,8 @@ immediately. It must be updated whenever meaningful progress is made.
 
 | Field | Value |
 |---|---|
-| **Last updated** | 2026-08-24 (end of Day 12 — project complete) |
-| **Current milestone** | **Day 12 of 12 — complete.** All milestones delivered. |
+| **Last updated** | 2026-08-25 (end of Day 14 — quality-gate drift & accessibility) |
+| **Current milestone** | **Day 12 of 12 — complete.** All milestones delivered; Days 13–14 are post-project. |
 | **Overall completion** | **100% of the 12-day plan** |
 | **Repository** | https://github.com/Vanshcloud/vigilant-lamp |
 | **Branch** | `main` |
@@ -1773,11 +1773,15 @@ Each day has a matching document in `docs/`.
 | **Day 11** | 2026-08-24 | Docker, CI/CD & deployment | `docs/Day11.md` | ✅ Complete — images built (2.87 GB / 803 MB), compose verified, 4 CI jobs |
 | **Day 12** | 2026-08-24 | Final polish, docs & demo | `docs/Day12.md` | ✅ Complete — clean-checkout verified, RESULTS.md, TD-4 closed |
 | **Day 13** | 2026-08-25 | Point-in-time assessment (`as_of`) | `docs/Day13.md` | ✅ Complete — post-project; 229 unit + 13 integration tests |
+| **Day 14** | 2026-08-25 | Quality-gate drift & accessibility | `docs/Day14.md` | ✅ Complete — post-project; local/CI gates unified, 2 WCAG AA failures fixed, 232 unit tests |
 
-Day 13 sits outside the original 12 milestones. It exists because the finished
-product had a presentation defect the plan never anticipated: assessed at the
-dataset's last hour the fleet is always quiet, so the demo showed a model doing
-nothing. See `docs/Day13.md`.
+Days 13 and 14 sit outside the original 12 milestones. Day 13 exists because the
+finished product had a presentation defect the plan never anticipated: assessed at
+the dataset's last hour the fleet is always quiet, so the demo showed a model doing
+nothing. Day 14 exists because several checks were passing without proving what
+they appeared to prove — the local and CI quality gates were checking different
+programs, and the dashboard's two most-scanned risk colours failed WCAG AA. See
+`docs/Day13.md` and `docs/Day14.md`.
 
 ```
 Day 1  ✅ Foundation
@@ -1877,7 +1881,8 @@ cost 15 points of test F1. The default is now best-F1; `sweep_thresholds()` retu
 
 ## In progress
 
-Nothing. All 12 milestones are delivered, plus the Day 13 `as_of` addition.
+Nothing. All 12 milestones are delivered, plus the Day 13 `as_of` addition and
+the Day 14 quality-gate and accessibility fixes.
 
 ## Pending
 
