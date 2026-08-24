@@ -173,21 +173,50 @@ jobs:
         # No model or dataset is mounted, so the API must start DEGRADED and
         # still answer /health. That is the behaviour AppState.startup() was
         # written for, and this is the only place it gets exercised for real.
+        #
+        # `python3`, not `python`: ubuntu-latest ships python3 and this job
+        # has no setup-python step (it does not need one — it only builds
+        # images). Bare `python` is not on PATH here, and the original version
+        # of this step would have failed with "command not found" while
+        # looking like a smoke-test failure.
         run: |
+          set -euo pipefail
           docker run -d --name api-smoke -p 8000:8000 predictive-maintenance-api:ci
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:8000/health > /dev/null; then break; fi
+
+          ready=""
+          for _ in $(seq 1 40); do
+            if curl -sf --max-time 5 http://localhost:8000/health > /dev/null; then
+              ready=yes
+              break
+            fi
             sleep 3
           done
-          echo "--- /health ---"
-          curl -s http://localhost:8000/health
-          echo
-          status=$(curl -s http://localhost:8000/health | python -c \
-            'import sys,json; print(json.load(sys.stdin)["status"])')
-          echo "status: $status"
-          if [ "$status" != "degraded" ]; then
-            echo "Expected 'degraded' with no model mounted, got '$status'"
+
+          # Distinguish "never came up" from "came up wrong" — otherwise the
+          # parse below fails on an empty body and the real cause is buried.
+          if [ -z "$ready" ]; then
+            echo "The API container never answered /health within 120s."
             docker logs api-smoke
             exit 1
           fi
-          docker rm -f api-smoke
+
+          body=$(curl -s --max-time 5 http://localhost:8000/health)
+          echo "--- /health ---"
+          echo "$body"
+
+          state=$(echo "$body" | python3 -c \
+            'import sys, json; print(json.load(sys.stdin)["status"])')
+          echo "status: $state"
+
+          if [ "$state" != "degraded" ]; then
+            echo "Expected 'degraded' with no model mounted, got '$state'"
+            docker logs api-smoke
+            exit 1
+          fi
+          echo "Correct: the API starts and reports degraded rather than crashing."
+
+      - name: Remove the smoke-test container
+        # always(), so a failed assertion above still cleans up rather than
+        # leaving a container holding port 8000 for any later step.
+        if: always()
+        run: docker rm -f api-smoke || true
