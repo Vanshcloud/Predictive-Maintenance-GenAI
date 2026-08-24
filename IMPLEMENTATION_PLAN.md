@@ -9,8 +9,8 @@ immediately. It must be updated whenever meaningful progress is made.
 | Field | Value |
 |---|---|
 | **Last updated** | 2026-08-24 (end of Day 11) |
-| **Current milestone** | Day 11 of 12 — Docker, CI/CD & Deployment — ✅ **complete** (images written, not yet built — see docs/Day11.md) |
-| **Overall completion** | ~92% |
+| **Current milestone** | Day 11 of 12 — Docker, CI/CD & Deployment — ✅ **complete**, images built and verified |
+| **Overall completion** | ~93% |
 | **Repository** | https://github.com/Vanshcloud/vigilant-lamp |
 | **Branch** | `main` |
 | **Latest commit at time of writing** | `79c094a` (Day 3); Day 4 work is staged in the working tree |
@@ -92,7 +92,7 @@ probability of `0.87` means nothing to a maintenance technician on a factory flo
 | 6 | LangChain report generator + Q&A assistant | ✅ Done (Days 7–8) — grounded reports and multi-turn Q&A |
 | 7 | FastAPI REST API | ✅ Done (Day 9) — 9 endpoints, 137 ms predictions, LLM path isolated |
 | 8 | Streamlit dashboard | ✅ Done (Day 10) — pure API client, three views |
-| 9 | Docker + docker-compose + GitHub Actions CI | ⏳ Written (Day 11); first build happens in CI |
+| 9 | Docker + docker-compose + GitHub Actions CI | ✅ Done (Day 11) — API 2.87 GB, dashboard 803 MB, compose verified |
 | 10 | Final docs, demo, README polish | 🔒 Day 12 |
 
 ## Target users
@@ -1592,7 +1592,7 @@ checkout, which doubles as validation of the installation instructions above.
 | **Likelihood** | Medium — first deployment always finds something. |
 | **Mitigation** | Multi-stage Dockerfiles pinned to `python:3.12-slim`; `.env.example` enumerates every variable; `/health` reports model-loaded status so a half-started service is visibly unhealthy; compose file mirrors the production topology locally. |
 | **Recovery** | Roll back to the previous image tag; artifacts are volume-mounted so no rebuild is needed to restore a model. |
-| **Status** | Planned (Day 11). |
+| **Status** | ✅ **Closed Day 11.** Both images build; `docker compose up` brings up a healthy stack with health-gated ordering; an API container with no model mounted reports `degraded` and refuses predictions with a 503 naming the fix. |
 
 ## R-12 — Security: secret leakage or prompt injection
 
@@ -1739,7 +1739,7 @@ checkout, which doubles as validation of the installation instructions above.
 | **Deliverables** | `docker/`, `.github/workflows/ci.yml`. |
 | **Dependencies** | M10. |
 | **Effort** | 1 day. |
-| **Success criteria** | `docker compose up` yields a working API + dashboard — ⏳ **unverified, Docker unavailable locally**; CI green on push — ⏳ pending first push. Written and statically validated; CI is the first real build. |
+| **Success criteria** | `docker compose up` yields a working API + dashboard ✅ — both containers healthy, health-gated ordering confirmed, containerised prediction byte-identical to the host run; CI green on push — ⏳ pending first push. |
 
 ## M12 — Polish & demo (Day 12) 🔒
 
@@ -1770,7 +1770,7 @@ Each day has a matching document in `docs/`.
 | **Day 8** | 2026-08-24 | GenAI assistant & maintenance Q&A | `docs/Day8.md` | ✅ Complete — multi-turn sessions, live grounding tests, 161 tests |
 | **Day 9** | 2026-08-24 | FastAPI REST API | `docs/Day9.md` | ✅ Complete — 9 endpoints, 185 unit tests |
 | **Day 10** | 2026-08-24 | Streamlit dashboard | `docs/Day10.md` | ✅ Complete — 3 views, 211 unit tests |
-| **Day 11** | 2026-08-24 | Docker, CI/CD & deployment | `docs/Day11.md` | ✅ Complete — 2 images, 4 CI jobs, build context 7.3 GB → 2.9 MB |
+| **Day 11** | 2026-08-24 | Docker, CI/CD & deployment | `docs/Day11.md` | ✅ Complete — images built (2.87 GB / 803 MB), compose verified, 4 CI jobs |
 | **Day 12** | — | Final polish, docs & demo | `docs/Day12.md` | 🔒 Next |
 
 ```
@@ -1923,10 +1923,10 @@ Beyond the 12-day scope, in rough priority order:
 
 ## Completion percentage
 
-**~92%**
+**~93%**
 
 ```
-[███████████████████████████░░░] 92%
+[███████████████████████████░░░] 93%
  Foundation ✅  Data ✅  Features ✅  Model ✅  Eval ✅  Inference ✅  GenAI ✅  API ✅  UI ✅  Deploy ✅
 ```
 
@@ -1940,7 +1940,7 @@ Beyond the 12-day scope, in rough priority order:
 | `src/genai/` | 100% |
 | `src/api/` | 100% |
 | `dashboard/` | 100% |
-| `docker/` + CI | 100% written; images not yet built (no Docker locally) |
+| `docker/` + CI | 100% — images built and compose verified; CI unrun until first push |
 | Documentation | 95% |
 | Tests | 211 unit + 9 integration passing; flake8 0 issues; Black and isort clean |
 

@@ -32,7 +32,7 @@ encountered, design decisions, remaining tasks, next-day plan, and project healt
 | [Day 8](Day8.md) | GenAI assistant & maintenance Q&A | Multi-turn sessions; live-model tests caught the assistant accepting a false premise — 161 unit + 9 integration tests |
 | [Day 9](Day9.md) | FastAPI REST API | 9 endpoints, **137 ms** predictions, LLM path isolated — 185 unit + 9 integration tests |
 | [Day 10](Day10.md) | Streamlit dashboard | Pure API client — three views, risk colours owned by the API — 211 unit + 9 integration tests |
-| [Day 11](Day11.md) | Docker, CI/CD & deployment | 2 images, 4 CI jobs, build context **7.3 GB → 2.9 MB** — images not yet built (no Docker locally) |
+| [Day 11](Day11.md) | Docker, CI/CD & deployment | 2 images built and verified (**2.87 GB** / **803 MB**), compose stack healthy, build context 7.3 GB → 2.9 MB |
 | Day 12 | Final polish & demo | 🔒 Next |
 
 > These are **daily** reports, not weekly. The project is structured as 12 one-day

@@ -5,8 +5,10 @@
 # These are NOT deployed to production.
 # ============================================================
 
-# Include production deps
+# Include BOTH service stacks — local development runs the API and the
+# dashboard on one machine, even though their images do not.
 -r requirements.txt
+-r requirements-dashboard.txt
 
 # --- Testing ---
 pytest>=7.4.0,<9.0.0

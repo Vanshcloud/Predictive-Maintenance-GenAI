@@ -368,7 +368,7 @@ subsequent runs finish in about 4 seconds.
 
 ## Development Progress
 
-**~92% complete (11 of 12 days).**
+**~93% complete (11 of 12 days).**
 
 - [x] **Day 1** — Project setup, folder structure, configuration, logging, testing infrastructure
 - [x] **Day 2** — Synthetic dataset (883K rows), exploratory data analysis, ingestion + validation
@@ -380,7 +380,7 @@ subsequent runs finish in about 4 seconds.
 - [x] **Day 8** — Conversational assistant — multi-turn Q&A that declines what the data cannot answer
 - [x] **Day 9** — FastAPI REST API — 9 endpoints, **137 ms** predictions, LLM failures degrade gracefully
 - [x] **Day 10** — Streamlit dashboard — pure API client, holds no model of its own
-- [x] **Day 11** — Docker + GitHub Actions CI — two images, build context 7.3 GB → 2.9 MB
+- [x] **Day 11** — Docker + GitHub Actions CI — two images (**2.87 GB** API, **803 MB** UI), compose verified
 - [ ] **Day 12** — Final polish, documentation, demo
 
 ---

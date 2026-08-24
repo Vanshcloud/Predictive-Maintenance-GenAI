@@ -7,22 +7,30 @@
 | **Estimated effort** | 1 day |
 | **Date** | 2026-08-24 |
 | **Milestone** | M11 — Deployment |
-| **Status** | ✅ Complete — with one honest caveat, below |
+| **Status** | ✅ Complete — images built and verified (see Verification below) |
 
 ---
 
-## ⚠️ What was not verified
+## Verification (added after Docker was installed)
 
-**Docker is not installed on this machine.** The images and compose file were
-written and statically validated — YAML parses, the compose structure is
-correct, the Dockerfiles copy the right paths — but **no image was built and
-no container was run locally.**
+The images were originally written and only *statically* validated — Docker was
+not available on the machine at the time, and this section said so. Docker was
+installed later the same day and everything below was then run for real.
 
-CI is the first real build. The `docker` job builds both images, reports their
-sizes, and smoke-tests the API container, so the first push will either confirm
-this work or fail loudly. That is a genuine gap and it is recorded here rather
-than implied away: everything else in this project was verified by running it,
-and this was not.
+| Check | Result |
+|---|---|
+| Dashboard image builds | ✅ **803 MB** |
+| API image builds | ✅ **2.87 GB** (3.23 GB before the fix in B2) |
+| `docker compose up` | ✅ both containers healthy |
+| Startup ordering | ✅ `api Started → Waiting → Healthy` **then** `dashboard Starting` |
+| API `/health` in container | ✅ `ok`, model loaded, 100 machines |
+| Prediction in container | ✅ 200 in 341 ms, value **byte-identical** to the host run |
+| Dashboard in container | ✅ HTTP 200, `/_stcore/health` returns `ok` |
+| API with **no model mounted** | ✅ `degraded`, and `/predict` returns **503** with the command to fix it |
+
+That last row is the behaviour `AppState.startup()` was deliberately made
+non-raising for on Day 9, and this is the first time it was exercised in a
+container rather than argued for.
 
 ---
 
@@ -145,7 +153,18 @@ started importing the ML stack into the UI.
 | **Solution** | Both read `API_BASE_URL` from the environment, defaulting to localhost. Compose sets `http://api:8000`. |
 | **Lessons learned** | Containerisation is a good audit of hidden environment assumptions. This one was invisible while everything ran on one host, and no test would have caught it — the tests inject a base URL explicitly. |
 
-## B2 — mypy reports 159 errors
+## B2 — The API image shipped Streamlit
+
+| Field | Detail |
+|---|---|
+| **Description** | The API image installed Streamlit 1.62.0 — a web UI framework nothing in `src/` imports. Confirmed by running `python -c "import streamlit"` inside the built image. |
+| **Root cause** | `requirements.txt` bundled all seven layers including the dashboard's. Day 11 split the *dashboard's* dependencies out into their own file and left the API carrying everything — the same problem, unfixed in the other direction. |
+| **Files affected** | `requirements.txt`, `requirements-dev.txt` |
+| **Solution** | `requirements.txt` is now API-only; `requirements-dev.txt` pulls in both stacks so local development is unchanged. |
+| **Measured** | **3.23 GB → 2.87 GB, a 360 MB (11%) saving.** Verified Streamlit is absent and TensorFlow, FastAPI and LangChain still import. |
+| **Lessons learned** | Static validation could not have found this. Both images were *correct* — they just were not *minimal*, and nothing about a Dockerfile reveals that its requirements file is a superset of what it needs. It took an actual build reporting an actual number. The general form: "I solved this problem once" is not the same as "I solved this problem in every direction it occurs." |
+
+## B3 — mypy reports 159 errors
 
 | Field | Detail |
 |---|---|
@@ -166,7 +185,7 @@ started importing the ML stack into the UI.
 | **CI workflow YAML** | parses; 4 jobs, dependencies correct |
 | **Build context** | 7.3 GB → 2.9 MB |
 | **Image contents** | API copies `config/ src/ scripts/`; dashboard copies only `dashboard/` |
-| **Docker build** | ❌ **not run — Docker unavailable locally** |
+| **Docker build** | ✅ both images built; compose stack verified end to end |
 
 ---
 
@@ -214,7 +233,6 @@ started importing the ML stack into the UI.
 
 | Item | Priority | Effort |
 |---|---|---|
-| **Build the images for real** and record actual sizes | **P0 — first push** | — |
 | **TD-8** — reduce mypy's 159 errors; tighten per-module and make it blocking | P2 | 4 h |
 | Push images to a registry and deploy to a free-tier host | P2 | 3 h |
 | API-key auth before any public deployment (currently unauthenticated by design) | P2 | 2 h |
@@ -245,10 +263,10 @@ started importing the ML stack into the UI.
 
 | Field | Value |
 |---|---|
-| **Overall completion** | ~92% |
-| **Module completion** | Every layer 100%; **Docker/CI written but not built** |
+| **Overall completion** | ~93% |
+| **Module completion** | Every layer 100%; Docker images built and verified; CI unrun until first push |
 | **Technical debt** | TD-4 (handoff overlap) · **TD-8 (159 mypy errors, advisory)** |
-| **Known risks** | ~~R-6~~ ✅ · ~~R-10~~ ✅ · **R-11 deployment — partially addressed; images unverified** · R-12 (no auth, by design) |
+| **Known risks** | ~~R-6~~ ✅ · ~~R-10~~ ✅ · ~~**R-11 deployment**~~ ✅ **closed — both images build and run** · R-12 (no auth, by design) |
 | **Quality gates** | 211 unit + 9 integration · flake8 0 · Black/isort clean · mypy advisory |
 
 ---
@@ -306,8 +324,18 @@ test would have caught it — they inject a base URL explicitly — and it was
 invisible while everything ran on one host. Containerisation is a good audit of
 environment assumptions.
 
-The honest caveat is at the top of this document and belongs here too: Docker
-is not installed on this machine, so **nothing was built or run**. Everything
-else in this project was verified by executing it; this was validated
-statically and hands off to CI. The first push either confirms it or fails
-loudly, and Day 12's first task is to look.
+This document originally carried a caveat at the top: Docker was not installed,
+so nothing had been built. Docker was installed later the same day, and the
+caveat has been replaced with measurements — both images build, the compose
+stack comes up healthy in the right order, a containerised prediction returns a
+value byte-identical to the host run, and an API container with no model
+mounted reports `degraded` and refuses predictions with a 503 that names the
+fix.
+
+Building them found one thing static validation could not. The API image was
+shipping Streamlit: `requirements.txt` bundled every layer, so the service
+installed a web UI framework nothing in `src/` imports. I had split the
+*dashboard's* dependencies out on Day 11 and left the API carrying everything —
+the same problem, unfixed in the other direction. Removing it cost 360 MB, and
+nothing short of a real build would have surfaced it, because both images were
+correct and only one of them was minimal.

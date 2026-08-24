@@ -1,9 +1,19 @@
 # ============================================================
 # Predictive Maintenance + GenAI Insight Generator
-# Production Dependencies
+# API / Service Dependencies
 # ============================================================
-# Install: pip install -r requirements.txt
-# Update:  pip install --upgrade -r requirements.txt
+# What the prediction API needs, and nothing else.
+#
+# The dashboard's dependencies live in requirements-dashboard.txt. Keeping
+# them apart is not tidiness — it is what stops each container installing the
+# other one's stack. Building the images made the cost visible: this list
+# used to include Streamlit, so the API image shipped a web UI framework that
+# nothing in src/ imports.
+#
+# Install:
+#   API / service only   pip install -r requirements.txt
+#   dashboard only       pip install -r requirements-dashboard.txt
+#   everything (dev)     pip install -r requirements-dev.txt
 # ============================================================
 
 # --- Layer 1: Core Data Science ---
@@ -23,9 +33,6 @@ openai>=1.0.0,<2.0.0
 # --- Layer 4: API Framework ---
 fastapi>=0.110.0,<1.0.0
 uvicorn[standard]>=0.27.0,<1.0.0
-
-# --- Layer 5: Dashboard ---
-streamlit>=1.30.0,<2.0.0
 
 # --- Layer 6: Configuration & Utilities ---
 pydantic>=2.0.0,<3.0.0
