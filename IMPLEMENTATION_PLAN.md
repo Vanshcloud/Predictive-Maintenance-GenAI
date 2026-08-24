@@ -1739,7 +1739,7 @@ checkout, which doubles as validation of the installation instructions above.
 | **Deliverables** | `docker/`, `.github/workflows/ci.yml`. |
 | **Dependencies** | M10. |
 | **Effort** | 1 day. |
-| **Success criteria** | `docker compose up` yields a working API + dashboard ✅ — both containers healthy, health-gated ordering confirmed, containerised prediction byte-identical to the host run; CI green on push — ⏳ pending first push. |
+| **Success criteria** | `docker compose up` yields a working API + dashboard ✅ — both containers healthy, health-gated ordering confirmed, containerised prediction byte-identical to the host run; CI green on push ✅ — all four jobs pass on `458ce03`, including amd64 image builds. All met. |
 
 ## M12 — Polish & demo (Day 12) ✅
 
@@ -1940,7 +1940,7 @@ Beyond the 12-day scope, in rough priority order:
 | `src/genai/` | 100% |
 | `src/api/` | 100% |
 | `dashboard/` | 100% |
-| `docker/` + CI | 100% — images built and compose verified; CI unrun until first push |
+| `docker/` + CI | 100% — images built, compose verified, **CI green** |
 | Documentation | 95% |
 | Tests | 211 unit + 9 integration passing; flake8 0 issues; Black and isort clean |
 

@@ -103,17 +103,47 @@ decisions rather than oversights.
 
 ---
 
-# ⚠️ What could not be verified
+# CI — verified green
 
-**CI status.** The repository is private, so the unauthenticated GitHub API
-returns `Not Found` and `gh` is not installed on this machine. The workflow was
-written on Day 11, its YAML parses, and its assumptions were validated locally
-(the fresh-clone run above is exactly the state the `test` job sees) — but
-**whether the pipeline actually goes green has not been observed.**
+This section originally read "what could not be verified": the repository was
+private, so the GitHub API returned `Not Found`. It was made public afterwards
+and the pipeline was then observed.
 
-Check it at `https://github.com/Vanshcloud/vigilant-lamp/actions`. The most
-likely failure is the `docker` job, since the Dockerfiles were only built
-locally after Day 11 was written, on `arm64` rather than CI's `amd64`.
+**Run `458ce03` — all four jobs passed.**
+
+| Job | Result |
+|---|---|
+| Dependency audit | ✅ success |
+| Lint, format, types | ✅ success |
+| Tests | ✅ success |
+| Build images | ✅ success |
+
+`Lint, format, types` passing confirms flake8/Black/isort agree on CI's Linux
+runner rather than only on macOS. `Build images` passing means both Dockerfiles
+build on **amd64** — they had only ever been built locally on arm64 — and the
+smoke test genuinely executed, confirming the API container starts `degraded`
+with no model mounted instead of crashing.
+
+## One bug found before CI found it
+
+Auditing the workflow while the first run was queued turned up a real defect:
+the `docker` job's smoke test called `python -c`, but that job is the only one
+without an `actions/setup-python` step — it builds images and needs no Python
+toolchain. `ubuntu-latest` provides `python3`, not bare `python`.
+
+The step would have failed with "command not found" **while presenting as a
+smoke-test failure**, which is the worse outcome: the assertion it appears to
+make would never have run, and the error would have pointed at the container
+rather than the script.
+
+Fixed in `458ce03`, along with two adjacent weaknesses — the readiness loop
+fell through silently after 90 s and the JSON parse then failed on an empty
+body, burying the cause; and cleanup moved to an `if: always()` step so a
+failed assertion no longer leaves a container holding port 8000.
+
+The three earlier runs show as `cancelled`. That is `concurrency:
+cancel-in-progress: true` working correctly — several pushes in quick
+succession, each superseding the last.
 
 ---
 
@@ -193,7 +223,7 @@ locally after Day 11 was written, on `arm64` rather than CI's `amd64`.
 | **Risks** | ~~R-6 training/serving skew~~ ✅ · ~~R-10 LLM failure~~ ✅ · ~~R-11 deployment~~ ✅ · R-12 partially mitigated (no auth, by design) |
 | **Debt** | TD-8 open with a plan |
 | **Quality gates** | 211 unit + 9 integration · flake8 0 · Black/isort clean · mypy advisory |
-| **Unverified** | CI pipeline status (private repo) |
+| **CI** | ✅ green — all four jobs pass on `458ce03` |
 
 ---
 
@@ -242,12 +272,15 @@ the model.
 TD-4 closed by deleting `docs/handoff.md`. It had worn a "superseded" banner
 for eight days, which made it longer without making it less confusing.
 
-One thing is unverified and says so at the top of this document: whether CI
-goes green. The repository is private and `gh` is not installed here, so the
-pipeline has been written, parsed, and had its assumptions validated locally,
-but never observed running. Every other claim in this project is backed by
-something I executed; asserting a passing build I could not see would have been
-the single exception, and the easiest one to be caught on.
+The one claim this document could not originally back was CI: the repository was
+private, so the pipeline had been written and parsed but never observed. It was
+made public afterwards, and **all four jobs pass on `458ce03`** — including the
+image builds on amd64, which had only ever been built locally on arm64.
+
+Auditing the workflow while that run sat queued found a defect CI would have
+reported misleadingly: the smoke test called `python -c` in the one job without
+a Python toolchain, so it would have failed with "command not found" while
+looking like the container was broken. Fixed before it ran.
 
 **Ending state: 12 milestones, 211 unit tests, 9 integration tests, an LSTM
 catching 8 of 8 failure events with 24 hours of warning, grounded LLM reports

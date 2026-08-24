@@ -8,6 +8,7 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-teal?logo=fastapi&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 ![Tests](https://img.shields.io/badge/tests-220%20passing-brightgreen)
+![CI](https://img.shields.io/badge/CI-passing-brightgreen)
 ![Model F1](https://img.shields.io/badge/model%20F1-0.8949-success)
 
 ---
