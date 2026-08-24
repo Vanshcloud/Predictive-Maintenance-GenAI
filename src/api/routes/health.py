@@ -21,6 +21,7 @@ def health() -> HealthResponse:
     """Report whether this instance can serve predictions."""
     model_loaded = state.predictor is not None
     dataset_loaded = bool(state.store and state.store.is_loaded)
+    data_start, data_end = state.store.data_range if state.store else (None, None)
 
     return HealthResponse(
         status="ok" if state.is_ready else "degraded",
@@ -30,4 +31,6 @@ def health() -> HealthResponse:
         machines_known=len(state.store.machine_ids) if state.store else 0,
         threshold=state.settings.PREDICTION_THRESHOLD,
         version=state.settings.APP_VERSION,
+        data_start=data_start,
+        data_end=data_end,
     )

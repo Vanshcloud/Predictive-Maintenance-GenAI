@@ -203,13 +203,37 @@ naming the fix.
 
 | Suite | Count |
 |---|---|
-| Unit | **211** |
-| Integration | 9 (parity + live-model grounding) |
+| Unit | **229** |
+| Integration | 13 (parity, live-model grounding, point-in-time assessment) |
 | flake8 / Black / isort | clean |
-| mypy | 159 errors, advisory (TD-8) |
+| mypy | **0 errors**, blocking in CI |
 
-On a clean checkout with no model and no generated data: **193 pass, 18 skip** —
-tests needing a trained model skip rather than fail.
+On a clean checkout with no model and no generated data: **211 pass, 18 skip**
+from the unit suite — tests needing a trained model skip rather than fail. The
+13 integration tests skip in their entirety, for the same reason.
+
+---
+
+## The horizon is real, and observable
+
+The API accepts an `as_of` timestamp and hides everything after it — telemetry,
+errors, and maintenance alike — so a historical assessment sees only what was
+known at the time. Rewinding to fixed offsets before the eleven failures in the
+last quarter of the data:
+
+| Rewound to | Alerts |
+|---|---|
+| 6 h before the failure | **5 of 5** sampled machines |
+| 36 h before the failure | **0 of 5** |
+
+The second row is the more informative one. A model that fired 36 hours out
+would mean the 24-hour labels reach further than they claim, or that filtering
+is not actually hiding the future. Silence there is the evidence that neither is
+happening, and it is asserted by
+`tests/integration/test_time_travel.py::test_the_model_stays_quiet_beyond_its_horizon`.
+
+Concretely: machine 51 fails at 2024-10-31 12:00. Assessed at 06:00 that day the
+model returns **p ≈ 1.0000**; assessed 24 hours earlier, **p ≈ 0.0000**.
 
 ---
 

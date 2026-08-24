@@ -21,7 +21,7 @@ THE SLICING CONSTRAINT — measured, and the reason this module exists:
 
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -85,22 +85,45 @@ class MachineDataStore:
                 f"{'...' if len(self.machine_ids) > 5 else ''}"
             )
 
+    @property
+    def data_range(self) -> Tuple[Optional[pd.Timestamp], Optional[pd.Timestamp]]:
+        """Earliest and latest telemetry timestamps, for UI bounds."""
+        telemetry = self.dataset.get("telemetry")
+        if telemetry is None or telemetry.empty:
+            return None, None
+        return telemetry["datetime"].min(), telemetry["datetime"].max()
+
     def slice_for(
-        self, machine_id: int, window_hours: int = DEFAULT_WINDOW_HOURS
+        self,
+        machine_id: int,
+        window_hours: int = DEFAULT_WINDOW_HOURS,
+        as_of: Optional[pd.Timestamp] = None,
     ) -> Dict[str, pd.DataFrame]:
         """
-        Narrow the dataset to one machine and its most recent window.
+        Narrow the dataset to one machine and the window ending at `as_of`.
 
-        See the module docstring: this is what makes prediction servable.
+        See the module docstring for why slicing is mandatory rather than an
+        optimisation.
+
+        WHY `as_of` EXISTS:
+            Without it every request scores the single most recent timestamp,
+            which is an arbitrary moment — and on this dataset one where no
+            machine happens to be inside a pre-failure window, so the model's
+            whole purpose is invisible. Assessing "as of" a chosen time is
+            also what a real operations tool does: *what did we know last
+            Tuesday, and would we have caught it?*
+
+            Everything strictly after `as_of` is dropped, including errors and
+            maintenance records, so a historical assessment cannot see data
+            that did not exist yet.
         """
         self.require_machine(machine_id)
 
         telemetry = self.dataset["telemetry"]
-        telemetry = (
-            telemetry[telemetry["machine_id"] == machine_id]
-            .sort_values("datetime")
-            .tail(window_hours)
-        )
+        telemetry = telemetry[telemetry["machine_id"] == machine_id]
+        if as_of is not None:
+            telemetry = telemetry[telemetry["datetime"] <= as_of]
+        telemetry = telemetry.sort_values("datetime").tail(window_hours)
 
         sliced = {
             "telemetry": telemetry,
@@ -111,7 +134,12 @@ class MachineDataStore:
         for name in ("errors", "maintenance"):
             frame = self.dataset.get(name)
             if frame is not None:
-                sliced[name] = frame[frame["machine_id"] == machine_id]
+                frame = frame[frame["machine_id"] == machine_id]
+                if as_of is not None:
+                    # A prediction made "as of" a past date must not see
+                    # events that had not happened yet.
+                    frame = frame[frame["datetime"] <= as_of]
+                sliced[name] = frame
         return sliced
 
     def machine_info(self, machine_id: int) -> Dict[str, Any]:
@@ -139,14 +167,21 @@ class PredictionService:
     def __init__(self, predictor: Predictor, store: MachineDataStore) -> None:
         self.predictor = predictor
         self.store = store
-        self._fleet_cache: Optional[List[Dict[str, Any]]] = None
-        self._fleet_cached_at: float = 0.0
+        # Keyed by as_of: a cache that ignored it would hand back the
+        # present when asked about the past, which is the worst possible
+        # failure for a feature whose entire point is looking at another
+        # moment in time.
+        self._fleet_cache: Dict[Any, List[Dict[str, Any]]] = {}
+        self._fleet_cached_at: Dict[Any, float] = {}
 
     def predict_machine(
-        self, machine_id: int, window_hours: int = DEFAULT_WINDOW_HOURS
+        self,
+        machine_id: int,
+        window_hours: int = DEFAULT_WINDOW_HOURS,
+        as_of: Optional[pd.Timestamp] = None,
     ) -> Dict[str, Any]:
-        """Score one machine from stored data."""
-        sliced = self.store.slice_for(machine_id, window_hours)
+        """Score one machine from stored data, as of a point in time."""
+        sliced = self.store.slice_for(machine_id, window_hours, as_of=as_of)
         return self.predictor.predict_machine(sliced, machine_id)
 
     def explain_machine(
@@ -154,9 +189,10 @@ class PredictionService:
         machine_id: int,
         window_hours: int = DEFAULT_WINDOW_HOURS,
         history_hours: int = 24,
+        as_of: Optional[pd.Timestamp] = None,
     ) -> Dict[str, Any]:
         """Score one machine and return the evidence behind it."""
-        sliced = self.store.slice_for(machine_id, window_hours)
+        sliced = self.store.slice_for(machine_id, window_hours, as_of=as_of)
         return self.predictor.explain_machine(
             sliced, machine_id, history_hours=history_hours
         )
@@ -201,7 +237,9 @@ class PredictionService:
         }
         return self.predictor.predict_machine(dataset, request.machine_id)
 
-    def fleet(self, force: bool = False) -> List[Dict[str, Any]]:
+    def fleet(
+        self, force: bool = False, as_of: Optional[pd.Timestamp] = None
+    ) -> List[Dict[str, Any]]:
         """
         Score every machine, cached.
 
@@ -209,27 +247,24 @@ class PredictionService:
         a 100-machine fleet is ~16 s — far too slow to recompute per request,
         and far too useful to omit.
         """
-        age = time.monotonic() - self._fleet_cached_at
-        if (
-            not force
-            and self._fleet_cache is not None
-            and age < FLEET_CACHE_TTL_SECONDS
-        ):
-            logger.debug(f"Fleet cache hit ({age:.0f}s old)")
-            return self._fleet_cache
+        key = None if as_of is None else pd.Timestamp(as_of)
+        age = time.monotonic() - self._fleet_cached_at.get(key, 0.0)
+        if not force and key in self._fleet_cache and age < FLEET_CACHE_TTL_SECONDS:
+            logger.debug(f"Fleet cache hit for as_of={key} ({age:.0f}s old)")
+            return self._fleet_cache[key]
 
         started = time.perf_counter()
         results = []
         for machine_id in self.store.machine_ids:
             try:
-                results.append(self.predict_machine(machine_id))
+                results.append(self.predict_machine(machine_id, as_of=as_of))
             except Exception as e:
                 # One unscoreable machine must not blank the whole fleet view.
                 logger.warning(f"Skipping machine {machine_id}: {e}")
 
         results.sort(key=lambda r: r["failure_probability"], reverse=True)
-        self._fleet_cache = results
-        self._fleet_cached_at = time.monotonic()
+        self._fleet_cache[key] = results
+        self._fleet_cached_at[key] = time.monotonic()
 
         alerting = sum(1 for r in results if r["will_fail"])
         logger.info(
@@ -239,8 +274,8 @@ class PredictionService:
         return results
 
     def invalidate_fleet_cache(self) -> None:
-        self._fleet_cache = None
-        self._fleet_cached_at = 0.0
+        self._fleet_cache.clear()
+        self._fleet_cached_at.clear()
 
 
 class AppState:

@@ -37,6 +37,8 @@ HEALTH_OK = {
     "machines_known": 100,
     "threshold": 0.6678,
     "version": "0.1.0",
+    "data_start": "2024-01-01T00:00:00",
+    "data_end": "2024-12-30T23:00:00",
 }
 
 MACHINES = [
@@ -269,3 +271,76 @@ class TestRiskConsistency:
 def test_every_page_renders(page):
     app = run_app(make_client(), page=page)
     assert not app.exception, f"page {page!r} raised: {app.exception}"
+
+
+class TestRewind:
+    """
+    The rewind control is the only way to see the model do anything.
+
+    The dataset's final hour has no machine inside a pre-failure window, so a
+    dashboard pinned to "now" always reports zero alerts. These assert the
+    control exists, is off by default, and that turning it on actually changes
+    what is asked of the API — a picker whose value is dropped would leave the
+    page looking identical while claiming to show October.
+    """
+
+    @staticmethod
+    def _rewind(app):
+        return next((t for t in app.toggle if t.label == "Rewind"), None)
+
+    def test_hidden_when_the_api_does_not_publish_a_range(self):
+        """
+        An older API, or one running degraded, has no range to offer. Showing a
+        picker with invented bounds would produce empty assessments.
+        """
+        no_range = {k: v for k, v in HEALTH_OK.items() if not k.startswith("data_")}
+        app = run_app(make_client(health=no_range))
+
+        assert not app.exception
+        assert self._rewind(app) is None
+
+    def test_off_by_default_so_the_page_asks_about_now(self):
+        client = make_client()
+        app = run_app(client)
+
+        assert self._rewind(app) is not None, "no rewind control was rendered"
+        assert client.fleet.call_args.kwargs["as_of"] is None
+
+    def test_turning_it_on_sends_a_timestamp(self):
+        client = make_client()
+        app = run_app(client)
+        self._rewind(app).set_value(True).run()
+
+        assert not app.exception, f"dashboard raised: {app.exception}"
+        as_of = client.fleet.call_args.kwargs["as_of"]
+        assert as_of is not None
+        # Defaults to the end of the data, so switching it on changes nothing
+        # visible until the user actually moves the picker.
+        assert as_of.startswith("2024-12-30T23:00")
+
+    def test_the_picker_is_bounded_by_the_published_range(self):
+        """
+        Outside the range every assessment is empty or identical. The bounds
+        are the API's to state, never the dashboard's to assume.
+        """
+        app = run_app(make_client())
+        self._rewind(app).set_value(True).run()
+
+        picker = next(d for d in app.date_input if d.label == "As of date")
+        assert str(picker.min) == "2024-01-01"
+        assert str(picker.max) == "2024-12-30"
+
+    def test_machine_detail_scores_and_charts_the_same_moment(self):
+        """
+        The prediction and the sensor chart must share a timestamp. Scoring
+        October while plotting December would read as a model that ignores its
+        own inputs.
+        """
+        client = make_client()
+        app = run_app(client, page="Machine detail")
+        self._rewind(app).set_value(True).run()
+
+        assert not app.exception
+        as_of = client.explain.call_args.kwargs["as_of"]
+        assert as_of is not None, "rewind did not reach the prediction call"
+        assert client.history.call_args.kwargs["as_of"] == as_of

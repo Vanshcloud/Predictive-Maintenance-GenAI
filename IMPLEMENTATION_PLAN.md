@@ -1772,6 +1772,12 @@ Each day has a matching document in `docs/`.
 | **Day 10** | 2026-08-24 | Streamlit dashboard | `docs/Day10.md` | ✅ Complete — 3 views, 211 unit tests |
 | **Day 11** | 2026-08-24 | Docker, CI/CD & deployment | `docs/Day11.md` | ✅ Complete — images built (2.87 GB / 803 MB), compose verified, 4 CI jobs |
 | **Day 12** | 2026-08-24 | Final polish, docs & demo | `docs/Day12.md` | ✅ Complete — clean-checkout verified, RESULTS.md, TD-4 closed |
+| **Day 13** | 2026-08-25 | Point-in-time assessment (`as_of`) | `docs/Day13.md` | ✅ Complete — post-project; 229 unit + 13 integration tests |
+
+Day 13 sits outside the original 12 milestones. It exists because the finished
+product had a presentation defect the plan never anticipated: assessed at the
+dataset's last hour the fleet is always quiet, so the demo showed a model doing
+nothing. See `docs/Day13.md`.
 
 ```
 Day 1  ✅ Foundation
@@ -1792,7 +1798,7 @@ Day 12 ✅ Demo
 
 # Current Project Status
 
-**As of 2026-08-23.**
+**As of 2026-08-25.**
 
 ## Completed
 
@@ -1871,19 +1877,17 @@ cost 15 points of test F1. The default is now best-F1; `sweep_thresholds()` retu
 
 ## In progress
 
-| Item | State |
-|---|---|
-| Day 4 commit | Working tree carries all Day 4 code, tests, artifacts, and documentation; ready to commit. |
+Nothing. All 12 milestones are delivered, plus the Day 13 `as_of` addition.
 
 ## Pending
 
-Days 5–12 as listed in the Roadmap: evaluation/tuning, prediction pipeline, GenAI report
-generation, GenAI assistant, REST API, dashboard, Docker/CI, final polish.
+Nothing inside the planned scope. Anything further is in **Future improvements**
+below.
 
 ## Blocked
 
 Nothing is blocked. Both Day 4 blockers (the import-order deadlock and the `fit()`
-deadlock) are resolved.
+deadlock) were resolved on Day 4.
 
 ## Technical debt
 
@@ -1896,7 +1900,7 @@ deadlock) are resolved.
 | ~~TD-8~~ | ~~mypy reports 159 errors~~ | — | ✅ **Repaid Day 12** — 0 errors across 29 files; the CI check is now **blocking**. 128 of the 159 came from one line: `get_logger()` annotated with `loguru.logger`, an instance rather than a class |
 | ~~TD-5~~ | ~~`CLAUDE.md` referenced a `tf.data` trainer and root-level `debug_fit*.py` files~~ | Drift during Day 4's debugging | ✅ **Repaid Day 4** — `CLAUDE.md` corrected |
 | ~~TD-6~~ | ~~Threshold fixed at 0.5~~ | — | ✅ **Repaid Day 5** — validation sweep; deployed t=0.6678 |
-| **TD-7** | Integration tests: 9 (training/serving parity + live-model grounding) | API coverage still pending | Day 9 |
+| ~~TD-7~~ | ~~Integration tests: 9~~ | — | ✅ **Repaid Day 13** — 13 integration tests; `test_time_travel.py` adds four covering point-in-time assessment against the real model, including a leakage check |
 
 ## Known issues
 
@@ -1907,6 +1911,7 @@ deadlock) are resolved.
 | **K-3** | Info | Raw and processed data are gitignored (5.2 GB) | Regenerate with `generate_data.py` + `run_preprocessing.py` |
 | **K-4** | Medium | Training is CPU-only and epochs are long | Accepted for this project; documented in benchmarks |
 | **K-5** | Info | VS Code may show thousands of pending changes from `~/.antigravity/` | Not project files; ignore |
+| **K-6** | Info | The dataset is fixed to 2024-01-01 → 2024-12-30 (`scripts/generate_data.py`, seed 42) | Deliberate — reproducibility outranks a plausible-looking date. Use the dashboard's **Rewind** control to assess any hour in that range |
 
 ## Future improvements
 

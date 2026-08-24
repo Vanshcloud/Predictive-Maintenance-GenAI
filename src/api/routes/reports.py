@@ -23,6 +23,7 @@ TWO THINGS THIS FILE GETS RIGHT, DELIBERATELY:
 """
 
 import asyncio
+from functools import partial
 
 from fastapi import APIRouter, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
@@ -64,7 +65,9 @@ async def generate_report(request: ReportRequest) -> ReportResponse:
 
     # Prediction first, and it is fast. If the LLM half fails, this is what
     # gets handed back.
-    record = await run_in_threadpool(service.explain_machine, request.machine_id)
+    record = await run_in_threadpool(
+        partial(service.explain_machine, request.machine_id, as_of=request.as_of)
+    )
     prediction = PredictionResponse(
         **{k: v for k, v in record.items() if k != "context"}
     )

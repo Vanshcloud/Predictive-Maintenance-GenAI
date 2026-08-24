@@ -205,6 +205,29 @@ class TestRequestConstruction:
         assert calls[4]["params"]["hours"] == 72
         assert calls[5]["params"]["alerts_only"] is True
 
+    def test_as_of_travels_on_every_endpoint_that_accepts_it(self, client, monkeypatch):
+        calls = patch_request(monkeypatch, lambda *a, **k: FakeResponse(200, {}))
+        stamp = "2024-10-30T12:00:00"
+
+        client.predict(51, as_of=stamp)
+        client.explain(51, as_of=stamp)
+        client.history(51, as_of=stamp)
+        client.fleet(as_of=stamp)
+
+        assert [c["params"]["as_of"] for c in calls] == [stamp] * 4
+
+    def test_as_of_is_omitted_rather_than_sent_as_none(self, client, monkeypatch):
+        """
+        `params={"as_of": None}` is dropped by requests, but relying on that
+        silently is how a literal "None" ends up in a query string if the
+        transport is ever swapped. Asserted so the swap breaks a test.
+        """
+        calls = patch_request(monkeypatch, lambda *a, **k: FakeResponse(200, {}))
+
+        client.fleet()
+
+        assert calls[0]["params"]["as_of"] is None
+
     def test_report_omits_empty_optional_fields(self, client, monkeypatch):
         """
         An explicit null is not the same as an absent field.

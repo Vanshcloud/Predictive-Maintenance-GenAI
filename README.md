@@ -97,6 +97,8 @@ See [docs/architecture.md](docs/architecture.md) for the detailed architecture d
 - 🧠 **GenAI Insights** — LangChain-powered natural language maintenance reports
 - 🔌 **REST API** — FastAPI with auto-generated OpenAPI documentation
 - 📊 **Interactive Dashboard** — Real-time equipment health monitoring (Streamlit)
+- ⏪ **Point-in-time assessment** — rewind the fleet to any hour and score it on
+  the evidence available then, with everything after it hidden
 - 🐳 **Dockerized** — One-command deployment with Docker
 - ✅ **Tested** — Unit + integration tests with pytest
 - 📝 **Well-Documented** — Comprehensive code documentation and architecture docs
@@ -362,7 +364,7 @@ config/ -> src/utils/ -> src/data/ -> src/models/ -> src/prediction/ -> src/gena
 | [`docs/README.md`](docs/README.md) | Documentation index |
 | [`docs/RESULTS.md`](docs/RESULTS.md) | **Every metric in one place**, each with the caveat it needs |
 | [`docs/architecture.md`](docs/architecture.md) | System architecture diagram and layer responsibilities |
-| [`docs/Day1.md`](docs/Day1.md) … [`docs/Day12.md`](docs/Day12.md) | One report per implementation day: plan, work done, code changes, training results, bugs, design decisions, next steps |
+| [`docs/Day1.md`](docs/Day1.md) … [`docs/Day13.md`](docs/Day13.md) | One report per implementation day: plan, work done, code changes, training results, bugs, design decisions, next steps |
 | [`CLAUDE.md`](CLAUDE.md) | Repo conventions and non-negotiable invariants, for AI agents |
 
 ---
@@ -377,7 +379,7 @@ make format        # black + isort (writes)
 make quality       # lint + format-check + typecheck (no writes)
 ```
 
-**Current status: 211 unit + 9 integration tests passing, 0 flake8 issues, Black and isort clean.**
+**Current status: 229 unit + 13 integration tests passing, 0 flake8 issues, mypy clean, Black and isort clean.**
 
 Tests run against the committed `data/sample/` fixture, so they need no generated data.
 The first run pays roughly 90 seconds for TensorFlow's initial import on ARM64 macOS;
@@ -407,6 +409,7 @@ subsequent runs finish in about 4 seconds.
 - [x] **Day 10** — Streamlit dashboard — pure API client, holds no model of its own
 - [x] **Day 11** — Docker + GitHub Actions CI — two images (**2.87 GB** API, **803 MB** UI), compose verified
 - [x] **Day 12** — Clean-checkout verified, consolidated results, docs complete
+- [x] **Day 13** — Point-in-time assessment (post-project) — rewind to any hour; **5/5 alert at 6 h, 0/5 at 36 h**
 
 ---
 

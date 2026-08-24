@@ -72,6 +72,9 @@ class APIClient:
     # ------------------------------------------------------------------
 
     def _get(self, path: str, timeout: Optional[float] = None, **params) -> Any:
+        # `None` values are dropped rather than sent as the string "None" —
+        # requests omits them, which is what lets optional params like `as_of`
+        # be passed unconditionally by callers.
         return self._request("GET", path, timeout=timeout, params=params)
 
     def _post(self, path: str, payload: Dict, timeout: Optional[float] = None) -> Any:
@@ -155,17 +158,35 @@ class APIClient:
     def machine(self, machine_id: int) -> Dict[str, Any]:
         return self._get(f"/machines/{machine_id}")
 
-    def predict(self, machine_id: int) -> Dict[str, Any]:
-        return self._get(f"/machines/{machine_id}/predict")
+    def predict(self, machine_id: int, as_of: Optional[str] = None) -> Dict[str, Any]:
+        return self._get(f"/machines/{machine_id}/predict", as_of=as_of)
 
-    def explain(self, machine_id: int, history_hours: int = 24) -> Dict[str, Any]:
-        return self._get(f"/machines/{machine_id}/explain", history_hours=history_hours)
+    def explain(
+        self,
+        machine_id: int,
+        history_hours: int = 24,
+        as_of: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return self._get(
+            f"/machines/{machine_id}/explain",
+            history_hours=history_hours,
+            as_of=as_of,
+        )
 
-    def history(self, machine_id: int, hours: int = 48) -> List[Dict[str, Any]]:
-        return self._get(f"/machines/{machine_id}/history", hours=hours)
+    def history(
+        self, machine_id: int, hours: int = 48, as_of: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        return self._get(f"/machines/{machine_id}/history", hours=hours, as_of=as_of)
 
-    def fleet(self, alerts_only: bool = False, refresh: bool = False) -> Dict[str, Any]:
-        return self._get("/fleet", alerts_only=alerts_only, refresh=refresh)
+    def fleet(
+        self,
+        alerts_only: bool = False,
+        refresh: bool = False,
+        as_of: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return self._get(
+            "/fleet", alerts_only=alerts_only, refresh=refresh, as_of=as_of
+        )
 
     def report(
         self,
@@ -173,6 +194,7 @@ class APIClient:
         question: Optional[str] = None,
         provider: Optional[str] = None,
         model: Optional[str] = None,
+        as_of: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Generate a report or answer a question.
@@ -187,4 +209,6 @@ class APIClient:
             payload["provider"] = provider
         if model:
             payload["model"] = model
+        if as_of:
+            payload["as_of"] = as_of
         return self._post("/report", payload, timeout=REPORT_TIMEOUT)

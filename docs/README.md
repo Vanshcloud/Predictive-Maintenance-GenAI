@@ -34,6 +34,7 @@ encountered, design decisions, remaining tasks, next-day plan, and project healt
 | [Day 10](Day10.md) | Streamlit dashboard | Pure API client — three views, risk colours owned by the API — 211 unit + 9 integration tests |
 | [Day 11](Day11.md) | Docker, CI/CD & deployment | 2 images built and verified (**2.87 GB** / **803 MB**), compose stack healthy, build context 7.3 GB → 2.9 MB |
 | [Day 12](Day12.md) | Final polish, docs & demo | Clean-checkout verified (193 pass / 18 skip), dataset MD5 reproducible, TD-4 closed |
+| [Day 13](Day13.md) | Point-in-time assessment (`as_of`) | Rewind the fleet to any hour; **5/5 alert 6 h before failure, 0/5 at 36 h** — 229 unit + 13 integration tests |
 
 > These are **daily** reports, not weekly. The project is structured as 12 one-day
 > milestones; see the Roadmap section of `IMPLEMENTATION_PLAN.md`.

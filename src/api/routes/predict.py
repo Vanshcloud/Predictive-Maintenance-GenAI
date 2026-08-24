@@ -11,6 +11,7 @@ routes/reports.py precisely so a slow model can never delay a prediction.
 """
 
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, status
 
@@ -70,16 +71,27 @@ def predict_from_readings(request: PredictRequest) -> PredictionResponse:
 
 
 @router.get("/machines/{machine_id}/predict", response_model=PredictionResponse)
-def predict_stored_machine(machine_id: int) -> PredictionResponse:
+def predict_stored_machine(
+    machine_id: int,
+    as_of: Optional[datetime] = Query(
+        None,
+        description=(
+            "Assess as of this timestamp instead of the latest reading. "
+            "Everything after it is hidden, including errors and maintenance, "
+            "so a historical assessment cannot see the future."
+        ),
+    ),
+) -> PredictionResponse:
     """Score one machine from the dataset this instance has loaded."""
     service = _require_service()
-    return PredictionResponse(**service.predict_machine(machine_id))
+    return PredictionResponse(**service.predict_machine(machine_id, as_of=as_of))
 
 
 @router.get("/machines/{machine_id}/explain", response_model=ExplainedPrediction)
 def explain_stored_machine(
     machine_id: int,
     history_hours: int = Query(24, ge=0, le=168),
+    as_of: Optional[datetime] = Query(None, description="Assess as of this timestamp"),
 ) -> ExplainedPrediction:
     """
     Score one machine and return the evidence behind the score.
@@ -89,7 +101,9 @@ def explain_stored_machine(
     concerning.
     """
     service = _require_service()
-    record = service.explain_machine(machine_id, history_hours=history_hours)
+    record = service.explain_machine(
+        machine_id, history_hours=history_hours, as_of=as_of
+    )
     context = record.pop("context", {})
     context.pop("recent_readings", None)
     return ExplainedPrediction(**record, **context)
@@ -99,6 +113,7 @@ def explain_stored_machine(
 def machine_history(
     machine_id: int,
     hours: int = Query(48, ge=1, le=720),
+    as_of: Optional[datetime] = Query(None, description="End the window here"),
 ) -> list:
     """Recent hourly sensor readings for one machine."""
     service = _require_service()
@@ -106,11 +121,10 @@ def machine_history(
     store.require_machine(machine_id)
 
     telemetry = store.dataset["telemetry"]
-    rows = (
-        telemetry[telemetry["machine_id"] == machine_id]
-        .sort_values("datetime")
-        .tail(hours)
-    )
+    rows = telemetry[telemetry["machine_id"] == machine_id]
+    if as_of is not None:
+        rows = rows[rows["datetime"] <= as_of]
+    rows = rows.sort_values("datetime").tail(hours)
     return [
         {
             "datetime": row["datetime"].isoformat(),
@@ -127,6 +141,9 @@ def machine_history(
 def fleet_status(
     alerts_only: bool = Query(False, description="Only machines at or above threshold"),
     refresh: bool = Query(False, description="Bypass the cache"),
+    as_of: Optional[datetime] = Query(
+        None, description="Assess the whole fleet as of this timestamp"
+    ),
 ) -> FleetSummaryResponse:
     """
     Score every machine, most urgent first.
@@ -135,7 +152,7 @@ def fleet_status(
     per request and too useful to leave out.
     """
     service = _require_service()
-    results = service.fleet(force=refresh)
+    results = service.fleet(force=refresh, as_of=as_of)
     alerting = sum(1 for r in results if r["will_fail"])
 
     shown = [r for r in results if r["will_fail"]] if alerts_only else results

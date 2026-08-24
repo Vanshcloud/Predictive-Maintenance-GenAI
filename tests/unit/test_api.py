@@ -17,6 +17,7 @@ survive to production because the happy path looks fine.
 
 from datetime import datetime, timedelta
 
+import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
@@ -42,9 +43,14 @@ class StubStore:
         if machine_id not in self.machine_ids:
             raise ResourceNotFoundError(f"Machine {machine_id} is not in the dataset.")
 
-    def slice_for(self, machine_id, window_hours=200):
+    def slice_for(self, machine_id, window_hours=200, as_of=None):
         self.require_machine(machine_id)
         return {"telemetry": self.dataset["telemetry"]}
+
+    @property
+    def data_range(self):
+        col = self.dataset["telemetry"]["datetime"]
+        return col.min(), col.max()
 
     def machine_info(self, machine_id):
         self.require_machine(machine_id)
@@ -94,14 +100,21 @@ class StubService:
     def __init__(self, store):
         self.store = store
         self.fleet_calls = 0
+        # Records (method, machine_id, as_of) so tests can assert the
+        # timestamp actually reaches the service rather than being dropped.
+        self.calls = []
 
-    def predict_machine(self, machine_id, window_hours=200):
+    def predict_machine(self, machine_id, window_hours=200, as_of=None):
         self.store.require_machine(machine_id)
+        self.calls.append(("predict_machine", machine_id, as_of))
         return _record(machine_id, 0.87 if machine_id == 51 else 0.01, machine_id == 51)
 
-    def explain_machine(self, machine_id, window_hours=200, history_hours=24):
+    def explain_machine(
+        self, machine_id, window_hours=200, history_hours=24, as_of=None
+    ):
         self.store.require_machine(machine_id)
-        record = self.predict_machine(machine_id)
+        self.calls.append(("explain_machine", machine_id, as_of))
+        record = self.predict_machine(machine_id, as_of=as_of)
         record["context"] = {
             "age_years": 17,
             "errors_last_24h": 2,
@@ -127,8 +140,9 @@ class StubService:
     def predict_from_readings(self, request):
         return _record(request.machine_id, 0.12, False)
 
-    def fleet(self, force=False):
+    def fleet(self, force=False, as_of=None):
         self.fleet_calls += 1
+        self.calls.append(("fleet", None, as_of))
         return [_record(51, 0.87, True), _record(1, 0.01, False)]
 
 
@@ -454,3 +468,131 @@ class TestDocumentation:
 
     def test_root_points_at_the_docs(self, client):
         assert client.get("/").json()["docs"] == "/docs"
+
+
+class TestTimeTravel:
+    """
+    `as_of` rewinds the assessment to an earlier hour.
+
+    The property that matters is not "the parameter is accepted" but that
+    everything after the chosen moment genuinely disappears. A historical
+    assessment that could still see the failure it is meant to predict — or the
+    maintenance visit that followed it — would look impressive and mean
+    nothing.
+    """
+
+    @staticmethod
+    def _store():
+        """A two-machine store spanning three hours, built without file I/O."""
+        hours = pd.date_range("2024-06-01 00:00", periods=3, freq="h")
+        telemetry = pd.DataFrame(
+            {
+                "datetime": list(hours) * 2,
+                "machine_id": [1] * 3 + [2] * 3,
+                "voltage": [170.0, 171.0, 172.0, 180.0, 181.0, 182.0],
+            }
+        )
+        return service_module.MachineDataStore(
+            {
+                "telemetry": telemetry,
+                "machines": pd.DataFrame(
+                    {"machine_id": [1, 2], "model": ["model1", "model2"], "age": [5, 9]}
+                ),
+                "errors": pd.DataFrame(
+                    {
+                        "datetime": hours,
+                        "machine_id": [1, 1, 1],
+                        "error_id": ["error1", "error2", "error3"],
+                    }
+                ),
+                "maintenance": pd.DataFrame(
+                    {
+                        "datetime": hours,
+                        "machine_id": [1, 1, 1],
+                        "component": ["comp1", "comp2", "comp3"],
+                    }
+                ),
+            }
+        )
+
+    def test_data_range_reports_the_available_window(self):
+        lo, hi = self._store().data_range
+        assert str(lo) == "2024-06-01 00:00:00"
+        assert str(hi) == "2024-06-01 02:00:00"
+
+    def test_telemetry_after_as_of_is_hidden(self):
+        sliced = self._store().slice_for(1, as_of=pd.Timestamp("2024-06-01 01:00"))
+        assert list(sliced["telemetry"]["voltage"]) == [170.0, 171.0]
+
+    def test_as_of_is_inclusive_of_its_own_hour(self):
+        """The chosen hour has already happened, so its reading is evidence."""
+        sliced = self._store().slice_for(1, as_of=pd.Timestamp("2024-06-01 00:00"))
+        assert list(sliced["telemetry"]["voltage"]) == [170.0]
+
+    def test_errors_and_maintenance_are_hidden_too(self):
+        """
+        Telemetry alone is not enough.
+
+        `errors_last_24h` and `hours_since_maintenance` are model features. If
+        only telemetry were filtered, a historical prediction would be made
+        knowing about breakdowns that had not yet occurred — leakage, wearing
+        the clothes of a feature.
+        """
+        sliced = self._store().slice_for(1, as_of=pd.Timestamp("2024-06-01 01:00"))
+
+        assert list(sliced["errors"]["error_id"]) == ["error1", "error2"]
+        assert list(sliced["maintenance"]["component"]) == ["comp1", "comp2"]
+
+    def test_omitting_as_of_returns_everything(self):
+        sliced = self._store().slice_for(1)
+        assert len(sliced["telemetry"]) == 3
+        assert len(sliced["errors"]) == 3
+
+    def test_health_publishes_the_range_so_a_ui_can_bound_its_picker(self, client):
+        body = client.get("/health").json()
+
+        assert body["data_start"] is not None
+        assert body["data_end"] is not None
+        assert body["data_start"] <= body["data_end"]
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/machines/51/predict?as_of=2024-10-30T12:00:00",
+            "/machines/51/explain?as_of=2024-10-30T12:00:00",
+            "/fleet?as_of=2024-10-30T12:00:00",
+        ],
+    )
+    def test_the_timestamp_reaches_the_service(self, client, path):
+        """
+        A query parameter that is parsed and then dropped is the failure this
+        guards: the endpoint answers 200 with a present-day assessment while
+        the UI believes it is showing the past.
+        """
+        assert client.get(path).status_code == 200
+
+        service = service_module.state.service
+        assert service.calls, "the route never called the service"
+        _, _, as_of = service.calls[0]
+        assert as_of == datetime(2024, 10, 30, 12, 0)
+
+    def test_an_unparseable_timestamp_is_rejected(self, client):
+        assert client.get("/machines/51/predict?as_of=last-tuesday").status_code == 422
+
+    def test_the_fleet_cache_is_keyed_by_as_of(self, client):
+        """
+        The cache made the fleet endpoint viable (13.4 s cold, 1.6 ms warm),
+        and a single shared slot would now serve a cached present-day answer to
+        a request that asked about October.
+        """
+        service = service_module.state.service
+
+        client.get("/fleet")
+        client.get("/fleet?as_of=2024-10-30T12:00:00")
+        client.get("/fleet")
+
+        assert [c[2] for c in service.calls] == [
+            None,
+            datetime(2024, 10, 30, 12, 0),
+            None,
+        ]

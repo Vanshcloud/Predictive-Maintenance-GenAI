@@ -143,6 +143,14 @@ class ReportRequest(BaseModel):
         None,
         description="Ask a specific question instead of generating a full report.",
     )
+    as_of: Optional[datetime] = Field(
+        None,
+        description=(
+            "Write the report as of this timestamp rather than the latest "
+            "reading. A report about a past moment must not be grounded in "
+            "facts from after it."
+        ),
+    )
 
 
 class ReportResponse(BaseModel):
@@ -170,6 +178,10 @@ class HealthResponse(BaseModel):
     machines_known: int
     threshold: float
     version: str
+    # The window a client may time-travel within. Without it a UI has to
+    # guess, and guessing wrong yields an empty assessment.
+    data_start: Optional[datetime] = None
+    data_end: Optional[datetime] = None
 
 
 class MachineInfo(BaseModel):

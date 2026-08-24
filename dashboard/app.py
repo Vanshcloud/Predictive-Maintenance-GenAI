@@ -27,7 +27,9 @@ HOW IT WORKS:
 
 import os
 import sys
+from datetime import datetime, time
 from pathlib import Path
+from typing import Optional
 
 import altair as alt
 import pandas as pd
@@ -122,6 +124,53 @@ except Exception as e:  # noqa: BLE001 — the UI must render whatever went wron
     health, api_reachable, startup_error = {}, False, e
 
 page = st.sidebar.radio("View", ["Fleet overview", "Machine detail", "AI report"])
+
+# ---------------------------------------------------------------------------
+# Point in time
+# ---------------------------------------------------------------------------
+# Without this the dashboard can only ever assess the dataset's final hour, and
+# on a fleet of 100 machines with 47 failures across a year that hour is almost
+# always quiet — the demo shows "0 alerting" and looks broken rather than calm.
+# Rewinding to a chosen hour is also what an operator genuinely wants ("what did
+# this look like last Tuesday, before it failed?"), so it earns its place.
+#
+# The API hides everything after the chosen timestamp, so a past assessment is
+# made on the evidence available at the time. It cannot see the failure coming
+# because it has already happened.
+as_of: Optional[str] = None
+data_start, data_end = health.get("data_start"), health.get("data_end")
+
+if data_start and data_end:
+    lo = datetime.fromisoformat(data_start)
+    hi = datetime.fromisoformat(data_end)
+
+    st.sidebar.divider()
+    if st.sidebar.toggle(
+        "Rewind",
+        value=False,
+        help="Assess the fleet as it looked at an earlier hour.",
+    ):
+        picked = st.sidebar.date_input(
+            "As of date",
+            value=hi.date(),
+            min_value=lo.date(),
+            max_value=hi.date(),
+        )
+        hour = st.sidebar.slider("Hour", 0, 23, value=hi.hour)
+        as_of = datetime.combine(picked, time(hour=hour)).isoformat()
+        st.sidebar.caption(f"Everything after **{as_of.replace('T', ' ')}** is hidden.")
+        # Verified against data/raw/failures.csv: machine 51 fails at
+        # 2024-10-31 12:00 and machine 96 at 2024-11-14 00:00. The second pair
+        # of dates is the point — 36 h out the model is silent, because it was
+        # only ever trained to see 24 h ahead.
+        st.sidebar.caption(
+            "**Try:** 2024-10-31 hour 6 (machine 51) or 2024-11-13 hour 12 "
+            "(machine 96) — both hours before a real failure. Then rewind to "
+            "2024-10-30 and machine 51 goes quiet: that is the 24-hour "
+            "horizon, not a bug."
+        )
+
+st.sidebar.divider()
 st.sidebar.caption(
     "The dashboard talks only to the REST API. It holds no model and does no "
     "scoring of its own."
@@ -160,7 +209,7 @@ if page == "Fleet overview":
 
     try:
         with st.spinner("Scoring the fleet…"):
-            fleet = client.fleet(alerts_only=alerts_only, refresh=refresh)
+            fleet = client.fleet(alerts_only=alerts_only, refresh=refresh, as_of=as_of)
     except (APIUnavailable, APIDegraded, APIError) as e:
         show_api_problem(e)
         st.stop()
@@ -245,8 +294,8 @@ elif page == "Machine detail":
 
     try:
         with st.spinner(f"Scoring machine {machine_id}…"):
-            explained = client.explain(machine_id)
-            readings = client.history(machine_id, hours=hours)
+            explained = client.explain(machine_id, as_of=as_of)
+            readings = client.history(machine_id, hours=hours, as_of=as_of)
     except (APIUnavailable, APIDegraded, APIError) as e:
         show_api_problem(e)
         st.stop()
@@ -378,6 +427,7 @@ elif page == "AI report":
                     question=question or None,
                     provider=None if provider == "(default)" else provider,
                     model=model or None,
+                    as_of=as_of,
                 )
         except APIError as e:
             if e.status_code == 502:
