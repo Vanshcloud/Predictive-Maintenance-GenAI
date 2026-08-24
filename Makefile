@@ -8,8 +8,16 @@
 # USAGE: Run `make help` to see all available commands.
 # ============================================================
 
-.PHONY: help install install-dev test test-integration test-all lint format \
-	clean run-api run-dashboard setup docker-build docker-up docker-down
+.PHONY: help install install-dev test test-integration test-all test-cov lint \
+	format format-check typecheck quality clean run-api run-dashboard setup \
+	docker-build docker-up docker-down smoke
+
+# Every path the linters check, declared once. This used to be spelled out per
+# target as `src/ config/ tests/` while CI checked `src/ config/ tests/ scripts/
+# dashboard/` — so `make quality` passed on a laptop and the same commit went
+# red in CI on a file the local run never opened. Same failure mode as the mypy
+# split below: two copies of "what gets checked" that drifted.
+PY_PATHS = src/ config/ tests/ scripts/ dashboard/
 
 # Default target when you just type `make`
 help: ## Show this help message
@@ -40,7 +48,7 @@ install-dev: ## Install development dependencies
 
 # ---- Code Quality ----
 
-test: ## Run all tests
+test: ## Run unit tests (integration excluded; see test-all)
 	python -m pytest tests/ -v --tb=short
 
 test-integration: ## Run integration tests (slow; needs the generated dataset)
@@ -53,18 +61,24 @@ test-cov: ## Run tests with coverage report
 	python -m pytest tests/ -v --tb=short --cov=src --cov=config --cov-report=term-missing
 
 lint: ## Run flake8 linter
-	flake8 src/ config/ tests/
+	flake8 $(PY_PATHS)
 
 format: ## Format code with Black + isort
-	black src/ config/ tests/
-	isort src/ config/ tests/
+	black $(PY_PATHS)
+	isort $(PY_PATHS)
 
 format-check: ## Check formatting without changing files
-	black --check src/ config/ tests/
-	isort --check-only src/ config/ tests/
+	black --check $(PY_PATHS)
+	isort --check-only $(PY_PATHS)
 
-typecheck: ## Run mypy type checker
+typecheck: ## Run mypy type checker (both local and CI conditions)
+# Two runs, because they check different programs. The first sees the installed
+# venv, so pandas and langchain have real types. The second is what CI does:
+# only the linters are installed there, so `ignore_missing_imports` turns those
+# libraries into `Any` and `warn_return_any` starts firing at every third-party
+# seam. Four such errors once reached main because the local run was clean.
 	mypy src/ config/
+	mypy --no-site-packages src/ config/
 
 quality: lint format-check typecheck ## Run all code quality checks
 

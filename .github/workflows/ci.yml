@@ -45,28 +45,47 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-          cache-dependency-path: requirements-dev.txt
+          cache-dependency-path: requirements-lint.txt
 
       - name: Install tooling
         # Only the linters — this job does not need TensorFlow, and skipping
         # it turns a multi-minute install into seconds.
-        run: pip install black isort flake8 mypy
+        #
+        # From the pinned file, NOT `pip install black isort flake8 mypy`.
+        # Unpinned, this step installed whatever had released that morning:
+        # Black 26.5.1 and mypy 2.3.1 against a tree developed against
+        # 24.10.0 and 1.20.2, both outside the project's own declared bounds.
+        # A formatter release would then turn the build red with no code
+        # change, and disagree with every local run.
+        run: pip install -r requirements-lint.txt
 
+      # Through `make`, not a second copy of the path list. The Makefile's
+      # PY_PATHS is the only place the checked paths are declared; when they
+      # lived here too, the local targets checked three paths and this job
+      # checked five, so `make quality` was green on a laptop for a commit
+      # that went red here.
       - name: flake8
-        run: flake8 src/ config/ tests/ scripts/ dashboard/
+        run: make lint
 
-      - name: black --check
-        run: black --check src/ config/ tests/ scripts/ dashboard/
-
-      - name: isort --check
-        run: isort --check-only src/ config/ tests/ scripts/ dashboard/
+      - name: black --check / isort --check
+        run: make format-check
 
       - name: mypy
         # Blocking as of Day 12: src/ and config/ are clean (0 errors across
         # 29 files). It was advisory while 159 errors stood, because a build
         # that is permanently red teaches people to ignore red builds — that
         # reasoning no longer applies now the debt is paid.
-        run: mypy src/ config/
+        #
+        # `--no-site-packages` states out loud what this job was already
+        # doing. Because only the linters are installed, mypy cannot see
+        # pandas or langchain, and `ignore_missing_imports` turns every
+        # symbol from them into `Any`. Combined with `warn_return_any` that
+        # is a real check — it forces third-party seams to be annotated —
+        # but it is a DIFFERENT check from the one a developer runs against a
+        # full venv, which is how four `no-any-return` errors reached main
+        # green-on-a-laptop. The flag makes the difference reproducible:
+        # `make typecheck` now runs both modes locally.
+        run: mypy --no-site-packages src/ config/
 
   test:
     name: Tests

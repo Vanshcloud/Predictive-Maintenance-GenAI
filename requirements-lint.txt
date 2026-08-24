@@ -1,0 +1,21 @@
+# ============================================================
+# Lint / Format / Type-check Tooling
+# ============================================================
+# Split out of requirements-dev.txt so CI's quality job can install the
+# checkers WITHOUT the full ML stack — that keeps a multi-minute install
+# down to seconds.
+#
+# WHY THE PINS MATTER MORE HERE THAN ANYWHERE ELSE:
+#   These tools decide whether the build is red. Installed unpinned, CI
+#   silently upgrades to whatever released this morning — it was running
+#   Black 26.5.1 and mypy 2.3.1 against a tree developed against 24.10.0
+#   and 1.20.2. A formatter release then turns the build red with no code
+#   change, and disagrees with every developer's local run. So this file is
+#   the single source of truth: requirements-dev.txt includes it, and CI
+#   installs it directly.
+# ============================================================
+
+black>=24.0.0,<25.0.0
+flake8>=7.0.0,<8.0.0
+isort>=5.12.0,<6.0.0
+mypy>=1.8.0,<2.0.0

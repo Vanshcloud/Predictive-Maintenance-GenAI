@@ -106,3 +106,8 @@ docker-compose.override.yml
 # --- OS ---
 .DS_Store
 Thumbs.db
+
+# Stray uv artifact: nothing here uses uv (the project is pip + venv, see the
+# Makefile). A bare `uv` invocation in this directory drops a 155-byte lockfile
+# that resolves no dependencies at all, so it is noise, not a lockfile.
+uv.lock

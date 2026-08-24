@@ -16,10 +16,9 @@ pytest-cov>=4.1.0,<6.0.0
 pytest-asyncio>=0.23.0,<1.0.0
 
 # --- Code Quality ---
-black>=24.0.0,<25.0.0
-flake8>=7.0.0,<8.0.0
-isort>=5.12.0,<6.0.0
-mypy>=1.8.0,<2.0.0
+# Pinned in their own file so CI's quality job can install just these, and so
+# there is exactly one place the versions are declared.
+-r requirements-lint.txt
 
 # --- Notebooks ---
 jupyter>=1.0.0,<2.0.0

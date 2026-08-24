@@ -191,7 +191,7 @@ class ReportGenerator:
         facts = format_machine_facts(record)
 
         try:
-            report = self.report_chain.invoke({"machine_facts": facts})
+            report: str = self.report_chain.invoke({"machine_facts": facts})
         except Exception as e:
             raise self._wrap(e, f"report generation for machine {record['machine_id']}")
 
@@ -215,7 +215,7 @@ class ReportGenerator:
 
         facts = format_machine_facts(record)
         try:
-            answer = self.qa_chain.invoke(
+            answer: str = self.qa_chain.invoke(
                 {"machine_facts": facts, "question": question.strip()}
             )
         except Exception as e:
@@ -252,7 +252,7 @@ class ReportGenerator:
         )
 
         try:
-            summary = self.qa_chain.invoke(
+            summary: str = self.qa_chain.invoke(
                 {
                     "machine_facts": facts,
                     "question": (

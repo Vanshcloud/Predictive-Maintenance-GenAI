@@ -163,7 +163,7 @@ class MaintenanceAssistant:
         question = question.strip()
 
         try:
-            answer = self.chain.invoke(
+            answer: str = self.chain.invoke(
                 {
                     "machine_facts": self._facts,
                     "history": self._history,
