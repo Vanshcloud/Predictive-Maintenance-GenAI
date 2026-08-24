@@ -13,8 +13,44 @@
 
 ---
 
+## See it work
+
+Machine 51 failed at 2024-10-31 12:00. This is what the model said about it at
+every hour of the two days beforehand — each point scored **only on the
+evidence available at that hour**, via the API's `as_of` parameter, so nothing
+downstream of the moment leaks in.
+
+![The 24-hour horizon: machine 51's failure probability, hour by hour](docs/images/horizon.png)
+
+It is flat at zero for thirty hours, first flickers at **-17h** (0.0076), and
+crosses the alert threshold at **-15h** — fifteen hours of warning on a machine
+that gave no earlier sign. Then it saturates and stays there.
+
+The flat part on the left matters as much as the climb. The model was trained
+to see 24 hours ahead and no further, so a day before the failure it is silent
+and *should* be. That is the horizon, drawn.
+
+Reproduce it in one command with the stack running:
+
+```bash
+make docker-up
+python scripts/plot_horizon.py                 # machine 51, the chart above
+python scripts/plot_horizon.py --machine 96 --failure 2024-11-14T00:00:00
+```
+
+Machine 96 crosses at **-23h**, machine 51 at **-15h**. Warning time varies by
+how early a machine's sensors start drifting — the 24 hours in the headline is
+the ceiling the model was trained to, and the median across the held-out
+failures, not a promise about any one machine.
+
+Or drive it yourself: open the dashboard at `localhost:8501`, turn on **Rewind**
+in the sidebar, and set the date to 2024-10-31 hour 6.
+
+---
+
 ## 📋 Table of Contents
 
+- [See it work](#see-it-work)
 - [Overview](#overview)
 - [Architecture](#architecture)
 - [Features](#features)
