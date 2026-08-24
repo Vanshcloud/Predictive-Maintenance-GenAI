@@ -74,6 +74,19 @@ class Settings(BaseSettings):
     MODEL_DIR: str = "models"
     MODEL_NAME: str = "lstm_predictive_maintenance"
 
+    # ---- Inference ----
+    # Alert threshold, chosen by sweeping the precision-recall curve on the
+    # VALIDATION split (never on test) — see docs/Day5.md. 0.5 is not a
+    # sensible default at a ~1:864 positive rate; this value is measured.
+    PREDICTION_THRESHOLD: float = 0.6678
+
+    # Risk bands for human-facing output. A probability means nothing to a
+    # technician at 3am; a band plus a recommended action does. Boundaries are
+    # ordered low -> critical and must stay ascending.
+    RISK_BAND_MEDIUM: float = 0.30
+    RISK_BAND_HIGH: float = 0.6678  # == PREDICTION_THRESHOLD: "high" is an alert
+    RISK_BAND_CRITICAL: float = 0.90
+
     # ---- Data Paths ----
     DATA_DIR: str = "data"
     RAW_DATA_DIR: str = "data/raw"
@@ -112,6 +125,21 @@ class Settings(BaseSettings):
     def processed_data_path(self) -> Path:
         """Absolute path to the processed data directory."""
         return PROJECT_ROOT / self.PROCESSED_DATA_DIR
+
+    @property
+    def scaler_path(self) -> Path:
+        """Absolute path to the StandardScaler fitted during preprocessing."""
+        return self.processed_data_path / "scaler.joblib"
+
+    @property
+    def feature_columns_path(self) -> Path:
+        """Absolute path to the ordered feature-name contract."""
+        return self.processed_data_path / "feature_columns.txt"
+
+    @property
+    def model_path(self) -> Path:
+        """Absolute path to the trained Keras model."""
+        return self.model_artifacts_path / f"{self.MODEL_NAME}.keras"
 
     @property
     def is_production(self) -> bool:

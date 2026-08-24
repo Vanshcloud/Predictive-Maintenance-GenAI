@@ -638,7 +638,9 @@ class DataPreprocessor:
         self,
         df: pd.DataFrame,
         feature_cols: List[str],
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        return_index: bool = False,
+        require_labels: bool = True,
+    ) -> Tuple[np.ndarray, ...]:
         """
         Create sliding window sequences for the LSTM.
 
@@ -657,6 +659,16 @@ class DataPreprocessor:
         IMPORTANT: Windows are created PER MACHINE. We never mix
         data from different machines in the same sequence.
 
+        Args (beyond the obvious):
+            return_index: also return a DataFrame with the `machine_id` and
+                `datetime` of each window's FINAL timestep — the moment the
+                prediction is about. Without it the tensors are anonymous:
+                you can score a sequence but not say which machine it
+                belongs to, which makes per-machine error analysis and any
+                human-facing report impossible.
+            require_labels: set False at inference time, where a `label`
+                column does not exist. The returned y is then empty.
+
         Args:
             df: Scaled DataFrame with features and labels.
             feature_cols: List of feature column names.
@@ -666,35 +678,50 @@ class DataPreprocessor:
         """
         logger.info("Step 6: Creating sequences " f"(window={self.sequence_length})...")
 
+        has_labels = require_labels and "label" in df.columns
+
         all_X = []
         all_y = []
+        index_machine: List[Any] = []
+        index_time: List[Any] = []
 
         for machine_id in sorted(df["machine_id"].unique()):
             machine_data = df[df["machine_id"] == machine_id].sort_values("datetime")
 
             features = machine_data[feature_cols].values
-            labels = machine_data["label"].values
+            labels = machine_data["label"].values if has_labels else None
+            times = machine_data["datetime"].values
 
             # Create sliding windows
             for i in range(self.sequence_length, len(features)):
                 # X = last `sequence_length` timesteps of features
                 X_window = features[i - self.sequence_length : i]
-                # y = label at the current timestep
-                y_label = labels[i]
 
                 all_X.append(X_window)
-                all_y.append(y_label)
+                if has_labels:
+                    # y = label at the current timestep
+                    all_y.append(labels[i])
+                if return_index:
+                    # The window ends at i-1, so the prediction is made
+                    # "as of" timestep i — that is the moment to record.
+                    index_machine.append(machine_id)
+                    index_time.append(times[i])
 
         X = np.array(all_X, dtype=np.float32)
         y = np.array(all_y, dtype=np.float32)
 
         logger.info(f"  X shape: {X.shape} (samples, timesteps, features)")
-        logger.info(f"  y shape: {y.shape}")
-        logger.info(
-            "  y distribution: "
-            f"{int(y.sum())} positive / {len(y)} total "
-            f"({y.mean() * 100:.2f}%)"
-        )
+        if has_labels and len(y):
+            logger.info(f"  y shape: {y.shape}")
+            logger.info(
+                "  y distribution: "
+                f"{int(y.sum())} positive / {len(y)} total "
+                f"({y.mean() * 100:.2f}%)"
+            )
+
+        if return_index:
+            index = pd.DataFrame({"machine_id": index_machine, "datetime": index_time})
+            return X, y, index
 
         return X, y
 
