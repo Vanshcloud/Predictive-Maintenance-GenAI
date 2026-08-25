@@ -10,7 +10,7 @@ Everything written about this project, and what each document is for.
 |---|---|---|
 | [**`../IMPLEMENTATION_PLAN.md`**](../IMPLEMENTATION_PLAN.md) | **Single source of truth.** Objectives, scope, requirements, technology stack, system architecture, dataset documentation, model architecture, training pipeline, evaluation plan, deployment plan, coding standards, testing strategy, risk register, milestones, roadmap, and current project status. | Every session |
 | [`../README.md`](../README.md) | Public-facing overview: what the project is, how to install and run it, and current results. | Every milestone |
-| [`../CLAUDE.md`](../CLAUDE.md) | Repository conventions and non-negotiable invariants, written for AI agents working in this codebase. | When conventions change |
+| [`../AGENTS.md`](../AGENTS.md) | Repository conventions and non-negotiable invariants, written for AI agents working in this codebase. | When conventions change |
 
 ---
 

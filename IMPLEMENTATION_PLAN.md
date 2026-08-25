@@ -14,7 +14,7 @@ immediately. It must be updated whenever meaningful progress is made.
 | **Repository** | https://github.com/Vanshcloud/vigilant-lamp |
 | **Branch** | `main` |
 | **Latest commit at time of writing** | `79c094a` (Day 3); Day 4 work is staged in the working tree |
-| **Companion documents** | `docs/Day1.md` … `docs/Day12.md`, `docs/RESULTS.md` (consolidated metrics), `CLAUDE.md` (agent instructions) |
+| **Companion documents** | `docs/Day1.md` … `docs/Day15.md`, `docs/RESULTS.md` (consolidated metrics), `AGENTS.md` (agent instructions) |
 
 
 > **History note (2026-08-23).** Every commit in this repository was rewritten to
@@ -482,7 +482,7 @@ src.data.ingestion ─→ src.data.validation ─→ src.data.preprocessing
 predictive-maintenance-genai/
 │
 ├── IMPLEMENTATION_PLAN.md        # ← THIS FILE. Single source of truth.
-├── CLAUDE.md                     # Instructions for AI agents working in this repo
+├── AGENTS.md                     # Instructions for AI agents working in this repo
 ├── LICENSE                       # MIT
 ├── README.md                     # Public-facing project README with badges
 ├── Makefile                      # make test / lint / format / typecheck / quality

@@ -1,6 +1,13 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Conventions and non-negotiable invariants for any AI coding agent working in
+this repository. Named for the cross-tool `AGENTS.md` convention rather than
+any one vendor's file.
+
+> Renamed from `CLAUDE.md` on Day 15. The Day 3, 4, 12 and 14 reports and two
+> rows of `IMPLEMENTATION_PLAN.md`'s risk register still say `CLAUDE.md`; those
+> are session records describing the file as it was named at the time, and are
+> left as written.
 
 ## Project Overview
 

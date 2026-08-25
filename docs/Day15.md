@@ -238,6 +238,31 @@ describe.
 
 ---
 
+## 7. Housekeeping
+
+`CLAUDE.md` → **`AGENTS.md`**. The repository is a portfolio piece and the file
+sat at the top of its root listing named after one vendor's tool; `AGENTS.md` is
+the cross-tool convention and says what the file is rather than who reads it.
+Six current-state references updated (README twice, the plan twice,
+`docs/README.md`, and two source comments). References inside Day reports are
+left alone — they record the name the file had at the time.
+
+Unrelated but discovered alongside it: GitHub's Contributors sidebar was still
+showing two people after Day 14's history rewrite. The commit data was already
+correct — `/contributors?anon=1` and all 42 commits on `main` return one author
+— but the sidebar renders from a separately-computed statistics cache that had
+not been regenerated. Requesting `/stats/contributors` returned `202` twice
+(GitHub computing) and then `200` with a single entry. Worth knowing: after a
+history rewrite the API tells the truth immediately and the sidebar does not.
+
+**README's progress section was wrong.** It claimed "Complete — 12 of 12 days"
+above a list of thirteen, and the Day 15 line added earlier in this session had
+been inserted between Day 6 and Day 7 rather than at the end. Now split into
+"The build — 12 of 12 days" and "After the build" (Days 13–15), and two document
+index ranges that still stopped at Day 12 and Day 13 extended to Day 15.
+
+---
+
 ## Verification
 
 ```

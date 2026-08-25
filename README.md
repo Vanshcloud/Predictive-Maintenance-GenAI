@@ -359,7 +359,7 @@ local Ollama model generates the full report keyless.
 ```
 vigilant-lamp/
 ├── IMPLEMENTATION_PLAN.md   # Single source of truth: scope, architecture, risks, status
-├── CLAUDE.md                # Working notes for AI agents in this repo
+├── AGENTS.md                # Working notes for AI agents in this repo
 ├── LICENSE                  # MIT
 ├── Makefile                 # make test / lint / format / typecheck / quality
 ├── pyproject.toml           # PEP 621 metadata + Black/isort/pytest/mypy/coverage config
@@ -413,8 +413,8 @@ config/ -> src/utils/ -> src/data/ -> src/models/ -> src/prediction/ -> src/gena
 | [`docs/README.md`](docs/README.md) | Documentation index |
 | [`docs/RESULTS.md`](docs/RESULTS.md) | **Every metric in one place**, each with the caveat it needs |
 | [`docs/architecture.md`](docs/architecture.md) | System architecture diagram and layer responsibilities |
-| [`docs/Day1.md`](docs/Day1.md) … [`docs/Day13.md`](docs/Day13.md) | One report per implementation day: plan, work done, code changes, training results, bugs, design decisions, next steps |
-| [`CLAUDE.md`](CLAUDE.md) | Repo conventions and non-negotiable invariants, for AI agents |
+| [`docs/Day1.md`](docs/Day1.md) … [`docs/Day15.md`](docs/Day15.md) | One report per implementation day: plan, work done, code changes, training results, bugs, design decisions, next steps |
+| [`AGENTS.md`](AGENTS.md) | Repo conventions and non-negotiable invariants, for AI agents |
 
 ---
 
@@ -444,7 +444,9 @@ subsequent runs finish in about 4 seconds.
 
 ## Development Progress
 
-**Complete — 12 of 12 days.**
+**The 12-day build is complete**, followed by three post-project sessions.
+
+### The build — 12 of 12 days
 
 - [x] **Day 1** — Project setup, folder structure, configuration, logging, testing infrastructure
 - [x] **Day 2** — Synthetic dataset (883K rows), exploratory data analysis, ingestion + validation
@@ -452,14 +454,20 @@ subsequent runs finish in about 4 seconds.
 - [x] **Day 4** — LSTM architecture, training pipeline, evaluation
 - [x] **Day 5** — 3-way split, threshold sweep, training curves, resume — **F1 0.8949**
 - [x] **Day 6** — Prediction pipeline — training/serving parity verified, **8/8 failure events caught**
-- [x] **Day 15** — Full production review; seeded training, bounded fleet cache — **F1 0.9086**
 - [x] **Day 7** — LangChain reports — grounded in real sensor evidence, runs keyless on local Ollama
 - [x] **Day 8** — Conversational assistant — multi-turn Q&A that declines what the data cannot answer
 - [x] **Day 9** — FastAPI REST API — 9 endpoints, **137 ms** predictions, LLM failures degrade gracefully
 - [x] **Day 10** — Streamlit dashboard — pure API client, holds no model of its own
 - [x] **Day 11** — Docker + GitHub Actions CI — two images (**2.87 GB** API, **803 MB** UI), compose verified
 - [x] **Day 12** — Clean-checkout verified, consolidated results, docs complete
-- [x] **Day 13** — Point-in-time assessment (post-project) — rewind to any hour; **5/5 alert at 6 h, 0/5 at 36 h**
+
+### After the build
+
+Enhancement, not construction. Each is a full session with its own report.
+
+- [x] **Day 13** — Point-in-time assessment — rewind to any hour; **5/5 alert at 6 h, 0/5 at 36 h**
+- [x] **Day 14** — Quality-gate drift and accessibility — local and CI gates unified, two WCAG AA contrast failures fixed, the horizon chart above
+- [x] **Day 15** — Full production review — training made reproducible and **retrained seeded** (**F1 0.9086**, t=0.3415), unbounded `/fleet` cache bounded, Windows-safe file I/O
 
 ---
 
