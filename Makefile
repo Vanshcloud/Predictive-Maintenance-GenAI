@@ -10,7 +10,7 @@
 
 .PHONY: help install install-dev test test-integration test-all test-cov lint \
 	format format-check typecheck quality clean run-api run-dashboard setup \
-	docker-build docker-up docker-down smoke
+	docker-build docker-up docker-up-d docker-down smoke
 
 # Every path the linters check, declared once. This used to be spelled out per
 # target as `src/ config/ tests/` while CI checked `src/ config/ tests/ scripts/
@@ -97,6 +97,12 @@ docker-build: ## Build both container images
 
 docker-up: ## Run API + dashboard in containers (needs a trained model)
 	docker compose -f docker/docker-compose.yml up
+
+# Detached, for the case where the next command in the shell needs the stack
+# already running — `make docker-up` holds the terminal, so a README that said
+# "run these two commands" only ever ran the first one.
+docker-up-d: ## Same, in the background
+	docker compose -f docker/docker-compose.yml up -d
 
 docker-down: ## Stop the containers
 	docker compose -f docker/docker-compose.yml down

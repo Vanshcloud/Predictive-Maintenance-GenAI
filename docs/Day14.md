@@ -210,6 +210,7 @@ in. Machine 51:
 | −17h | 0.0076 |
 | −16h | 0.3474 |
 | **−15h** | **0.9896** — crosses the 0.6678 threshold |
+| −14h | 0.9996 |
 | −13h … 0h | 1.0000 |
 
 The flat left-hand side carries as much weight as the climb: a day out the

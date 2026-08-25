@@ -217,7 +217,7 @@ def main():
     report["test_at_0.5"]["threshold"] = 0.5
 
     out = artifacts / "evaluation_report.json"
-    out.write_text(json.dumps(report, indent=4))
+    out.write_text(json.dumps(report, indent=4), encoding="utf-8")
     logger.info(f"Saved evaluation report to {out}")
 
     # ---- 3. Figures ----------------------------------------------------
@@ -225,7 +225,8 @@ def main():
         history_path = artifacts / "training_history.json"
         if history_path.exists():
             plot_training_curves(
-                json.loads(history_path.read_text()), artifacts / "training_curves.png"
+                json.loads(history_path.read_text(encoding="utf-8")),
+                artifacts / "training_curves.png",
             )
         plot_pr_curve(sweep, artifacts / "pr_curve.png", chosen)
 

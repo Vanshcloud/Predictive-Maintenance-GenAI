@@ -115,7 +115,7 @@ class Predictor:
         self.scaler = joblib.load(scaler_path)
         self.feature_columns: List[str] = [
             line.strip()
-            for line in feature_columns_path.read_text().splitlines()
+            for line in feature_columns_path.read_text(encoding="utf-8").splitlines()
             if line.strip()
         ]
 

@@ -256,7 +256,9 @@ class TestRiskConsistency:
         for months because both halves look individually correct.
         """
         # Both halves of the dashboard, since the palette moved to risk.py.
-        source = APP.read_text() + RISK_MODULE.read_text()
+        source = APP.read_text(encoding="utf-8") + RISK_MODULE.read_text(
+            encoding="utf-8"
+        )
 
         assert "RISK_COLOURS" in source
         # Colour lookup is by level name...

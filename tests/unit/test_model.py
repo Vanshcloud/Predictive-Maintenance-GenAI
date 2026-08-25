@@ -181,7 +181,9 @@ class TestMonitorAndResume:
         # State is written only when the checkpoint improves, so resume picks
         # up after the BEST epoch — keeping the weights on disk and the
         # recorded epoch describing the same moment.
-        saved_epoch = json.loads(ckpt.with_suffix(".state.json").read_text())["epoch"]
+        saved_epoch = json.loads(
+            ckpt.with_suffix(".state.json").read_text(encoding="utf-8")
+        )["epoch"]
         assert 1 <= saved_epoch <= 2
 
         second = ModelTrainer(model=PredictiveMaintenanceModel(24, 63))
@@ -426,3 +428,32 @@ class TestModelEvaluator:
 
         assert isinstance(metrics["auc"], float)
         assert isinstance(metrics["confusion_matrix"], list)
+
+
+class TestReproducibility:
+    """
+    `scripts/train_model.py` had no seed at all: LSTM kernels came from an
+    unseeded glorot_uniform and dropout masks from an unseeded RNG, so two runs
+    on identical data produced different weights and a different test F1 —
+    while README.md, CLAUDE.md and docs/RESULTS.md quote 0.8949 as a fact about
+    this repository. A headline metric nobody can reproduce cannot be checked
+    by anyone, including its author.
+    """
+
+    @staticmethod
+    def _weights(seed):
+        tf.keras.utils.set_random_seed(seed)
+        built = PredictiveMaintenanceModel(sequence_length=24, n_features=63)
+        return [np.asarray(w) for w in built.model.weights]
+
+    def test_the_same_seed_gives_the_same_initial_weights(self):
+        first, second = self._weights(42), self._weights(42)
+        assert all(np.array_equal(a, b) for a, b in zip(first, second))
+
+    def test_a_different_seed_gives_different_initial_weights(self):
+        """Guards the other direction: a seed that changed nothing would pass
+        the test above while quietly pinning every run to one arbitrary draw."""
+        assert any(
+            not np.array_equal(a, b)
+            for a, b in zip(self._weights(42), self._weights(7))
+        )

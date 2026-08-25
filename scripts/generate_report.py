@@ -154,7 +154,7 @@ def main():
 
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(output)
+        args.output.write_text(output, encoding="utf-8")
         logger.info(f"Wrote report to {args.output}")
 
     print()

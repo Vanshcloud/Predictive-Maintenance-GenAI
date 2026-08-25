@@ -8,7 +8,7 @@ immediately. It must be updated whenever meaningful progress is made.
 
 | Field | Value |
 |---|---|
-| **Last updated** | 2026-08-25 (end of Day 14 — quality-gate drift & accessibility) |
+| **Last updated** | 2026-08-25 (end of Day 15 — full-repository production review) |
 | **Current milestone** | **Day 12 of 12 — complete.** All milestones delivered; Days 13–14 are post-project. |
 | **Overall completion** | **100% of the 12-day plan** |
 | **Repository** | https://github.com/Vanshcloud/vigilant-lamp |
@@ -1774,6 +1774,7 @@ Each day has a matching document in `docs/`.
 | **Day 12** | 2026-08-24 | Final polish, docs & demo | `docs/Day12.md` | ✅ Complete — clean-checkout verified, RESULTS.md, TD-4 closed |
 | **Day 13** | 2026-08-25 | Point-in-time assessment (`as_of`) | `docs/Day13.md` | ✅ Complete — post-project; 229 unit + 13 integration tests |
 | **Day 14** | 2026-08-25 | Quality-gate drift, accessibility & the horizon chart | `docs/Day14.md` | ✅ Complete — post-project; local/CI gates unified, 2 WCAG AA failures fixed, 233 unit tests, README demo asset |
+| **Day 15** | 2026-08-25 | Full-repository production review | `docs/Day15.md` | ✅ Complete — post-project; training made reproducible (seeded), unbounded `/fleet` cache bounded, `plot_horizon.py` hardened, 238 unit tests |
 
 Days 13 and 14 sit outside the original 12 milestones. Day 13 exists because the
 finished product had a presentation defect the plan never anticipated: assessed at
@@ -1952,7 +1953,7 @@ Beyond the 12-day scope, in rough priority order:
 | `dashboard/` | 100% |
 | `docker/` + CI | 100% — images built, compose verified. **CI status belongs on the [live badge](https://github.com/Vanshcloud/vigilant-lamp/actions/workflows/ci.yml), not in this table** — a flat "CI green" here read as true through three consecutive red runs (#6–#8). |
 | Documentation | 95% |
-| Tests | 233 unit + 13 integration passing; flake8/Black/isort/mypy clean across five paths, locally and in CI |
+| Tests | 238 unit + 13 integration passing; flake8/Black/isort/mypy clean across five paths, locally and in CI |
 
 ---
 

@@ -31,6 +31,7 @@ import argparse
 import json
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -51,9 +52,19 @@ GRID = "#e5e7eb"
 
 
 def score(api: str, machine: int, when: datetime) -> dict:
-    url = f"{api}/machines/{machine}/predict?as_of={when.isoformat()}"
+    # quote(), because isoformat() emits a literal "+" for a timezone-aware
+    # timestamp and a "+" in a query string decodes to a space — which the
+    # API then rejects as an invalid datetime on every single point.
+    as_of = urllib.parse.quote(when.isoformat(), safe="")
+    url = f"{api}/machines/{machine}/predict?as_of={as_of}"
     with urllib.request.urlopen(url, timeout=60) as response:
         return json.load(response)
+
+
+def fail(message: str) -> int:
+    """Print a diagnosis and a fix, never a traceback."""
+    print(f"\n{message}", file=sys.stderr)
+    return 1
 
 
 def main() -> int:
@@ -68,16 +79,61 @@ def main() -> int:
     failure = datetime.fromisoformat(args.failure)
 
     try:
-        threshold = json.load(urllib.request.urlopen(f"{args.api}/health", timeout=30))[
-            "threshold"
-        ]
+        with urllib.request.urlopen(f"{args.api}/health", timeout=30) as response:
+            health = json.load(response)
     except urllib.error.URLError as e:
-        print(f"cannot reach the API at {args.api}: {e}\nStart it with: make docker-up")
-        return 1
+        return fail(
+            f"cannot reach the API at {args.api}: {e}\n"
+            f"Start it with: make docker-up"
+        )
+
+    # /health answers 200 whether or not the model loaded — "degraded" is a
+    # field, not a status code, which is deliberate (an operator needs the
+    # check to answer in order to learn the model is missing). So it has to be
+    # read. On a fresh clone models/ and data/ are gitignored and merely
+    # mounted, so this is the normal first-run state, and without the check
+    # the script sailed past the friendly branch above and died on the first
+    # scoring call with an unhandled 503 traceback.
+    if health.get("status") != "ok":
+        return fail(
+            f"the API is up but {health.get('status')}: "
+            f"model_loaded={health.get('model_loaded')}, "
+            f"dataset_loaded={health.get('dataset_loaded')}.\n"
+            f"It has nothing to score with. Generate the data and train first:\n"
+            f"  python scripts/generate_data.py\n"
+            f"  python scripts/run_preprocessing.py\n"
+            f"  python scripts/train_model.py"
+        )
+    threshold = health["threshold"]
+
+    # The window must sit inside the loaded data. Asking for a failure near
+    # the start of the dataset silently produced an empty telemetry slice and
+    # a PredictionError 20 hourly rows into the run, with no chart written.
+    window_start = failure - timedelta(hours=args.hours)
+    start, end = health.get("data_start"), health.get("data_end")
+    if start and end:
+        first, last = datetime.fromisoformat(start), datetime.fromisoformat(end)
+        if window_start < first or failure > last:
+            return fail(
+                f"--failure {args.failure} with --hours {args.hours} needs data "
+                f"from {window_start} to {failure}, but this API has loaded "
+                f"{first} to {last}.\n"
+                f"Pick a failure at least {args.hours}h after the start of the data."
+            )
 
     hours, probs = [], []
     for back in range(args.hours, -1, -1):
-        record = score(args.api, args.machine, failure - timedelta(hours=back))
+        try:
+            record = score(args.api, args.machine, failure - timedelta(hours=back))
+        except urllib.error.HTTPError as e:
+            # 404 for an unknown --machine, 503 for an unscoreable window.
+            # Either way the run is over; say which hour and why rather than
+            # unwinding a traceback on top of 20 rows of printed output.
+            detail = e.read().decode("utf-8", "replace")[:300]
+            return fail(
+                f"the API returned {e.code} scoring machine {args.machine} "
+                f"at -{back}h:\n{detail}"
+            )
         hours.append(-back)
         probs.append(record["failure_probability"])
         print(f"-{back:02d}h  {record['failure_probability']:.4f}", flush=True)
@@ -118,6 +174,7 @@ def main() -> int:
 
     # Selective direct labels only — never a number on every point.
     if crossing is not None:
+        label_x = max(crossing - args.hours * 0.44, -args.hours + 0.5)
         ax.plot(
             [crossing],
             [dict(zip(hours, probs))[crossing]],
@@ -131,8 +188,11 @@ def main() -> int:
             f"— {abs(crossing)} hours before failure",
             xy=(crossing, dict(zip(hours, probs))[crossing]),
             # Clear of the dashed threshold line; the earlier placement sat
-            # directly on it and both became harder to read.
-            xytext=(crossing - 21, 0.40),
+            # directly on it and both became harder to read. Offset as a
+            # fraction of the axis rather than a fixed 21 hours: the x-limits
+            # follow --hours, so the constant put the label off-figure at any
+            # window shorter than the default 48.
+            xytext=(label_x, 0.40),
             color=INK,
             fontsize=10,
             arrowprops=dict(arrowstyle="->", color=MUTED, linewidth=1.2),

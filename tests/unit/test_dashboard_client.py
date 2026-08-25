@@ -277,7 +277,7 @@ def _imported_modules(path: Path) -> set:
     explain that it is NOT used would fail a substring check, which is
     exactly what happened when this test was first written.
     """
-    tree = ast.parse(path.read_text())
+    tree = ast.parse(path.read_text(encoding="utf-8"))
     modules = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):

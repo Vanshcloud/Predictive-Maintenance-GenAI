@@ -20,6 +20,7 @@ THE SLICING CONSTRAINT — measured, and the reason this module exists:
 """
 
 import time
+from collections import OrderedDict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -42,6 +43,17 @@ DEFAULT_WINDOW_HOURS = 200
 # Fleet scoring touches every machine, so it is cached. Sensor data arrives
 # hourly, making a 5-minute TTL a reasonable staleness budget.
 FLEET_CACHE_TTL_SECONDS = 300
+
+# The cache is keyed by `as_of`, which is a caller-supplied query parameter on
+# a public endpoint — so the key space is the caller's to choose, not ours.
+# Nothing evicted before: the TTL was only ever consulted on a hit, so an
+# expired entry stayed resident forever and every distinct timestamp added
+# another ~100 prediction records permanently. The dashboard's rewind control
+# is a date picker plus an hour slider, so ordinary use walks thousands of
+# distinct keys in a single session and the process grows without bound.
+# 16 entries covers the rewinding a person actually does while keeping the
+# ceiling fixed and small.
+FLEET_CACHE_MAX_ENTRIES = 16
 
 
 class MachineDataStore:
@@ -171,7 +183,7 @@ class PredictionService:
         # present when asked about the past, which is the worst possible
         # failure for a feature whose entire point is looking at another
         # moment in time.
-        self._fleet_cache: Dict[Any, List[Dict[str, Any]]] = {}
+        self._fleet_cache: "OrderedDict[Any, List[Dict[str, Any]]]" = OrderedDict()
         self._fleet_cached_at: Dict[Any, float] = {}
 
     def predict_machine(
@@ -251,6 +263,7 @@ class PredictionService:
         age = time.monotonic() - self._fleet_cached_at.get(key, 0.0)
         if not force and key in self._fleet_cache and age < FLEET_CACHE_TTL_SECONDS:
             logger.debug(f"Fleet cache hit for as_of={key} ({age:.0f}s old)")
+            self._fleet_cache.move_to_end(key)
             return self._fleet_cache[key]
 
         started = time.perf_counter()
@@ -264,7 +277,11 @@ class PredictionService:
 
         results.sort(key=lambda r: r["failure_probability"], reverse=True)
         self._fleet_cache[key] = results
+        self._fleet_cache.move_to_end(key)
         self._fleet_cached_at[key] = time.monotonic()
+        while len(self._fleet_cache) > FLEET_CACHE_MAX_ENTRIES:
+            evicted, _ = self._fleet_cache.popitem(last=False)
+            self._fleet_cached_at.pop(evicted, None)
 
         alerting = sum(1 for r in results if r["will_fail"])
         logger.info(

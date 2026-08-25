@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 An end-to-end Predictive Maintenance platform: a TensorFlow LSTM predicts equipment failures 24h in advance from sensor telemetry, and LangChain + an LLM turns those predictions into plain-English maintenance reports, exposed via FastAPI and a Streamlit dashboard. It was built incrementally as a 12-day/12-milestone portfolio project — read **`IMPLEMENTATION_PLAN.md`** first — it is the single source of truth for scope, architecture, risks, milestones, and current status — then the latest `docs/DayX.md` for what the last session actually did. Both must be updated before a session ends; docs and code ship in the same commit.
 
-Progress: **all 12 milestones are delivered**, plus post-project Days 13 (`docs/Day13.md`) and 14 (`docs/Day14.md`). Every layer is implemented and tested end to end: data pipeline, LSTM (test F1 0.8949, 8/8 failure events caught), prediction pipeline, LangChain reports and assistant, FastAPI, Streamlit dashboard, and two Docker images wired by compose. 232 unit + 13 integration tests; flake8/Black/isort/mypy all clean and blocking in CI.
+Progress: **all 12 milestones are delivered**, plus post-project Days 13 (`docs/Day13.md`), 14 (`docs/Day14.md`) and 15 (`docs/Day15.md`). Every layer is implemented and tested end to end: data pipeline, LSTM (test F1 0.8949, 8/8 failure events caught), prediction pipeline, LangChain reports and assistant, FastAPI, Streamlit dashboard, and two Docker images wired by compose. 238 unit + 13 integration tests; flake8/Black/isort/mypy all clean and blocking in CI.
 The lint paths are declared once as `PY_PATHS` in the Makefile and CI calls `make lint` /
 `make format-check` rather than repeating them; `make typecheck` runs mypy twice, because
 CI installs no ML stack and therefore type-checks a different program than a full venv does. Work from here is enhancement, not construction.
@@ -77,4 +77,6 @@ Every prediction endpoint takes an optional `as_of` timestamp; `None` means "the
 - Class imbalance (~1:745 positive rate) means model quality is judged on AUC/F1/precision/recall, never accuracy.
 - LSTM sequence windows never mix rows from different `machine_id`s.
 - `as_of` filtering covers every table, not just telemetry — see above.
+- Training is seeded (`keras.utils.set_random_seed` in `scripts/train_model.py`, before the model is built). The quoted F1 is only meaningful if a second run reproduces it.
+- `/fleet`'s cache is keyed by a caller-supplied `as_of` and must stay bounded — it is an LRU capped at `FLEET_CACHE_MAX_ENTRIES`, not a plain dict.
 - New code follows the existing module docstring convention: WHY THIS FILE EXISTS / HOW IT WORKS (see any file in `src/` for the pattern), and inline comments explain *why*, not *what*.

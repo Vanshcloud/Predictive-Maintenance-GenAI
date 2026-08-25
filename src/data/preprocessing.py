@@ -880,7 +880,7 @@ class DataPreprocessor:
             joblib.dump(self.scaler, save_dir / "scaler.joblib")
 
         # Save feature column names
-        with open(save_dir / "feature_columns.txt", "w") as f:
+        with open(save_dir / "feature_columns.txt", "w", encoding="utf-8") as f:
             for col in feature_cols:
                 f.write(f"{col}\n")
 

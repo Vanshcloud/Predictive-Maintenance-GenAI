@@ -596,3 +596,63 @@ class TestTimeTravel:
             datetime(2024, 10, 30, 12, 0),
             None,
         ]
+
+
+class TestFleetCacheIsBounded:
+    """
+    The cache is keyed by `as_of`, a caller-supplied query parameter, and
+    nothing evicted: the TTL was only consulted on a hit, so every distinct
+    timestamp added ~100 prediction records that were never freed. The
+    dashboard's rewind control is a date picker plus an hour slider, so
+    ordinary use walks thousands of keys in one session.
+    """
+
+    @staticmethod
+    def _service():
+        class Store:
+            machine_ids = [1]
+
+            def slice_for(self, machine_id, window_hours=200, as_of=None):
+                return {}
+
+        class Predictor:
+            def predict_machine(self, sliced, machine_id):
+                return {
+                    "machine_id": machine_id,
+                    "failure_probability": 0.1,
+                    "will_fail": False,
+                }
+
+        return service_module.PredictionService(Predictor(), Store())
+
+    def test_distinct_as_of_values_do_not_grow_the_cache_without_bound(self):
+        service = self._service()
+        for hour in range(service_module.FLEET_CACHE_MAX_ENTRIES * 4):
+            service.fleet(as_of=datetime(2024, 10, 30) + timedelta(hours=hour))
+
+        assert len(service._fleet_cache) <= service_module.FLEET_CACHE_MAX_ENTRIES
+        # The bookkeeping dict must be evicted alongside it, or the leak simply
+        # moves from one dict to the other.
+        assert len(service._fleet_cached_at) <= service_module.FLEET_CACHE_MAX_ENTRIES
+
+    def test_the_oldest_key_is_the_one_dropped(self):
+        service = self._service()
+        first = datetime(2024, 10, 30)
+        for hour in range(service_module.FLEET_CACHE_MAX_ENTRIES + 1):
+            service.fleet(as_of=first + timedelta(hours=hour))
+
+        assert pd.Timestamp(first) not in service._fleet_cache
+        assert pd.Timestamp(first) not in service._fleet_cached_at
+
+    def test_a_repeatedly_read_key_survives_eviction(self):
+        """LRU, not FIFO: the view an operator keeps returning to is the one
+        worth keeping, and re-inserting it would re-pay the ~16 s scoring cost."""
+        service = self._service()
+        hot = datetime(2024, 10, 30)
+        service.fleet(as_of=hot)
+        for hour in range(1, service_module.FLEET_CACHE_MAX_ENTRIES):
+            service.fleet(as_of=hot + timedelta(hours=hour))
+            service.fleet(as_of=hot)  # a cache hit, which must refresh recency
+
+        service.fleet(as_of=hot + timedelta(days=99))
+        assert pd.Timestamp(hot) in service._fleet_cache

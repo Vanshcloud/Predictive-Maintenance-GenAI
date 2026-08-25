@@ -19,6 +19,14 @@ import numpy as np
 # Ensure src can be found if running from root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+# This line is why the abseil ordering in docs/Day4.md holds for this script:
+# it drags TensorFlow in before `src.models` pulls sklearn (and therefore
+# Arrow) in below. isort placed it here on its own — third-party sorts above
+# first-party — and that placement is the correct one, so it needs no
+# skip_file. Only `numpy` precedes it, which links no abseil of its own.
+# If this import is ever removed, TensorFlow must still be first.
+from tensorflow import keras  # noqa: E402
+
 from config.settings import get_settings
 from src.models import ModelEvaluator, ModelTrainer, PredictiveMaintenanceModel
 from src.utils.logger import get_logger
@@ -75,6 +83,16 @@ def main():
         "--learning-rate", type=float, default=0.001, help="Adam learning rate"
     )
     parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help=(
+            "Seed for weight initialisation, dropout masks, and batch "
+            "shuffling (default: 42, matching scripts/generate_data.py). "
+            "Pass a different one to measure run-to-run variance."
+        ),
+    )
+    parser.add_argument(
         "--resume",
         action="store_true",
         help="Continue from the checkpoint and state file left by a previous run",
@@ -117,6 +135,25 @@ def main():
     n_features = X_train.shape[2]
 
     # 2. Initialize Model
+    #
+    # Seeded BEFORE the model is built, because that is when the LSTM kernels
+    # are drawn from glorot_uniform. Without this the script was not
+    # reproducible: two runs on identical data produced different weights,
+    # different dropout masks, and a different test F1 — while README.md,
+    # CLAUDE.md and docs/RESULTS.md all quote 0.8949 as a fact about this
+    # repository. An unreproducible headline metric is an unfalsifiable one.
+    #
+    # `set_random_seed` is one call for all three generators Keras draws from
+    # (Python `random`, NumPy, TensorFlow); seeding them separately is the
+    # same thing with three more places to forget one.
+    #
+    # NOT enabled: tf.config.experimental.enable_op_determinism(). It would
+    # also pin down non-deterministic GPU kernel reductions, but it disables
+    # the fused cuDNN LSTM path and costs several times the training time.
+    # Seeding alone is what this CPU-trained model needs.
+    keras.utils.set_random_seed(args.seed)
+    logger.info(f"Seeded all RNGs with {args.seed}.")
+
     logger.info("Initializing model...")
     model_wrapper = PredictiveMaintenanceModel(
         sequence_length=seq_length, n_features=n_features
@@ -144,7 +181,7 @@ def main():
 
     # Per-epoch curves, kept for the Day 5 evaluation plots.
     history_path = settings.model_artifacts_path / "training_history.json"
-    with open(history_path, "w") as f:
+    with open(history_path, "w", encoding="utf-8") as f:
         json.dump(history, f, indent=4)
     logger.info(f"Saved training history to {history_path}")
 
@@ -156,7 +193,7 @@ def main():
 
     # Save metrics
     metrics_path = settings.model_artifacts_path / "metrics.json"
-    with open(metrics_path, "w") as f:
+    with open(metrics_path, "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=4)
     logger.info(f"Saved evaluation metrics to {metrics_path}")
 

@@ -460,7 +460,9 @@ class ModelTrainer:
             "best_score": float(best_score),
             "history": history,
         }
-        self._state_path(checkpoint_path).write_text(json.dumps(payload, indent=2))
+        self._state_path(checkpoint_path).write_text(
+            json.dumps(payload, indent=2), encoding="utf-8"
+        )
 
     def _load_state(self, checkpoint_path: str) -> Optional[Dict]:
         """Read resume state, or None if absent/unreadable."""
@@ -469,7 +471,7 @@ class ModelTrainer:
             logger.info(f"No resume state at {path} — starting from scratch.")
             return None
         try:
-            state: Dict[str, Any] = json.loads(path.read_text())
+            state: Dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
             ckpt = Path(checkpoint_path)
             if not ckpt.exists():
                 logger.warning(

@@ -7,7 +7,7 @@
 ![LangChain](https://img.shields.io/badge/LangChain-0.2%2B-green?logo=chainlink&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-teal?logo=fastapi&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
-![Tests](https://img.shields.io/badge/tests-233%20unit%20%2B%2013%20integration-brightgreen)
+![Tests](https://img.shields.io/badge/tests-238%20unit%20%2B%2013%20integration-brightgreen)
 [![CI](https://github.com/Vanshcloud/vigilant-lamp/actions/workflows/ci.yml/badge.svg)](https://github.com/Vanshcloud/vigilant-lamp/actions/workflows/ci.yml)
 ![Model F1](https://img.shields.io/badge/model%20F1-0.8949-success)
 
@@ -30,10 +30,18 @@ The flat part on the left matters as much as the climb. The model was trained
 to see 24 hours ahead and no further, so a day before the failure it is silent
 and *should* be. That is the horizon, drawn.
 
-Reproduce it in one command with the stack running:
+Regenerate it yourself. The chart is committed, but so is the script that
+draws it — an image nobody can reproduce is the same problem as a status badge
+that cannot go red. `data/` and `models/` are gitignored, so a fresh clone
+builds them first:
 
 ```bash
-make docker-up
+python scripts/generate_data.py       # ~1 min
+python scripts/run_preprocessing.py   # ~3 min
+python scripts/train_model.py         # ~15 min on CPU, seeded, reproducible
+
+make docker-up-d                      # or: make run-api, in another shell
+pip install -r requirements-dev.txt   # the script needs matplotlib
 python scripts/plot_horizon.py                 # machine 51, the chart above
 python scripts/plot_horizon.py --machine 96 --failure 2024-11-14T00:00:00
 ```
@@ -408,14 +416,14 @@ config/ -> src/utils/ -> src/data/ -> src/models/ -> src/prediction/ -> src/gena
 ## Testing
 
 ```bash
-make test          # 75 tests
+make test          # 238 unit tests
 make test-cov      # with coverage report
 make lint          # flake8
 make format        # black + isort (writes)
 make quality       # lint + format-check + typecheck (no writes)
 ```
 
-**Current status: 229 unit + 13 integration tests passing, 0 flake8 issues, mypy clean, Black and isort clean.**
+**Current status: 238 unit + 13 integration tests passing, 0 flake8 issues, mypy clean, Black and isort clean.**
 
 Tests run against the committed `data/sample/` fixture, so they need no generated data.
 The first run pays roughly 90 seconds for TensorFlow's initial import on ARM64 macOS;
