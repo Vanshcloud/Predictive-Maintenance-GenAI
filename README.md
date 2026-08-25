@@ -360,6 +360,7 @@ local Ollama model generates the full report keyless.
 vigilant-lamp/
 ├── IMPLEMENTATION_PLAN.md   # Single source of truth: scope, architecture, risks, status
 ├── AGENTS.md                # Working notes for AI agents in this repo
+├── CLAUDE.md                # One line, pointing at AGENTS.md
 ├── LICENSE                  # MIT
 ├── Makefile                 # make test / lint / format / typecheck / quality
 ├── pyproject.toml           # PEP 621 metadata + Black/isort/pytest/mypy/coverage config

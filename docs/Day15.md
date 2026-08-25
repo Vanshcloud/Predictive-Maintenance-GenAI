@@ -247,6 +247,11 @@ Six current-state references updated (README twice, the plan twice,
 `docs/README.md`, and two source comments). References inside Day reports are
 left alone — they record the name the file had at the time.
 
+A one-line `CLAUDE.md` stays behind pointing at it, so a tool that looks for
+that name by convention still finds the conventions. It is a signpost, not a
+second copy — two files of instructions that can disagree is the drift this
+repository has already been bitten by twice.
+
 Unrelated but discovered alongside it: GitHub's Contributors sidebar was still
 showing two people after Day 14's history rewrite. The commit data was already
 correct — `/contributors?anon=1` and all 42 commits on `main` return one author
