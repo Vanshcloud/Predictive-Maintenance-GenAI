@@ -11,7 +11,7 @@ immediately. It must be updated whenever meaningful progress is made.
 | **Last updated** | 2026-08-25 (end of Day 15 — full-repository production review) |
 | **Current milestone** | **Day 12 of 12 — complete.** All milestones delivered; Days 13–14 are post-project. |
 | **Overall completion** | **100% of the 12-day plan** |
-| **Repository** | https://github.com/Vanshcloud/vigilant-lamp |
+| **Repository** | https://github.com/Vanshcloud/Predictive-Maintenance-GenAI |
 | **Branch** | `main` |
 | **Latest commit at time of writing** | `79c094a` (Day 3); Day 4 work is staged in the working tree |
 | **Companion documents** | `docs/Day1.md` … `docs/Day15.md`, `docs/RESULTS.md` (consolidated metrics), `AGENTS.md` (agent instructions) |
@@ -29,7 +29,7 @@ immediately. It must be updated whenever meaningful progress is made.
 
 ## Project name
 
-**Predictive Maintenance + GenAI Insight Generator** (repository name: `vigilant-lamp`).
+**Predictive Maintenance + GenAI Insight Generator** (repository name: `Predictive-Maintenance-GenAI`).
 
 ## Problem statement
 
@@ -290,8 +290,8 @@ joblib        >= 1.3,  < 2.0
 
 ```bash
 # 1. Clone
-git clone https://github.com/Vanshcloud/vigilant-lamp.git
-cd vigilant-lamp
+git clone https://github.com/Vanshcloud/Predictive-Maintenance-GenAI.git
+cd Predictive-Maintenance-GenAI
 
 # 2. Create the 3.12 virtualenv (3.13+ will fail on the TensorFlow install)
 /opt/homebrew/bin/python3.12 -m venv venv
@@ -1975,7 +1975,7 @@ Beyond the 12-day scope, in rough priority order:
 | `src/genai/` | 100% |
 | `src/api/` | 100% |
 | `dashboard/` | 100% |
-| `docker/` + CI | 100% — images built, compose verified. **CI status belongs on the [live badge](https://github.com/Vanshcloud/vigilant-lamp/actions/workflows/ci.yml), not in this table** — a flat "CI green" here read as true through three consecutive red runs (#6–#8). |
+| `docker/` + CI | 100% — images built, compose verified. **CI status belongs on the [live badge](https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/actions/workflows/ci.yml), not in this table** — a flat "CI green" here read as true through three consecutive red runs (#6–#8). |
 | Documentation | 95% |
 | Tests | 238 unit + 13 integration passing; flake8/Black/isort/mypy clean across five paths, locally and in CI |
 

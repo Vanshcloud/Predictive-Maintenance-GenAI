@@ -8,7 +8,7 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-teal?logo=fastapi&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 ![Tests](https://img.shields.io/badge/tests-238%20unit%20%2B%2013%20integration-brightgreen)
-[![CI](https://github.com/Vanshcloud/vigilant-lamp/actions/workflows/ci.yml/badge.svg)](https://github.com/Vanshcloud/vigilant-lamp/actions/workflows/ci.yml)
+[![CI](https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/actions/workflows/ci.yml/badge.svg)](https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/actions/workflows/ci.yml)
 ![Model F1](https://img.shields.io/badge/model%20F1-0.9086-success)
 
 ---
@@ -186,8 +186,8 @@ See [docs/architecture.md](docs/architecture.md) for the detailed architecture d
 
 ```bash
 # 1. Clone
-git clone https://github.com/Vanshcloud/vigilant-lamp.git
-cd vigilant-lamp
+git clone https://github.com/Vanshcloud/Predictive-Maintenance-GenAI.git
+cd Predictive-Maintenance-GenAI
 
 # 2a. Automated setup (finds a compatible Python for you)
 chmod +x scripts/setup.sh
@@ -357,7 +357,7 @@ local Ollama model generates the full report keyless.
 ## Project Structure
 
 ```
-vigilant-lamp/
+Predictive-Maintenance-GenAI/
 ├── IMPLEMENTATION_PLAN.md   # Single source of truth: scope, architecture, risks, status
 ├── AGENTS.md                # Working notes for AI agents in this repo
 ├── CLAUDE.md                # One line, pointing at AGENTS.md
