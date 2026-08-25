@@ -107,6 +107,13 @@ docker-compose.override.yml
 .DS_Store
 Thumbs.db
 
+# --- Local session handoff (deliberately not published) ---
+# docs/PROJECT_STATE.md is written for the NEXT agent session, not for readers
+# of this repository: it carries working agreements, scratchpad paths, and
+# unverified in-flight state. Ignored rather than merely untracked, because a
+# `git add -A` would otherwise sweep it into a commit and publish it.
+docs/PROJECT_STATE.md
+
 # Stray uv artifact: nothing here uses uv (the project is pip + venv, see the
 # Makefile). A bare `uv` invocation in this directory drops a 155-byte lockfile
 # that resolves no dependencies at all, so it is noise, not a lockfile.

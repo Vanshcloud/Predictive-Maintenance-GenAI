@@ -9,6 +9,15 @@ any one vendor's file.
 > are session records describing the file as it was named at the time, and are
 > left as written.
 
+## Start here
+
+**If `docs/PROJECT_STATE.md` exists in your working copy, read it before
+anything else.** It is a local, gitignored handoff from the previous session:
+current model metrics and why they changed, decisions made and the reasoning,
+bugs already found and fixed, what was audited and found sound, exact next
+steps, and working agreements with the repository owner. It is not in the
+repository — a fresh clone will not have it, and that is intended.
+
 ## Project Overview
 
 An end-to-end Predictive Maintenance platform: a TensorFlow LSTM predicts equipment failures 24h in advance from sensor telemetry, and LangChain + an LLM turns those predictions into plain-English maintenance reports, exposed via FastAPI and a Streamlit dashboard. It was built incrementally as a 12-day/12-milestone portfolio project — read **`IMPLEMENTATION_PLAN.md`** first — it is the single source of truth for scope, architecture, risks, milestones, and current status — then the latest `docs/DayX.md` for what the last session actually did. Both must be updated before a session ends; docs and code ship in the same commit.
