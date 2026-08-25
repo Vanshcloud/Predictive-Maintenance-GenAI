@@ -102,13 +102,20 @@ class Settings(BaseSettings):
     # Alert threshold, chosen by sweeping the precision-recall curve on the
     # VALIDATION split (never on test) — see docs/Day5.md. 0.5 is not a
     # sensible default at a ~1:864 positive rate; this value is measured.
-    PREDICTION_THRESHOLD: float = 0.6678
+    PREDICTION_THRESHOLD: float = 0.3415
 
     # Risk bands for human-facing output. A probability means nothing to a
     # technician at 3am; a band plus a recommended action does. Boundaries are
     # ordered low -> critical and must stay ascending.
-    RISK_BAND_MEDIUM: float = 0.30
-    RISK_BAND_HIGH: float = 0.6678  # == PREDICTION_THRESHOLD: "high" is an alert
+    # Scaled with the threshold on Day 15's retrain, not left where it was.
+    # The seeded model's tuned threshold fell from 0.6678 to 0.3415, and a
+    # MEDIUM boundary still sitting at 0.30 would have left "medium" a
+    # four-point sliver between 0.30 and 0.3415 — a band almost nothing can
+    # land in, which is a band that tells a technician nothing. 0.15 keeps
+    # medium at ~44% of the alert threshold, the same proportion 0.30 held
+    # against 0.6678.
+    RISK_BAND_MEDIUM: float = 0.15
+    RISK_BAND_HIGH: float = 0.3415  # == PREDICTION_THRESHOLD: "high" is an alert
     RISK_BAND_CRITICAL: float = 0.90
 
     # ---- Data Paths ----

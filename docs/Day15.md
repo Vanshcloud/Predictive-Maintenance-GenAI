@@ -185,6 +185,59 @@ not looked at.
 
 ---
 
+## 6. The retrain
+
+Seeding is only half of it. The model in `models/` was trained *before* the seed
+existed, so the committed `metrics.json` was still an unreproducible artifact
+and the 0.8949 in the README still could not be checked by anyone. Retrained
+with `--seed 42` and re-evaluated; the whole chain moved with it.
+
+Early stopping at epoch 28 of 30, best weights from epoch 23 (`val_f1` 0.9602).
+81 minutes, CPU-only. Then `scripts/evaluate_model.py` re-swept the threshold on
+validation.
+
+| | Day 5 (unseeded) | Day 15 (`--seed 42`) |
+|---|---|---|
+| ROC-AUC | 0.9997 | **0.9999** |
+| Precision | 0.8756 | **0.8976** |
+| Recall | 0.9150 | **0.9200** |
+| **Test F1** | 0.8949 | **0.9086** |
+| Missed | 17 | **16** |
+| False alarms | 26 | **21** |
+| Deployed threshold | 0.6678 | **0.3415** |
+| Reproducible | no | **yes** |
+
+It is better across the board, but that is luck, not tuning — the only change
+was the seed, which happened to draw a start that trained 28 epochs to a best at
+23 instead of stopping at 20. **The improvement is not the point.** The point is
+the last row: every figure this project has published for fourteen days
+described a model nobody could rebuild, including me.
+
+Three things had to move with the threshold:
+
+- **`PREDICTION_THRESHOLD` 0.6678 → 0.3415**, and `RISK_BAND_HIGH` with it —
+  they are asserted equal by `tests/unit/test_predictor.py`, because "high or
+  above" must mean exactly "the model is alerting".
+- **`RISK_BAND_MEDIUM` 0.30 → 0.15.** Not cosmetic: left at 0.30 it would have
+  made "medium" a four-point sliver between 0.30 and 0.3415, a band almost
+  nothing can land in, which tells a technician nothing. 0.15 holds medium at
+  ~44% of the alert threshold — the proportion 0.30 held against 0.6678.
+- **`docs/images/horizon.png` regenerated.** Machine 51 now crosses at **−16h**
+  rather than −15h, and the climb is sharper: 0.0005 at −17h to 0.9943 at −16h.
+
+**`8/8 failure events caught` was re-verified, not carried over.** It had no test
+behind it anywhere in the tree — it came from a one-off Day 6 script run. Scoring
+all eight held-out failure events hour by hour through the API confirms the
+retrained model warns on every one, with a median of 23.5 h of lead time and a
+worst case of 16 h (machine 51, the machine in the chart).
+
+`docs/Day5.md` and this file's §4 table are left as they were measured. They are
+session records, not current-state claims; `docs/RESULTS.md` and
+`IMPLEMENTATION_PLAN.md` carry the current numbers and now say which model they
+describe.
+
+---
+
 ## Verification
 
 ```

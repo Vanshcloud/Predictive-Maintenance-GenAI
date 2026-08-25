@@ -87,7 +87,7 @@ probability of `0.87` means nothing to a maintenance technician on a factory flo
 | 1 | Reproducible synthetic dataset generator (5 tables, 883K rows) | ✅ Done (Day 2) |
 | 2 | Data ingestion + validation layer | ✅ Done (Day 2) |
 | 3 | Feature engineering + LSTM sequence pipeline | ✅ Done (Day 3) |
-| 4 | Trained LSTM model + evaluation metrics | ✅ Done (Day 5) — **AUC 0.9997, F1 0.8949** on a clean 3-way split |
+| 4 | Trained LSTM model + evaluation metrics | ✅ Done (Day 5, retrained seeded Day 15) — **AUC 0.9999, F1 0.9086** on a clean 3-way split |
 | 5 | Inference/prediction pipeline | ✅ Done (Day 6) — `Predictor`, parity with training verified at 100% |
 | 6 | LangChain report generator + Q&A assistant | ✅ Done (Days 7–8) — grounded reports and multi-turn Q&A |
 | 7 | FastAPI REST API | ✅ Done (Day 9) — 9 endpoints, 137 ms predictions, LLM path isolated |
@@ -1673,7 +1673,7 @@ checkout, which doubles as validation of the installation instructions above.
 | **Deliverables** | Evaluation report, plots, tuned model, updated `metrics.json`. |
 | **Dependencies** | M4. |
 | **Effort** | 1 day. |
-| **Success criteria** | AUC ≥ 0.85 with a defensible operating point ✅ (0.9997 at t=0.6678, chosen on validation); validation set no longer the test set ✅. All met. |
+| **Success criteria** | AUC ≥ 0.85 with a defensible operating point ✅ (0.9999 at t=0.3415, chosen on validation); validation set no longer the test set ✅. All met. |
 
 ## M6 — Prediction pipeline (Day 6) ✅
 
@@ -1774,7 +1774,7 @@ Each day has a matching document in `docs/`.
 | **Day 12** | 2026-08-24 | Final polish, docs & demo | `docs/Day12.md` | ✅ Complete — clean-checkout verified, RESULTS.md, TD-4 closed |
 | **Day 13** | 2026-08-25 | Point-in-time assessment (`as_of`) | `docs/Day13.md` | ✅ Complete — post-project; 229 unit + 13 integration tests |
 | **Day 14** | 2026-08-25 | Quality-gate drift, accessibility & the horizon chart | `docs/Day14.md` | ✅ Complete — post-project; local/CI gates unified, 2 WCAG AA failures fixed, 233 unit tests, README demo asset |
-| **Day 15** | 2026-08-25 | Full-repository production review | `docs/Day15.md` | ✅ Complete — post-project; training made reproducible (seeded), unbounded `/fleet` cache bounded, `plot_horizon.py` hardened, 238 unit tests |
+| **Day 15** | 2026-08-25 | Full-repository production review + seeded retrain | `docs/Day15.md` | ✅ Complete — post-project; training made reproducible and retrained (**F1 0.9086**, t=0.3415), unbounded `/fleet` cache bounded, `plot_horizon.py` hardened, 238 unit tests |
 
 Days 13 and 14 sit outside the original 12 milestones. Day 13 exists because the
 finished product had a presentation defect the plan never anticipated: assessed at
@@ -1852,7 +1852,7 @@ reloaded in a fresh process and verified to predict.
 > early stopping and checkpoint selection observed the test set. Day 5 replaced the split
 > and retrained; the current figures are below.
 
-## Day 5 results (2026-08-23) — current
+## Day 5 results (2026-08-23) — superseded by the Day 15 seeded retrain below
 
 Retrained on a clean three-way split (567,000 train / 129,000 validation / 172,800 test),
 monitoring `val_f1`. Early stopping at epoch 20 of 30; best weights from epoch 15.
@@ -1868,6 +1868,30 @@ Threshold chosen on **validation** (best-F1, t=0.6678), then test scored once.
 | **False alarms** | 113 | **26** |
 
 183 of 200 failures caught, 26 false alarms across 172,800 hourly readings.
+
+### Day 15 retrain (2026-08-25) — current, and reproducible
+
+The Day 5 model was trained without a seed, so nothing above could be
+re-derived. `scripts/train_model.py --seed 42` now reproduces the deployed
+model exactly. Early stopping at epoch 28 of 30; best weights from epoch 23
+(`val_f1` 0.9602). Threshold chosen on **validation** (best-F1, t=0.3415),
+then test scored once.
+
+| Metric | Day 5 | Day 15 (deployed) |
+|---|---|---|
+| ROC-AUC | 0.9997 | **0.9999** |
+| Precision | 0.8756 | **0.8976** |
+| Recall | 0.9150 | **0.9200** |
+| **F1** | 0.8949 | **0.9086** |
+| Missed failures | 17 | **16** |
+| **False alarms** | 26 | **21** |
+| Reproducible | no | **yes** |
+
+184 of 200 hourly labels caught, 21 false alarms across 172,800 readings, and
+**8 of 8 failure events** warned about — median 23.5 h of lead time, worst case
+16 h. The threshold move from 0.6678 to 0.3415 also pulled `RISK_BAND_MEDIUM`
+down from 0.30 to 0.15; leaving it would have made "medium" a four-point sliver
+nothing could land in.
 
 **Why the honest split scored higher.** Day 4 monitored `val_auc`, which saturates under
 this imbalance — it peaked in epoch 1 and early stopping kept those weights. With a real
@@ -1905,7 +1929,7 @@ deadlock) were resolved on Day 4.
 | ~~TD-4~~ | ~~`docs/handoff.md` overlaps this plan~~ | — | ✅ **Repaid Day 12** — removed; superseded by this plan and by `docs/Day1-3.md`, and preserved in git history |
 | ~~TD-8~~ | ~~mypy reports 159 errors~~ | — | ✅ **Repaid Day 12** — 0 errors across 29 files; the CI check is now **blocking**. 128 of the 159 came from one line: `get_logger()` annotated with `loguru.logger`, an instance rather than a class |
 | ~~TD-5~~ | ~~`CLAUDE.md` referenced a `tf.data` trainer and root-level `debug_fit*.py` files~~ | Drift during Day 4's debugging | ✅ **Repaid Day 4** — `CLAUDE.md` corrected |
-| ~~TD-6~~ | ~~Threshold fixed at 0.5~~ | — | ✅ **Repaid Day 5** — validation sweep; deployed t=0.6678 |
+| ~~TD-6~~ | ~~Threshold fixed at 0.5~~ | — | ✅ **Repaid Day 5** — validation sweep; deployed t=0.3415 since the Day 15 retrain |
 | ~~TD-7~~ | ~~Integration tests: 9~~ | — | ✅ **Repaid Day 13** — 13 integration tests; `test_time_travel.py` adds four covering point-in-time assessment against the real model, including a leakage check |
 
 ## Known issues

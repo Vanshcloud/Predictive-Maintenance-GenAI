@@ -435,9 +435,10 @@ class TestReproducibility:
     `scripts/train_model.py` had no seed at all: LSTM kernels came from an
     unseeded glorot_uniform and dropout masks from an unseeded RNG, so two runs
     on identical data produced different weights and a different test F1 —
-    while README.md, CLAUDE.md and docs/RESULTS.md quote 0.8949 as a fact about
-    this repository. A headline metric nobody can reproduce cannot be checked
-    by anyone, including its author.
+    while README.md, CLAUDE.md and docs/RESULTS.md quoted 0.8949 as a fact about
+    this repository. A headline metric nobody can reproduce cannot be checked by
+    anyone, including its author. The deployed model was retrained under this
+    seed on Day 15.
     """
 
     @staticmethod

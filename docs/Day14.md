@@ -213,6 +213,11 @@ in. Machine 51:
 | −14h | 0.9996 |
 | −13h … 0h | 1.0000 |
 
+> These figures describe the **unseeded Day 5 model**, which Day 15 replaced
+> with a seeded retrain. The committed chart now shows the new model: machine
+> 51 crosses at −16h against a 0.3415 threshold. The numbers above are left as
+> they were measured — see `docs/Day15.md`.
+
 The flat left-hand side carries as much weight as the climb: a day out the
 model is silent, and *should* be, because 24 hours is the horizon it was
 trained to. Machine 96 crosses at −23h, so the README no longer implies 24h is

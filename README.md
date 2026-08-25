@@ -9,7 +9,7 @@
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 ![Tests](https://img.shields.io/badge/tests-238%20unit%20%2B%2013%20integration-brightgreen)
 [![CI](https://github.com/Vanshcloud/vigilant-lamp/actions/workflows/ci.yml/badge.svg)](https://github.com/Vanshcloud/vigilant-lamp/actions/workflows/ci.yml)
-![Model F1](https://img.shields.io/badge/model%20F1-0.8949-success)
+![Model F1](https://img.shields.io/badge/model%20F1-0.9086-success)
 
 ---
 
@@ -22,8 +22,8 @@ downstream of the moment leaks in.
 
 ![The 24-hour horizon: machine 51's failure probability, hour by hour](docs/images/horizon.png)
 
-It is flat at zero for thirty hours, first flickers at **-17h** (0.0076), and
-crosses the alert threshold at **-15h** — fifteen hours of warning on a machine
+It is flat at zero for thirty hours, first flickers at **-17h** (0.0005), and
+crosses the alert threshold at **-16h** — sixteen hours of warning on a machine
 that gave no earlier sign. Then it saturates and stays there.
 
 The flat part on the left matters as much as the climb. The model was trained
@@ -46,10 +46,12 @@ python scripts/plot_horizon.py                 # machine 51, the chart above
 python scripts/plot_horizon.py --machine 96 --failure 2024-11-14T00:00:00
 ```
 
-Machine 96 crosses at **-23h**, machine 51 at **-15h**. Warning time varies by
-how early a machine's sensors start drifting — the 24 hours in the headline is
-the ceiling the model was trained to, and the median across the held-out
-failures, not a promise about any one machine.
+Machine 96 crosses at **-23h**, machine 51 at **-16h**. Warning time varies by
+how early a machine's sensors start drifting. Across all **8 failure events in
+the held-out period the model catches 8**, with a median of **23.5 hours** of
+warning and a worst case of 16 — machine 51, the one charted above. The 24
+hours in the headline is the ceiling the model was trained to, not a promise
+about any one machine.
 
 Or drive it yourself: open the dashboard at `localhost:8501`, turn on **Rewind**
 in the sidebar, and set the date to 2024-10-31 hour 6.
@@ -283,26 +285,29 @@ make quality                                  # lint + format-check + typecheck
 ## Results
 
 Trained on a three-way chronological split — 567,000 train / 129,000 validation /
-172,800 test sequences of shape `(24, 63)`. Early stopping at epoch 20 of 30, best
-weights from epoch 15. Wall clock ~47 minutes, CPU-only (Apple Silicon).
+172,800 test sequences of shape `(24, 63)`. Early stopping at epoch 28 of 30, best
+weights from epoch 23. Wall clock ~81 minutes, CPU-only (Apple Silicon).
 
-The alert threshold (0.6678) was chosen by sweeping the precision-recall curve on the
+Training is **seeded** (`--seed 42`), so these numbers are reproducible rather
+than merely reported: `python scripts/train_model.py` re-derives them.
+
+The alert threshold (0.3415) was chosen by sweeping the precision-recall curve on the
 **validation** split; the test set is scored once, at that threshold.
 
 | Metric | Value |
 |---|---|
-| **ROC-AUC** | **0.9997** |
-| **Precision** | **0.8756** |
-| **Recall** | 0.9150 |
-| **F1** | **0.8949** |
+| **ROC-AUC** | **0.9999** |
+| **Precision** | **0.8976** |
+| **Recall** | 0.9200 |
+| **F1** | **0.9086** |
 | Single-sequence inference | 54 ms median |
 
 Confusion matrix over 172,800 held-out sequences:
 
 ```
                  predicted 0   predicted 1
-actual 0            172,574            26     <- false alarms
-actual 1                 17           183     <- caught 183 of 200 hourly labels
+actual 0            172,579            21     <- false alarms
+actual 1                 16           184     <- caught 184 of 200 hourly labels
 ```
 
 ### Failures caught, measured over events
@@ -315,7 +320,7 @@ where catching any hour means the technician was warned:
 |---|---|
 | Failure events in the test period | 8 |
 | **Events warned about** | **8 (100%)** |
-| Lead time (median / min) | **24h / 15h** |
+| Lead time (median / min / max) | **23.5h / 16h / 24h** |
 
 Eight events is a small sample: this says the model warned in 8 of 8 cases, not
 that it never misses. Reported alongside precision, never instead of it —
@@ -447,6 +452,7 @@ subsequent runs finish in about 4 seconds.
 - [x] **Day 4** — LSTM architecture, training pipeline, evaluation
 - [x] **Day 5** — 3-way split, threshold sweep, training curves, resume — **F1 0.8949**
 - [x] **Day 6** — Prediction pipeline — training/serving parity verified, **8/8 failure events caught**
+- [x] **Day 15** — Full production review; seeded training, bounded fleet cache — **F1 0.9086**
 - [x] **Day 7** — LangChain reports — grounded in real sensor evidence, runs keyless on local Ollama
 - [x] **Day 8** — Conversational assistant — multi-turn Q&A that declines what the data cannot answer
 - [x] **Day 9** — FastAPI REST API — 9 endpoints, **137 ms** predictions, LLM failures degrade gracefully

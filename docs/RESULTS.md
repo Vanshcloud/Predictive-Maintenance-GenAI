@@ -59,28 +59,31 @@ Input (batch, 24, 63)
 
 Trained with class-weighted binary crossentropy (**{0: 0.50, 1: 364.89}**),
 Adam at 0.001, batch 256. Early stopping on `val_f1` fired at epoch 20 of 30;
-best weights came from **epoch 15** (`val_f1` 0.9359).
+best weights came from **epoch 23** (`val_f1` 0.9602).
 
 ---
 
 ## Test-set performance
 
-Threshold **0.6678**, chosen by sweeping the precision-recall curve on the
+Threshold **0.3415**, chosen by sweeping the precision-recall curve on the
 **validation** split. The test set was scored once, at that threshold.
+
+Reproducible as of Day 15: training is seeded, so `python scripts/train_model.py
+--seed 42` re-derives every figure below rather than landing near them.
 
 | Metric | Value |
 |---|---|
-| ROC-AUC | **0.9997** |
-| Average precision (validation) | 0.9848 |
-| Precision | **0.8756** |
-| Recall | **0.9150** |
-| **F1** | **0.8949** |
+| ROC-AUC | **0.9999** |
+| Average precision (validation) | 0.9925 |
+| Precision | **0.8976** |
+| Recall | **0.9200** |
+| **F1** | **0.9086** |
 | Single-sequence inference | **54 ms** median |
 
 ```
                  predicted 0   predicted 1
-actual 0            172,574            26     ← false alarms
-actual 1                 17           183     ← caught 183 of 200 hourly labels
+actual 0            172,579            21     ← false alarms
+actual 1                 16           184     ← caught 184 of 200 hourly labels
 ```
 
 ### Measured over failure *events*, which is what operations cares about
@@ -94,8 +97,8 @@ warned, once, which is all that was required.
 |---|---|
 | Failure events in the test period | 8 |
 | **Events warned about** | **8 (100%)** |
-| Sequence-level recall | 91.5% |
-| Lead time (median / min) | **24 h / 15 h** |
+| Sequence-level recall | 92.0% |
+| Lead time (median / min / max) | **23.5 h / 16 h / 24 h** |
 
 > **Eight events is a small denominator.** This says the model warned in 8 of 8
 > cases, not that it never misses. Reported alongside precision, never instead
@@ -112,14 +115,21 @@ make them harder to predict.
 
 ## How the numbers moved, and why
 
-| | Day 4 | Day 5 (Run A) | Day 5 (Run B) |
-|---|---|---|---|
-| Split | val = test | clean 3-way | clean 3-way |
-| Early-stopping monitor | `val_auc` | `val_auc` | **`val_f1`** |
-| Precision | 0.6258 | 0.8043 | **0.8756** |
-| Recall | 0.9450 | 0.9250 | 0.9150 |
-| **F1** | 0.7530 | 0.8605 | **0.8949** |
-| False alarms | 113 | 45 | **26** |
+| | Day 4 | Day 5 (Run A) | Day 5 (Run B) | Day 15 (seeded) |
+|---|---|---|---|---|
+| Split | val = test | clean 3-way | clean 3-way | clean 3-way |
+| Early-stopping monitor | `val_auc` | `val_auc` | **`val_f1`** | `val_f1` |
+| Reproducible | no | no | no | **yes (`--seed 42`)** |
+| Precision | 0.6258 | 0.8043 | 0.8756 | **0.8976** |
+| Recall | 0.9450 | 0.9250 | 0.9150 | **0.9200** |
+| **F1** | 0.7530 | 0.8605 | 0.8949 | **0.9086** |
+| False alarms | 113 | 45 | 26 | **21** |
+
+The Day 15 column is the deployed model. It is not better because anything was
+tuned — the only change was seeding, which let it train 28 epochs to a best at
+23 rather than stopping at 20/15 from a different random draw. The point of the
+column is the **Reproducible** row: every other number in this document
+describes a model nobody could rebuild.
 
 **Removing the leak made the model better, on 19% less training data.** Not
 because honesty improves gradient descent — because Day 4's early stopping
@@ -136,14 +146,15 @@ have kept epoch 8 — whose validation precision was 0.813 against epoch 15's
 
 | Operating point | Threshold | Test F1 | False alarms |
 |---|---|---|---|
-| cost-optimal (100:1) | 0.0003 | 0.7366 | 126 |
-| default | 0.5 | 0.8889 | 30 |
-| **best-F1 (deployed)** | **0.6678** | **0.8949** | **26** |
+| cost-optimal (100:1) | 0.00000015 | 0.8301 | 72 |
+| default | 0.5 | 0.9082 | 20 |
+| **best-F1 (deployed)** | **0.3415** | **0.9086** | **21** |
 
 Cost-weighted selection is the more principled objective and it **failed at
 this sample size**: with 175 validation positives and a 100:1 ratio, minimising
 cost collapses to "reach recall 1.0 at any price", and the cheapest route is a
-noise-floor threshold that does not transfer. It cost 15 points of test F1. The
+noise-floor threshold that does not transfer. It cost 8 points of test F1 on the
+Day 15 seeded model (15 on the model this was first measured on). The
 default is now best-F1, and `sweep_thresholds()` returns a
 `lowest_cost_is_degenerate` flag so the failure mode cannot recur silently.
 
@@ -244,12 +255,17 @@ model returns **p ≈ 1.0000**; assessed 24 hours earlier, **p ≈ 0.0000**.
    *pipeline* transfers to real equipment; these *metrics* would not.
 2. **Eight failure events** is a small test sample. The confidence interval on
    "100% of events caught" is wide.
-3. **The deployed threshold barely transferred.** On validation it achieved
-   zero misses; on test it missed 15. Tuning an operating point on 175
-   positives does not generalise as cleanly as the validation figure suggests.
-4. **The cost curve has a cliff.** t=0.6678 sits just before a ~3× jump in
-   total cost. A threshold nearer 0.3–0.5 sits on the flat part at almost
-   identical cost and would be the safer deployment.
+3. **The deployed threshold transfers imperfectly.** On validation t=0.3415
+   misses 5 of 175 positives; on test it misses 16 of 200. Tuning an operating
+   point on 175 positives does not generalise as cleanly as the validation
+   figure suggests.
+4. **The cost cliff is now behind us, by accident.** This section used to warn
+   that the deployed t=0.6678 sat just before a ~3× jump in total cost, and
+   that "a threshold nearer 0.3–0.5 sits on the flat part at almost identical
+   cost and would be the safer deployment". The Day 15 seeded retrain landed
+   its validation best-F1 at **0.3415** — inside that recommended range — so
+   the safer operating point arrived without anyone choosing it. Worth stating
+   plainly: this was luck from a different random draw, not a fix.
 5. **No auth.** The API is unauthenticated by design for v1.
 
 ---
