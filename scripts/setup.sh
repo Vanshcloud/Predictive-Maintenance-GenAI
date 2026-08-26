@@ -14,6 +14,12 @@
 
 set -e  # Exit immediately if any command fails
 
+# Every path below is relative to the repository root (venv/, requirements-dev.txt,
+# .env.example, data/...). Without this the script creates a venv wherever it was
+# invoked from and then fails on the first missing file, so run from the root
+# regardless of the caller's working directory.
+cd "$(dirname "$0")/.."
+
 echo "=========================================="
 echo "🔧 Predictive Maintenance + GenAI Setup"
 echo "=========================================="

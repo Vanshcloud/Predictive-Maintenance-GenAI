@@ -33,12 +33,14 @@ help: ## Show this help message
 
 # ---- Setup ----
 
+# Delegates to scripts/setup.sh rather than repeating the steps. This target
+# used to hardcode /opt/homebrew/bin/python3.12, which exists only on Apple
+# Silicon with Homebrew — `make setup` failed outright on Linux, on Intel macOS,
+# and under WSL. setup.sh already walks python3.12 -> 3.11 -> 3.10 on PATH and
+# exits with a readable message when none is present, so it is the one place
+# that needs to know how to find a compatible interpreter.
 setup: ## Full project setup (venv + deps + dirs)
-	/opt/homebrew/bin/python3.12 -m venv venv
-	. venv/bin/activate && pip install --upgrade pip
-	. venv/bin/activate && pip install -r requirements-dev.txt
-	@echo ""
-	@echo "✅ Setup complete! Activate venv with: source venv/bin/activate"
+	bash scripts/setup.sh
 
 install: ## Install production dependencies
 	pip install -r requirements.txt
