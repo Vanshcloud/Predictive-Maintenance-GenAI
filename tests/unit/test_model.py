@@ -5,6 +5,7 @@ Tests for LSTM Model, Trainer, and Evaluator.
 """
 
 import json
+import math
 
 import numpy as np
 import pandas as pd
@@ -428,6 +429,32 @@ class TestModelEvaluator:
 
         assert isinstance(metrics["auc"], float)
         assert isinstance(metrics["confusion_matrix"], list)
+
+    def test_single_class_labels_give_zero_auc_not_nan(self, model, mock_data):
+        """
+        A degenerate split must yield 0.0, and metrics must stay serialisable.
+
+        The guard here was written as `except ValueError`, which scikit-learn
+        stopped raising in 1.6 — it now warns and returns nan. That made the
+        fallback unreachable, so `nan` reached models/metrics.json, where
+        json.dump writes it as a bare `NaN` token. Python reads that back, but
+        it is not valid JSON and a strict parser rejects the whole file. The
+        json.loads(..., parse_constant=...) below is what pins that down:
+        it is the only way to make Python's own parser as strict as everyone
+        else's.
+        """
+        X, _ = mock_data
+        y_one_class = np.zeros(len(X))
+
+        metrics = ModelEvaluator(model=model).evaluate(X, y_one_class)
+
+        assert metrics["auc"] == 0.0
+        assert not math.isnan(metrics["auc"])
+
+        def _reject(token: str) -> float:
+            raise ValueError(f"metrics.json would contain the bare token {token}")
+
+        json.loads(json.dumps(metrics), parse_constant=_reject)
 
 
 class TestReproducibility:

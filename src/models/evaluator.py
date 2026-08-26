@@ -306,12 +306,29 @@ class ModelEvaluator:
             # Apply threshold for hard classes
             y_pred = (y_pred_prob >= threshold).astype(int)
 
-            # Safeguard calculation if true labels only have one class
-            try:
-                auc = roc_auc_score(y_test, y_pred_prob)
-            except ValueError:
-                logger.warning("ROC AUC requires both classes in y_true, returning 0.0")
+            # Safeguard if the labels only have one class.
+            #
+            # This used to be `try: ... except ValueError`, which was correct
+            # for scikit-learn < 1.6 — roc_auc_score raised "Only one class
+            # present in y_true". It no longer raises: since 1.6 it emits an
+            # UndefinedMetricWarning and returns nan. The except branch had
+            # therefore become unreachable, and instead of the intended 0.0
+            # plus a warning, `nan` flowed into the metrics dict and out to
+            # models/metrics.json — where `json.dump` writes it as a bare
+            # `NaN` token. Python's own json module reads that back, but it is
+            # not valid JSON (RFC 8259 has no NaN), so any strict consumer
+            # rejects the metrics file outright.
+            #
+            # Test the precondition instead of catching a symptom, so this
+            # holds on both sides of the scikit-learn change.
+            if len(np.unique(y_test)) < 2:
+                logger.warning(
+                    "ROC AUC is undefined with only one class present in "
+                    "y_true — reporting 0.0 rather than nan."
+                )
                 auc = 0.0
+            else:
+                auc = float(roc_auc_score(y_test, y_pred_prob))
 
             precision = precision_score(y_test, y_pred, zero_division=0)
             recall = recall_score(y_test, y_pred, zero_division=0)
