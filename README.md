@@ -499,10 +499,6 @@ deployment posture this project currently assumes.
   caller can spend against the account in a loop.
 - **Bounded request bodies.** `PredictRequest.readings` sets a floor of 48 but no
   ceiling, and `ReportRequest.question` has no length cap.
-- **A lock on the fleet cache.** Route handlers are synchronous, so FastAPI runs
-  them in a threadpool. Concurrent requests for an uncached `as_of` all miss and
-  all recompute — measured at four independent fleet scorings for four
-  simultaneous callers.
 
 **Engineering improvements**
 

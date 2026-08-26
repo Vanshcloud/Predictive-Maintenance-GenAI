@@ -32,6 +32,15 @@ Every metric quoted below is stated with its caveats in
 
 ### Fixed
 
+- **Concurrent `/fleet` requests stampeded the cache.** Route handlers are
+  synchronous, so FastAPI runs them in a threadpool; checking the cache and
+  filling it were unsynchronised, so every request arriving for an uncached
+  `as_of` while another was computing missed too and recomputed the same
+  answer. Measured: four concurrent requests for one cold timestamp produced
+  four full fleet scorings and made every caller wait 57.8 s for work that
+  takes 13.4 s once. Now serialised behind a compute lock, with cache reads on
+  a separate short-lived lock so a hit still returns in milliseconds while a
+  cold scoring is in flight.
 - **`ModelEvaluator.evaluate()` wrote invalid JSON on single-class input.** The
   guard was written as `except ValueError`, which scikit-learn stopped raising in
   1.6 — it now warns and returns `nan`. The fallback had become unreachable, so
