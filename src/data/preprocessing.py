@@ -672,8 +672,13 @@ class DataPreprocessor:
             X shape: (n_samples, sequence_length, n_features)
             y shape: (n_samples,)
 
-        Each sample is a window of `sequence_length` timesteps,
-        and the label is from the LAST timestep in the window.
+        Each sample is a window of `sequence_length` timesteps, and the
+        label is the one at the timestep immediately AFTER the window —
+        `features[i - sequence_length : i]` paired with `labels[i]`. The row
+        being predicted contributes none of its own features, which is what
+        makes the pairing causal: a window never contains the hour it is
+        making a claim about. (Read as "the last timestep in the window", the
+        pairing would be predicting the present from itself.)
 
         WHY sliding windows:
             LSTMs need sequential input. A window of 24 hours gives

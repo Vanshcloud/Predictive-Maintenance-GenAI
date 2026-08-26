@@ -49,7 +49,9 @@ class PredictiveMaintenanceModel:
         Build and return the LSTM architecture.
 
         Returns:
-            Compiled but untrained tf.keras.Sequential model.
+            An UNCOMPILED, untrained tf.keras.Sequential model. Compilation is
+            ModelTrainer.compile()'s job — the manual GradientTape loop needs
+            an optimizer and loss it owns, not ones baked in here.
         """
         try:
             model = Sequential(
