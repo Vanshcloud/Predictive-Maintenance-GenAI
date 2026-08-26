@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 260" width="1200" height="260" role="img" aria-label="Predictive Maintenance plus GenAI Insight Generator">
+  <title>Predictive Maintenance + GenAI Insight Generator</title>
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#101519"/>
+      <stop offset="100%" stop-color="#182028"/>
+    </linearGradient>
+    <linearGradient id="trace" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#2f7d92" stop-opacity="0.25"/>
+      <stop offset="55%"  stop-color="#6fc4dd" stop-opacity="0.9"/>
+      <stop offset="78%"  stop-color="#dcb04a" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#f2717c" stop-opacity="1"/>
+    </linearGradient>
+    <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#6fc4dd" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#6fc4dd" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="260" fill="url(#ground)"/>
+
+  <!-- instrument grid -->
+  <g stroke="#2a333c" stroke-width="1">
+    <line x1="0" y1="65"  x2="1200" y2="65"/>
+    <line x1="0" y1="130" x2="1200" y2="130"/>
+    <line x1="0" y1="195" x2="1200" y2="195"/>
+  </g>
+
+  <!-- sensor trace: flat, then degradation, then failure -->
+  <path d="M0,150 L120,148 L200,152 L280,147 L360,151 L440,146 L520,150 L580,144 L640,136 L700,124 L760,106 L820,84 L880,62 L940,48 L1000,42 L1200,40"
+        fill="none" stroke="url(#trace)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M0,150 L120,148 L200,152 L280,147 L360,151 L440,146 L520,150 L580,144 L640,136 L700,124 L760,106 L820,84 L880,62 L940,48 L1000,42 L1200,40 L1200,260 L0,260 Z"
+        fill="url(#fill)"/>
+
+  <!-- alert threshold -->
+  <line x1="0" y1="96" x2="1200" y2="96" stroke="#dcb04a" stroke-width="1.5" stroke-dasharray="7 6" opacity="0.75"/>
+  <text x="1184" y="88" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" fill="#dcb04a" text-anchor="end" opacity="0.9">alert threshold  0.3415</text>
+
+  <!-- crossing marker -->
+  <circle cx="795" cy="93" r="6" fill="#101519" stroke="#dcb04a" stroke-width="2.5"/>
+  <text x="795" y="122" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12.5" fill="#93a1ad" text-anchor="middle">-16 h</text>
+
+  <text x="60" y="104" font-family="'IBM Plex Sans Condensed', 'Helvetica Neue', Arial, sans-serif" font-size="46" font-weight="700" fill="#e6ecf1" letter-spacing="-0.5">Predictive Maintenance</text>
+  <text x="60" y="146" font-family="'IBM Plex Sans Condensed', 'Helvetica Neue', Arial, sans-serif" font-size="46" font-weight="700" fill="#6fc4dd" letter-spacing="-0.5">+ GenAI</text>
+  <text x="60" y="186" font-family="'Helvetica Neue', Arial, sans-serif" font-size="17" fill="#93a1ad">Failure prediction 24&#160;hours ahead &#183; explained in plain English</text>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" fill="#7f8c98">
+    <text x="60" y="222">TensorFlow LSTM</text>
+    <text x="215" y="222">&#183;</text>
+    <text x="235" y="222">LangChain</text>
+    <text x="330" y="222">&#183;</text>
+    <text x="350" y="222">FastAPI</text>
+    <text x="425" y="222">&#183;</text>
+    <text x="445" y="222">Streamlit</text>
+    <text x="530" y="222">&#183;</text>
+    <text x="550" y="222">Docker</text>
+  </g>
+</svg>

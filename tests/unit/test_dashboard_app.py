@@ -37,7 +37,7 @@ HEALTH_OK = {
     "dataset_loaded": True,
     "machines_known": 100,
     "threshold": 0.6678,
-    "version": "0.1.0",
+    "version": "1.0.0",
     "data_start": "2024-01-01T00:00:00",
     "data_end": "2024-12-30T23:00:00",
 }

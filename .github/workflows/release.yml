@@ -1,0 +1,194 @@
+# =============================================================================
+# Release — triggered by pushing a v* tag
+# =============================================================================
+# WHAT THIS DOES NOT DO:
+#   It does not publish to PyPI. This project is not distributed on PyPI and
+#   claiming otherwise in a workflow file would be a lie told in YAML. The
+#   sdist and wheel are built (so the packaging metadata is proven to work) and
+#   attached to the GitHub Release for anyone who wants them.
+#
+# ORDER MATTERS: the gate runs before the release is created. A tag that does
+# not pass its own quality bar should not become a published release, and a
+# release you have to delete is worse than one that never appeared.
+# =============================================================================
+
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v1.0.0)"
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  verify:
+    name: Verify the tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Tag must match the declared version
+        id: version
+        # A tag that disagrees with pyproject produces a release whose
+        # artifacts are named differently from the thing being released.
+        # Catch it here, where the fix is retagging rather than a yank.
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          TAG_VERSION="${TAG#v}"
+          PY_VERSION=$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+
+          echo "tag:        $TAG_VERSION"
+          echo "pyproject:  $PY_VERSION"
+
+          if [ "$TAG_VERSION" != "$PY_VERSION" ]; then
+            echo "::error::Tag $TAG does not match pyproject version $PY_VERSION."
+            exit 1
+          fi
+          echo "version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: CHANGELOG must have an entry for this version
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          if ! grep -q "^## \[${VERSION}\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [${VERSION}]' section."
+            exit 1
+          fi
+          echo "CHANGELOG entry found."
+
+  gate:
+    name: Quality gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [verify]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - run: pip install --upgrade pip && pip install -r requirements.txt -r requirements-dev.txt
+      - run: make lint
+      - run: make format-check
+      - run: mypy --no-site-packages src/ config/
+      - run: python -m pytest tests/ -v --tb=short
+
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [gate]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Build sdist and wheel
+        run: |
+          pip install --upgrade build twine
+          python -m build
+
+      - name: Check metadata
+        # Catches a malformed long_description or bad classifier before the
+        # artifacts are attached to a release rather than after.
+        run: twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+          retention-days: 30
+
+  images:
+    name: Build container images
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    needs: [gate]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.api
+          push: false
+          load: true
+          tags: predictive-maintenance-api:${{ needs.verify.outputs.version || 'release' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Dashboard image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.dashboard
+          push: false
+          load: true
+          tags: predictive-maintenance-dashboard:${{ needs.verify.outputs.version || 'release' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  publish:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [verify, gate, build, images]
+    permissions:
+      contents: write   # required to create a release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history, so release notes can diff tags
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+
+      - name: Extract this version's CHANGELOG section
+        id: notes
+        # The release notes are the CHANGELOG entry. One source of truth beats
+        # notes that drift from the file everyone actually reads.
+        run: |
+          set -euo pipefail
+          VERSION="${{ needs.verify.outputs.version }}"
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { capture = 1; next }
+            capture && /^## \[/     { exit }
+            capture                 { print }
+          ' CHANGELOG.md > release-notes.md
+          echo "--- release notes ---"
+          cat release-notes.md
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: v${{ needs.verify.outputs.version }}
+          body_path: release-notes.md
+          files: dist/*
+          draft: false
+          prerelease: false

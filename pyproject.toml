@@ -6,33 +6,79 @@
 # tool configs (Black, pytest, isort) into a single file.
 # ============================================================
 
+# ---- Build backend ----
+# Declared explicitly rather than relying on pip's legacy fallback. Without a
+# [build-system] table pip guesses a backend and setuptools guesses which
+# directories are packages — and this project has a flat layout with several
+# top-level directories, which is exactly the case auto-discovery gets wrong.
+# `pip install -e .` happened to work; "happened to" is not a build contract.
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+# `src` and `config` are the importable top-level packages, because that is
+# what the code imports (`from src.prediction import Predictor`). dashboard/ is
+# a Streamlit script directory, not a package, and is deliberately excluded —
+# it is deployed as its own container and imports nothing from src/.
+include = ["src*", "config*"]
+
 [project]
 name = "predictive-maintenance-genai"
-version = "0.1.0"
-description = "End-to-end Predictive Maintenance platform with TensorFlow and LangChain-powered GenAI insights"
+version = "1.0.0"
+description = "Predict equipment failure 24 hours ahead from sensor telemetry, and explain each prediction in plain English"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"  # TensorFlow has no wheels for 3.13+; 3.12 is what this project is developed on
 license = {text = "MIT"}
 authors = [
     {name = "Vansh Tomar", email = "vanshwar@gmail.com"},
 ]
+maintainers = [
+    {name = "Vansh Tomar", email = "vanshwar@gmail.com"},
+]
 keywords = [
     "predictive-maintenance",
     "machine-learning",
+    "deep-learning",
     "tensorflow",
+    "keras",
+    "lstm",
+    "time-series",
+    "anomaly-detection",
+    "condition-monitoring",
     "langchain",
     "genai",
-    "time-series",
-    "lstm",
+    "llm",
+    "fastapi",
+    "streamlit",
+    "mlops",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    # Development Status :: 5 - Production/Stable would overstate this. The
+    # pipeline is complete and tested end to end, but it has only ever been
+    # validated against a synthetic dataset — see docs/model.md#limitations.
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Manufacturing",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: System :: Monitoring",
+    "Typing :: Typed",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Vanshcloud/Predictive-Maintenance-GenAI"
+Repository = "https://github.com/Vanshcloud/Predictive-Maintenance-GenAI"
+Documentation = "https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/tree/main/docs"
+Changelog = "https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/blob/main/CHANGELOG.md"
+Issues = "https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/issues"
 
 # ---- Optional LLM providers ----
 # WHY THESE ARE DECLARED HERE AND NOT IN requirements.txt:

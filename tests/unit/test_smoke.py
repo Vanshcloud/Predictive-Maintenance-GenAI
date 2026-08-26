@@ -121,6 +121,30 @@ class TestConfiguration:
         assert settings1 is settings2, "Should return cached singleton"
 
 
+class TestVersion:
+    """
+    The version is declared in three places and reported to operators by
+    /health. A bump that lands in pyproject but not in settings makes the
+    running service lie about which build it is.
+    """
+
+    def test_all_three_declarations_agree(self):
+        import tomllib
+
+        import src
+        from config.settings import PROJECT_ROOT, get_settings
+
+        with open(PROJECT_ROOT / "pyproject.toml", "rb") as fh:
+            packaged = tomllib.load(fh)["project"]["version"]
+
+        assert get_settings().APP_VERSION == packaged, (
+            f"APP_VERSION ({get_settings().APP_VERSION}) does not match "
+            f"pyproject [project].version ({packaged}) — /health would report "
+            "the wrong build."
+        )
+        assert src.__version__ == packaged
+
+
 class TestServingContract:
     """
     The two configuration invariants that decide what a technician is told.

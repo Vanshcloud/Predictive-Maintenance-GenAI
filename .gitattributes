@@ -1,0 +1,24 @@
+# Normalise line endings in the repository, check out native on Windows.
+# Without this, a Windows contributor commits CRLF and every subsequent diff
+# shows the whole file as changed.
+* text=auto eol=lf
+
+# Scripts and Makefiles break outright with CRLF.
+*.sh   text eol=lf
+*.bash text eol=lf
+Makefile text eol=lf
+Dockerfile* text eol=lf
+
+# Binary — never diff, never normalise.
+*.png  binary
+*.jpg  binary
+*.keras binary
+*.joblib binary
+*.npy  binary
+*.zip  binary
+
+# GitHub language statistics: this is a Python project. Without these the
+# devlog's 6,500 lines of Markdown dominate the language bar.
+docs/**        linguist-documentation
+*.md           linguist-documentation
+data/sample/*  linguist-generated

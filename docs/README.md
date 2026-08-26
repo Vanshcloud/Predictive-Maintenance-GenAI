@@ -6,14 +6,40 @@ Everything written about this project, and what each document is for.
 
 ## Start here
 
-| Document | Purpose |
+| Document | For |
 |---|---|
-| [`../README.md`](../README.md) | Project overview: what it is, how to install and run it, and current results. |
-| [**`IMPLEMENTATION_PLAN.md`**](IMPLEMENTATION_PLAN.md) | **The full engineering specification.** Objectives, scope, requirements, technology stack, system architecture, dataset documentation, model architecture, training and evaluation plan, deployment plan, coding standards, testing strategy, risk register, and milestones. |
-| [`architecture.md`](architecture.md) | Design-level view: layer diagram, module responsibilities, the layer dependency rule, and the correctness invariants. |
-| [**`RESULTS.md`**](RESULTS.md) | **Every metric in one place**, each with the caveat it needs — plus what the numbers do *not* establish. |
-| [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | Development setup, quality gates, code style, and the invariants a change must not break. |
-| [`../SECURITY.md`](../SECURITY.md) | Threat model, what is and is not hardened, and how to report a vulnerability. |
+| [`../README.md`](../README.md) | What this is, how to run it, and what it achieves |
+| [`architecture.md`](architecture.md) | **How it fits together** — layer diagram, module responsibilities, and the correctness invariants |
+| [`api.md`](api.md) | Every endpoint: schemas, error codes, `curl` and Python examples |
+| [`model.md`](model.md) | Why an LSTM, how the threshold was chosen, and **what the numbers do not establish** |
+
+## Running it
+
+| Document | For |
+|---|---|
+| [`training.md`](training.md) | Reproducing the model from a clean checkout |
+| [`deployment.md`](deployment.md) | Containers, configuration, health checks, reverse proxy, logging |
+| [`dashboard.md`](dashboard.md) | The Streamlit UI and the `Rewind` control |
+| [`troubleshooting.md`](troubleshooting.md) | **Check here first.** Symptoms, causes, fixes |
+
+## Working on it
+
+| Document | For |
+|---|---|
+| [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | Setup, quality gates, and the invariants a change must not break |
+| [`development.md`](development.md) | Debugging, testing, common mistakes, architecture philosophy |
+| [`releasing.md`](releasing.md) | Versioning policy and the release checklist |
+| [`../SECURITY.md`](../SECURITY.md) | Threat model, and how to report a vulnerability |
+
+## Evidence
+
+| Document | For |
+|---|---|
+| [`RESULTS.md`](RESULTS.md) | **Every metric in one place**, each with the caveat it needs |
+| [`benchmarks.md`](benchmarks.md) | Measured latency, memory, and artifact sizes — with the method for each |
+| [`roadmap.md`](roadmap.md) | What it does not do yet, and why |
+| [`../CHANGELOG.md`](../CHANGELOG.md) | Release history |
+| [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) | The full engineering specification: scope, requirements, risk register, milestones |
 
 ---
 
@@ -32,9 +58,10 @@ threading primitive — was found.
 
 ## Reference
 
-| Document | Purpose |
+| | |
 |---|---|
-| [`images/`](images/) | Figures used by the README, regenerable with `scripts/plot_horizon.py`. |
+| [`images/`](images/README.md) | Figures, and how to regenerate them |
+| [`../examples/`](../examples/README.md) | Runnable API examples |
 | ~~`handoff.md`~~ | **Removed on Day 12.** A 1,377-line planning document, superseded section by section by `IMPLEMENTATION_PLAN.md`; its Day 1–3 detail was folded into `devlog/day-01.md`–`day-03.md`. Retrievable with `git show 9ceb349:docs/handoff.md`. It had been kept for eight days behind a "superseded" banner, which is its own kind of clutter: a 60 KB file whose only message is "read something else". |
 
 ---

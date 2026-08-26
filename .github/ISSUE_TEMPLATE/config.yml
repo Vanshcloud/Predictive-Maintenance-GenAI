@@ -3,6 +3,9 @@ contact_links:
   - name: Security vulnerability
     url: https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/security/advisories/new
     about: Report privately. Please do not open a public issue for a security problem.
-  - name: Documentation
+  - name: Read the documentation
     url: https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/tree/main/docs
-    about: Architecture, results with their caveats, and the engineering devlog.
+    about: Architecture, API reference, model card, deployment, and troubleshooting.
+  - name: Troubleshooting guide
+    url: https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/blob/main/docs/troubleshooting.md
+    about: Check here first — most reported problems are covered, with the fix.

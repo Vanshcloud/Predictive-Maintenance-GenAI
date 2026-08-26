@@ -1,0 +1,77 @@
+# =============================================================================
+# Documentation checks
+# =============================================================================
+# WHY: this repository is documentation-heavy — a spec, an architecture guide,
+# a metrics reference, and 15 devlog entries that cross-link constantly. Files
+# have been moved twice. A broken relative link is invisible until a reader
+# hits it, and the reader is the person we are trying not to lose.
+# =============================================================================
+
+name: Docs
+
+on:
+  push:
+    branches: [main]
+    paths: ["**.md", ".github/workflows/docs.yml"]
+  pull_request:
+    branches: [main]
+    paths: ["**.md", ".github/workflows/docs.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  links:
+    name: Relative links resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check every relative markdown link
+        # Deliberately checks RELATIVE links only. External URLs are checked
+        # separately below and are allowed to fail without blocking: a third
+        # party's outage is not a defect in this repository.
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, sys
+
+          broken = []
+          for path in pathlib.Path(".").rglob("*.md"):
+              if any(p in path.parts for p in (".git", "venv", ".venv", "node_modules")):
+                  continue
+              text = path.read_text(encoding="utf-8")
+              for match in re.finditer(r"\[([^\]]*)\]\(([^)]+)\)", text):
+                  target = match.group(2).split("#")[0].strip()
+                  if not target or target.startswith(("http://", "https://", "mailto:", "#")):
+                      continue
+                  if not (path.parent / target).resolve().exists():
+                      broken.append(f"{path}: [{match.group(1)}]({match.group(2)})")
+
+          if broken:
+              print(f"{len(broken)} broken relative link(s):\n")
+              print("\n".join(f"  {b}" for b in broken))
+              sys.exit(1)
+          print("All relative links resolve.")
+          PY
+
+  external:
+    name: External links (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Never blocks. A link rots because someone else moved a page, which is
+    # worth knowing about and is not a reason to fail this repository's build.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: lychee
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --no-progress
+            --max-concurrency 4
+            --exclude-path venv
+            --exclude-path .venv
+            --accept 200,206,403,429
+            "**/*.md"
+          fail: false

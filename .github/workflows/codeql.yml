@@ -1,0 +1,55 @@
+# =============================================================================
+# CodeQL — static security analysis
+# =============================================================================
+# Complements the `security` job in ci.yml, which audits DEPENDENCIES. This
+# audits the code in this repository: injection paths, unsafe deserialisation,
+# path traversal, and the like.
+#
+# Weekly as well as on push, because the rule set changes even when the code
+# does not — a query added next month can find a flaw in code written today.
+# =============================================================================
+
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Mondays 06:00 UTC. Off-hours so a scheduled run never queues behind a
+    # push during active development.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze Python
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      security-events: write   # required to upload results to the Security tab
+      actions: read
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          # security-and-quality adds maintainability queries on top of the
+          # default security set. This codebase already gates on flake8 and
+          # mypy, so the extra findings are signal rather than noise.
+          queries: security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:python"

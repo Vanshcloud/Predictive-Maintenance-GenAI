@@ -1,0 +1,17 @@
+# Requests review from the maintainer on every pull request.
+# Format: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+*       @Vanshcloud
+
+# Areas where a change is most likely to break something silently.
+# Called out so the reason is visible in the review request, not just the rule.
+
+# Leakage and training/serving skew live here.
+/src/data/          @Vanshcloud
+/src/prediction/    @Vanshcloud
+
+# The alert threshold and risk bands decide what a technician is told.
+/config/settings.py @Vanshcloud
+
+# Import order in src/models/__init__.py is load-bearing — see CONTRIBUTING.md.
+/src/models/        @Vanshcloud

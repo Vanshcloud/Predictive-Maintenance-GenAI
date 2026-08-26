@@ -8,85 +8,223 @@
 
 ## System Architecture
 
+Eight layers, each depending only on the ones above it. The dashboard is a pure
+HTTP client — it imports nothing from `src/`, which is why its container image
+is 803 MB against the API's 2.87 GB.
+
+```mermaid
+flowchart TD
+    subgraph ingest["Data layer &nbsp;·&nbsp; src/data/"]
+        RAW[("5 raw tables<br/>telemetry · machines · errors<br/>maintenance · failures")]
+        ING["DataIngestion<br/><i>format-detecting loader</i>"]
+        VAL["DataValidator<br/><i>schema · nulls · ranges</i>"]
+        PRE["DataPreprocessor<br/><i>merge · 63 features · labels<br/>temporal split · scale · window</i>"]
+        RAW --> ING --> VAL --> PRE
+    end
+
+    subgraph model["Model layer &nbsp;·&nbsp; src/models/"]
+        LSTM["PredictiveMaintenanceModel<br/>LSTM 128 → 64 → 32 → 1<br/><i>149,825 parameters</i>"]
+        TRAIN["ModelTrainer<br/><i>GradientTape loop</i>"]
+        EVAL["ModelEvaluator<br/><i>AUC · P · R · F1 — never accuracy</i>"]
+        LSTM --- TRAIN
+        LSTM --- EVAL
+    end
+
+    subgraph serve["Inference &nbsp;·&nbsp; src/prediction/"]
+        PRED["Predictor<br/><i>reuses DataPreprocessor —<br/>one feature implementation, not two</i>"]
+    end
+
+    subgraph genai["Narrative &nbsp;·&nbsp; src/genai/"]
+        REP["ReportGenerator · MaintenanceAssistant<br/><i>every figure supplied, none invented</i>"]
+    end
+
+    subgraph api["API &nbsp;·&nbsp; src/api/"]
+        SVC["PredictionService<br/><i>slice_for() · bounded fleet cache</i>"]
+        FAST["FastAPI — 9 endpoints"]
+        SVC --> FAST
+    end
+
+    UI["Streamlit dashboard<br/><i>pure HTTP client</i>"]
+
+    PRE --> LSTM
+    PRE -.->|"same feature code"| PRED
+    LSTM -->|".keras + scaler +<br/>feature contract"| PRED
+    PRED --> SVC
+    PRED --> REP
+    REP --> FAST
+    FAST -->|HTTP| UI
+
+    classDef store fill:#e8eef2,stroke:#5a6672,color:#12171c
+    classDef slow fill:#fdf0e6,stroke:#c2410c,color:#12171c
+    class RAW store
+    class REP slow
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     DATA INGESTION LAYER                        │
-│  ┌──────────┐  ┌──────────────┐  ┌───────────────────────────┐  │
-│  │ CSV/JSON │  │ Sensor APIs  │  │ Database (future)         │  │
-│  └────┬─────┘  └──────┬───────┘  └─────────┬─────────────────┘  │
-│       └───────────────┬┘                    │                   │
-│                       ▼                     │                   │
-│              ┌────────────────┐             │                   │
-│              │  Data Loader   │◄────────────┘                   │
-│              └────────┬───────┘                                 │
-└───────────────────────┼─────────────────────────────────────────┘
-                        ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    DATA VALIDATION LAYER                         │
-│              ┌────────────────┐                                 │
-│              │  Schema Check  │  - Column types                 │
-│              │  Quality Check │  - Missing values               │
-│              │  Range Check   │  - Outlier detection            │
-│              └────────┬───────┘                                 │
-└───────────────────────┼─────────────────────────────────────────┘
-                        ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                  FEATURE ENGINEERING LAYER                       │
-│              ┌────────────────┐                                 │
-│              │  Preprocessing │  - Normalization                │
-│              │  Feature Eng.  │  - Rolling statistics           │
-│              │  Sequencing    │  - Time window creation         │
-│              └────────┬───────┘                                 │
-└───────────────────────┼─────────────────────────────────────────┘
-                        ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    ML MODEL LAYER                                │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │                 TensorFlow LSTM Model                     │   │
-│  │  Input (sequence) → LSTM → Dense → Sigmoid → P(failure)  │   │
-│  └──────────────┬───────────────────────────────────────────┘   │
-│                 │                                               │
-│  ┌──────────────▼───────────────────────────────────────────┐   │
-│  │              Model Evaluator                              │   │
-│  │  AUC-ROC, Precision, Recall, F1, Confusion Matrix        │   │
-│  └──────────────────────────────────────────────────────────┘   │
-└───────────────────────┼─────────────────────────────────────────┘
-                        ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                   PREDICTION PIPELINE                            │
-│              ┌────────────────┐                                 │
-│              │   Predictor    │  - Load saved model             │
-│              │                │  - Process new sensor data      │
-│              │                │  - Return failure probability   │
-│              └────────┬───────┘                                 │
-└───────────────────────┼─────────────────────────────────────────┘
-                        ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    GENAI LAYER (LangChain)                       │
-│  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────┐  │
-│  │   Prompt     │  │   Chains     │  │   Maintenance         │  │
-│  │   Templates  │  │  (Summary,   │  │   Assistant           │  │
-│  │              │  │   Diagnose)  │  │   (Q&A)               │  │
-│  └──────────────┘  └──────────────┘  └───────────────────────┘  │
-└───────────────────────┼─────────────────────────────────────────┘
-                        ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      API LAYER (FastAPI)                         │
-│  ┌──────────┐  ┌──────────────┐  ┌───────────────────────────┐  │
-│  │ /health  │  │  /predict    │  │  /reports                 │  │
-│  │          │  │  /predict/   │  │  /reports/summary         │  │
-│  │          │  │   batch      │  │  /reports/diagnostic      │  │
-│  └──────────┘  └──────────────┘  └───────────────────────────┘  │
-└───────────────────────┼─────────────────────────────────────────┘
-                        ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                   DASHBOARD (Streamlit)                          │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │  Live Sensor Data │ Failure Probability │ AI Summary     │   │
-│  │  Equipment Health │ Maintenance History │ Trend Charts   │   │
-│  └──────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
+
+The orange node is the only slow path. Report generation takes ~21 s against a
+local model and is isolated in its own router, so it can never delay a
+prediction — see [Request lifecycle](#request-lifecycle).
+
+## Layer Dependency Graph
+
+**Each package may import only from packages to its left.** This is enforced by
+tests, not convention: `src/data/` imports no TensorFlow, `src/models/` imports
+no pandas, and `dashboard/` imports nothing from `src/` at all.
+
+```mermaid
+flowchart LR
+    CFG["config/"] --> UTL["src/utils/"]
+    UTL --> DAT["src/data/"]
+    DAT --> MOD["src/models/"]
+    MOD --> PRD["src/prediction/"]
+    PRD --> GEN["src/genai/"]
+    GEN --> API["src/api/"]
+    API -.->|HTTP only| DSH["dashboard/"]
+
+    classDef boundary stroke-dasharray: 5 5
+    class DSH boundary
 ```
+
+The dashed edge is a process boundary. The dashboard's `Dockerfile` copies only
+`dashboard/`, so a future import from `src/` breaks the build — which is the
+intended failure.
+
+## Data Flow
+
+From five CSVs to a scored sequence. The ordering of split → scale → window is
+deliberate; reversing any two leaks test-period information into training.
+
+```mermaid
+flowchart TD
+    A["5 raw tables<br/>883,231 rows"] --> B["merge_tables()<br/>876,000 rows × 17 cols"]
+    B --> C["engineer_features()<br/>+48 rolling · lag · change<br/>= 63 features"]
+    C --> D["create_labels()<br/>1 if failure within 24 h"]
+    D --> E["temporal_split()<br/><b>chronological, never random</b>"]
+    E --> F1["train<br/>567,000"]
+    E --> F2["validation<br/>129,000"]
+    E --> F3["test<br/>172,800"]
+    F1 --> G["StandardScaler.fit()<br/><b>training split only</b>"]
+    G --> H["transform all three splits"]
+    F2 --> H
+    F3 --> H
+    H --> I["create_sequences()<br/>(N, 24, 63) — never spans<br/>two machine_ids"]
+
+    classDef danger fill:#fdeaec,stroke:#b3202c,color:#12171c
+    class E,G danger
+```
+
+The two red steps are where leakage would enter. A random split puts hour *t* in
+training and *t+1* in test; fitting the scaler on everything leaks test-period
+statistics. Both are pinned by tests.
+
+## Training Pipeline
+
+```mermaid
+flowchart TD
+    S["set_random_seed(42)<br/><i>before the model is built</i>"] --> M["build LSTM"]
+    M --> C["compile — Adam 1e-3<br/>class weights {0: 0.50, 1: 364.89}"]
+    C --> L{"for epoch in 1..30"}
+    L --> B["iter_batches — shuffled,<br/>sorted within batch for memmap reads"]
+    B --> T["train_step<br/><i>tf.function GradientTape</i>"]
+    T --> V["validate → val_f1"]
+    V --> IMP{"val_f1 improved?"}
+    IMP -->|yes| CK["checkpoint + state.json"]
+    IMP -->|no| P{"patience 5 exhausted?"}
+    P -->|no| L
+    CK --> L
+    P -->|yes| STOP["early stop<br/><i>fired at epoch 28</i>"]
+    STOP --> RB["restore best weights<br/><i>epoch 23, val_f1 0.9602</i>"]
+    RB --> EV["evaluate on test — once"]
+
+    classDef seed fill:#e6f2ec,stroke:#15803d,color:#12171c
+    class S seed
+```
+
+Seeding happens **before** the model is built, because that is when the LSTM
+kernels are drawn from `glorot_uniform`. Without it the quoted F1 is not
+reproducible, and an unreproducible headline metric is an unfalsifiable one.
+
+Selection monitors `val_f1`, not `val_auc`: at a ~1:745 positive rate AUC
+saturates in the first epochs and then wanders in its fourth decimal place
+while precision swings between 0.13 and 0.81. Selecting on a saturated metric
+is selecting on noise.
+
+## Prediction Pipeline
+
+Inference **reuses `DataPreprocessor`** rather than reimplementing feature
+logic. If that code lived in two places it would drift, and the resulting bug
+would be silent — plausible numbers, quietly wrong.
+
+```mermaid
+flowchart TD
+    R["raw tables for one machine"] --> SL["MachineDataStore.slice_for()<br/><i>one machine, last 200 h</i>"]
+    SL --> MG["merge_tables()"]
+    MG --> FE["engineer_features()"]
+    FE --> RC["_reconcile_features()<br/><i>absent categories filled with<br/>9999 / 0, never blanket zero</i>"]
+    RC --> SC["apply_scaler()<br/><b>training statistics — never refit</b>"]
+    SC --> SQ["create_sequences()"]
+    SQ --> MD["model(x, training=False)"]
+    MD --> PB["probability"]
+    PB --> TH{"≥ 0.3415?"}
+    TH -->|yes| AL["will_fail = true"]
+    TH -->|no| OK["will_fail = false"]
+    PB --> RL["risk_level<br/>low · medium · high · critical"]
+
+    classDef must fill:#fdeaec,stroke:#b3202c,color:#12171c
+    class SL,SC must
+```
+
+Both red steps are mandatory rather than optimisations. `slice_for()` is the
+difference between ~160 ms and over two minutes — without it the endpoint
+cannot exist. Refitting the scaler here is the classic training/serving skew
+bug, which is why `apply_scaler()` exists separately from `normalize()`.
+
+## Request Lifecycle
+
+Why report generation lives in its own router: a 21-second language-model call
+must never be able to delay a 137 ms prediction.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant A as FastAPI
+    participant S as PredictionService
+    participant M as LSTM
+    participant L as LLM provider
+
+    rect rgb(232, 242, 236)
+    Note over C,M: Fast path — no language model is ever touched
+    C->>A: GET /machines/51/predict?as_of=…
+    A->>S: predict_machine()
+    S->>S: slice_for() — 1 machine, 200 h
+    S->>M: model(x, training=False)
+    M-->>S: 0.9999
+    S-->>A: probability + risk band
+    A-->>C: 200 · ~137 ms
+    end
+
+    rect rgb(253, 240, 230)
+    Note over C,L: Slow path — isolated, bounded, and degradable
+    C->>A: POST /report
+    A->>S: explain_machine()
+    S-->>A: prediction + evidence
+    A->>L: run_in_threadpool(invoke)
+    alt provider answers
+        L-->>A: report text
+        A-->>C: 200 · report + prediction
+    else provider down
+        L--xA: connection error
+        A-->>C: 502 — <b>with the prediction attached</b>
+    else exceeds 120 s
+        A-->>C: 504 — with the prediction attached
+    end
+    end
+```
+
+The asymmetry is deliberate. The prediction is what decides whether a
+technician is dispatched; the narrative is a convenience over it. An LLM outage
+degrades the system to "prediction available, narrative unavailable" — never to
+"no answer".
 
 ## Technology Stack
 

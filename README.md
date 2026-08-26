@@ -1,15 +1,55 @@
-# 🔧 Predictive Maintenance + GenAI Insight Generator
+<div align="center">
 
-> An end-to-end Predictive Maintenance platform that uses **TensorFlow** to predict equipment failures from sensor telemetry data and **LangChain** with LLMs to generate human-readable maintenance reports and diagnostic insights.
+<img src="docs/images/banner.svg" alt="Predictive Maintenance + GenAI" width="100%">
 
-![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)
-![TensorFlow](https://img.shields.io/badge/TensorFlow-2.15%2B-orange?logo=tensorflow&logoColor=white)
-![LangChain](https://img.shields.io/badge/LangChain-0.2%2B-green?logo=chainlink&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-teal?logo=fastapi&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-yellow)
-![Tests](https://img.shields.io/badge/tests-241%20unit%20%2B%2013%20integration-brightgreen)
+<h3>Predict equipment failure 24 hours ahead — and explain it in plain English</h3>
+
+<p>
+A TensorFlow LSTM scores sensor telemetry; a language model turns each
+prediction into a work order a technician can act on. Served over a REST API
+with a dashboard, containerised, and tested end to end.
+</p>
+
+<!-- Status -->
 [![CI](https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/actions/workflows/ci.yml/badge.svg)](https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/actions/workflows/ci.yml)
-![Model F1](https://img.shields.io/badge/model%20F1-0.9086-success)
+[![CodeQL](https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/actions/workflows/codeql.yml/badge.svg)](https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/actions/workflows/codeql.yml)
+[![Docs](https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/actions/workflows/docs.yml/badge.svg)](https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/actions/workflows/docs.yml)
+[![Release](https://img.shields.io/github/v/release/Vanshcloud/Predictive-Maintenance-GenAI?display_name=tag&sort=semver&color=1a6076)](https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/releases)
+[![Last commit](https://img.shields.io/github/last-commit/Vanshcloud/Predictive-Maintenance-GenAI?color=1a6076)](https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/commits/main)
+
+<!-- Quality -->
+[![Tests](https://img.shields.io/badge/tests-245%20unit%20%2B%2013%20integration-15803d)](docs/benchmarks.md#test-suite)
+[![Coverage](https://img.shields.io/badge/coverage-86%25-15803d)](docs/benchmarks.md#test-suite)
+[![Model F1](https://img.shields.io/badge/test%20F1-0.9086-15803d)](docs/RESULTS.md)
+[![code style: black](https://img.shields.io/badge/code%20style-black-000000)](https://github.com/psf/black)
+[![imports: isort](https://img.shields.io/badge/imports-isort-1674b1)](https://pycqa.github.io/isort/)
+[![type checked: mypy](https://img.shields.io/badge/type%20checked-mypy-2a6db2)](https://mypy-lang.org/)
+
+<!-- Project -->
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-3776ab?logo=python&logoColor=white)](https://www.python.org/)
+[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.15%2B-ff6f00?logo=tensorflow&logoColor=white)](https://www.tensorflow.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-a16207)](LICENSE)
+[![Open issues](https://img.shields.io/github/issues/Vanshcloud/Predictive-Maintenance-GenAI?color=6b7280)](https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/issues)
+[![Pull requests](https://img.shields.io/github/issues-pr/Vanshcloud/Predictive-Maintenance-GenAI?color=6b7280)](https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/pulls)
+
+<p>
+<a href="#quick-start"><b>Quick start</b></a> ·
+<a href="docs/README.md"><b>Documentation</b></a> ·
+<a href="docs/api.md"><b>API</b></a> ·
+<a href="docs/model.md"><b>Model card</b></a> ·
+<a href="docs/RESULTS.md"><b>Results</b></a> ·
+<a href="docs/roadmap.md"><b>Roadmap</b></a>
+</p>
+
+</div>
+
+> **Scope, stated up front.** The dataset is **synthetic**, with a degradation
+> pattern deliberately designed to be detectable. The pipeline transfers to real
+> telemetry; **these numbers would not.** There is no authentication, so this
+> belongs on localhost or a trusted network. Full accounting in
+> [`docs/model.md#limitations`](docs/model.md#limitations) and
+> [`SECURITY.md`](SECURITY.md).
 
 ---
 
@@ -38,7 +78,7 @@ builds them first:
 ```bash
 python scripts/generate_data.py       # ~1 min
 python scripts/run_preprocessing.py   # ~3 min
-python scripts/train_model.py         # ~15 min on CPU, seeded, reproducible
+python scripts/train_model.py         # ~81 min on CPU, seeded, reproducible
 
 make docker-up-d                      # or: make run-api, in another shell
 pip install -r requirements-dev.txt   # the script needs matplotlib
@@ -73,7 +113,12 @@ in the sidebar, and set the date to 2024-10-31 hour 6.
 - [Testing](#testing)
 - [Development Progress](#development-progress)
 - [Roadmap](#roadmap)
+- [Screenshots](#screenshots)
+- [FAQ](#faq)
+- [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
+- [Citation](#citation)
+- [Acknowledgements](#acknowledgements)
 - [License](#license)
 
 ---
@@ -488,38 +533,141 @@ Enhancement, not construction. Each has its own report in `docs/`.
 
 ## Roadmap
 
-Known limitations, in the order I would address them. Each is a deliberate scope
-boundary rather than an oversight — see [`SECURITY.md`](SECURITY.md) for the
-deployment posture this project currently assumes.
+Known limitations, stated rather than discovered. The full list — with status
+markers and what is explicitly *not* planned — is in
+**[`docs/roadmap.md`](docs/roadmap.md)**.
 
-**Before this could face an untrusted network**
+The short version:
 
-- **Authentication and rate limiting.** No endpoint has either. `POST /report`
-  invokes a language model, so with a provider key configured an anonymous
-  caller can spend against the account in a loop.
-- **Bounded request bodies.** `PredictRequest.readings` sets a floor of 48 but no
-  ceiling, and `ReportRequest.question` has no length cap.
+| | |
+|---|---|
+| 🔴 **Before an untrusted network** | No authentication · no rate limiting · unbounded request bodies |
+| 🔴 **Highest value overall** | Validate against a **real** dataset — the numbers here describe a synthetic one |
+| 🟡 **Known inefficiencies** | `scripts/predict.py --machine N` scores the whole fleet (~1000× slower than it needs to be) · `explain_machine()` engineers features twice |
+| 🟡 **Model** | Not calibrated · no drift detection · never benchmarked against gradient boosting |
 
-**Engineering improvements**
+---
 
-- `scripts/predict.py --machine N` scores the whole fleet to return one row,
-  because it does not reuse the API's `slice_for()`. Same answer, roughly a
-  thousand times the wall clock.
-- `Predictor.explain_machine()` runs feature engineering twice — once directly
-  and once via `predict_machine()` — costing about 24% on every explain call.
-- The alert threshold is copied by hand from the evaluation report into
-  `config/settings.py`. A test now catches the two drifting apart, but generating
-  the value would be better than checking it.
+## Screenshots
 
-**Model and data**
+The horizon chart at the top of this page is **real output**, produced by a
+committed script — see [See it work](#see-it-work).
 
-- **The dataset is synthetic**, with a degradation pattern designed to be
-  detectable. The pipeline transfers to real telemetry; these metrics would not.
-  Validating against a real fleet is the single highest-value next step.
-- Eight failure events in the held-out period is a small sample for the
-  event-level recall figure, and it is reported as such.
-- Per-component failure prediction — the dataset labels which component failed,
-  and the current model predicts only that *a* failure is coming.
+Dashboard screenshots and a demo GIF are **not yet captured.** Rather than
+mock them up, the exact states worth capturing and the commands to produce
+them are documented in
+[`docs/images/README.md`](docs/images/README.md) — this is a genuinely useful
+first contribution.
+
+| | |
+|---|---|
+| Fleet overview | *placeholder — `docs/images/dashboard-fleet.png`* |
+| Machine detail with sensor evidence | *placeholder — `docs/images/dashboard-machine.png`* |
+| Generated maintenance report | *placeholder — `docs/images/dashboard-report.png`* |
+| Demo walkthrough | *placeholder — `docs/images/demo.gif`* |
+
+Meanwhile, `scripts/evaluate_model.py` writes real training curves and a
+precision–recall curve into `models/`, and the dashboard is two commands away:
+
+```bash
+make docker-up-d        # http://localhost:8501
+```
+
+---
+
+## FAQ
+
+<details>
+<summary><b>Is this usable on real equipment?</b></summary>
+
+The pipeline is. The numbers are not transferable — the dataset is synthetic
+with a degradation pattern designed to be detectable. Expect substantially
+worse performance on real telemetry, which has sensor dropout, calibration
+drift, mislabelled failures, and failure modes with no sensor signature at all.
+Validating against a real dataset is the top item on the
+[roadmap](docs/roadmap.md).
+</details>
+
+<details>
+<summary><b>Do I need an OpenAI API key?</b></summary>
+
+No. Prediction endpoints never call a language model. Reports work keyless
+through a local Ollama model (`pip install -e ".[ollama]"`), and with no
+provider at all `/report` returns a `502` that still carries the prediction.
+</details>
+
+<details>
+<summary><b>Why 0.3415 and not 0.5?</b></summary>
+
+`0.5` is inherited from balanced problems. At a 1:864 positive rate it is
+almost never the right operating point. This threshold was chosen by sweeping
+the precision–recall curve on the **validation** split; the test set was scored
+once, at that point. See [`docs/model.md`](docs/model.md#threshold-selection).
+</details>
+
+<details>
+<summary><b>Why is accuracy never reported?</b></summary>
+
+Because it would be misleading. At a 1:864 positive rate, predicting "no
+failure" every time scores **99.88%**. `ModelEvaluator` does not compute it at
+all — quality is judged on AUC, precision, recall, and F1.
+</details>
+
+<details>
+<summary><b>Why an LSTM rather than XGBoost?</b></summary>
+
+The signal is degradation over time, and flattening a window discards ordering
+unless you hand-engineer it back. Honest caveat: gradient boosting was **not**
+benchmarked head to head, so "better here" is not a claim this project has
+earned. It is on the [roadmap](docs/roadmap.md).
+</details>
+
+<details>
+<summary><b>Why is training a hand-written loop instead of <code>model.fit()</code>?</b></summary>
+
+History, and it is documented. During Day 4 `fit()` appeared to hang; the real
+cause turned out to be an abseil symbol collision between TensorFlow and Apache
+Arrow, not Keras. The manual loop is kept because it works, is tested, and makes
+class weighting and early stopping explicit — but `fit()` has not been
+re-benchmarked since, and the docs say so rather than claiming it is broken.
+See [`docs/devlog/day-04.md`](docs/devlog/day-04.md).
+</details>
+
+<details>
+<summary><b>The dashboard shows "0 alerting". Is it broken?</b></summary>
+
+Almost certainly not. Most hours are quiet, and the dataset's final hour has no
+machine inside a pre-failure window. Turn on **Rewind** and set
+`2024-10-31` hour 6 — machine 51 goes critical, six hours before it failed.
+</details>
+
+<details>
+<summary><b>Why does the first test run take 90 seconds?</b></summary>
+
+TensorFlow's initial import on ARM64 macOS. Subsequent runs take ~26 s.
+</details>
+
+<details>
+<summary><b>Can I use Python 3.13?</b></summary>
+
+No — TensorFlow publishes no wheels for it. Use 3.10, 3.11, or 3.12. This will
+follow when upstream does.
+</details>
+
+---
+
+## Troubleshooting
+
+Most reported problems are already covered, with the fix, in
+**[`docs/troubleshooting.md`](docs/troubleshooting.md)**.
+
+The three that come up most:
+
+| Symptom | Cause |
+|---|---|
+| `Could not find a version that satisfies the requirement tensorflow` | Python 3.13+. Use 3.12 |
+| Training **hangs at 0% CPU** with no traceback | Import order — TensorFlow must load before pandas. [Full diagnosis](docs/troubleshooting.md#the-training-run-hangs-with-no-error) |
+| `503` from every endpoint | No trained model. `curl localhost:8000/health` will confirm |
 
 ---
 
@@ -540,9 +688,48 @@ security dimension, and note the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ---
 
+## Citation
+
+If this project is useful in your work, citing it is appreciated. GitHub also
+renders a "Cite this repository" panel from [`CITATION.cff`](CITATION.cff).
+
+```bibtex
+@software{tomar_predictive_maintenance_genai_2026,
+  author  = {Tomar, Vansh},
+  title   = {Predictive Maintenance + GenAI Insight Generator},
+  year    = {2026},
+  version = {1.0.0},
+  url     = {https://github.com/Vanshcloud/Predictive-Maintenance-GenAI},
+  license = {MIT}
+}
+```
+
+> This is a **software** citation. There is no associated paper, and none is
+> implied.
+
+---
+
+## Acknowledgements
+
+- The dataset schema follows the shape of Microsoft's **Azure Predictive
+  Maintenance** sample — five related tables of telemetry, errors, maintenance,
+  machines, and failures. The data here is generated, not that dataset.
+- Built on [TensorFlow](https://www.tensorflow.org/),
+  [LangChain](https://www.langchain.com/),
+  [FastAPI](https://fastapi.tiangolo.com/),
+  [Streamlit](https://streamlit.io/),
+  [pandas](https://pandas.pydata.org/), and
+  [scikit-learn](https://scikit-learn.org/).
+- [Keep a Changelog](https://keepachangelog.com/) and
+  [Semantic Versioning](https://semver.org/) for release conventions, and the
+  [Contributor Covenant](https://www.contributor-covenant.org/) for the code of
+  conduct.
+
+---
+
 ## License
 
-Released under the MIT License — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). Use it, fork it, learn from it.
 
 ---
 
@@ -550,6 +737,7 @@ Released under the MIT License — see [LICENSE](LICENSE).
 
 **Vansh Tomar** — [GitHub](https://github.com/Vanshcloud)
 
----
-
-*Built as a production-ready portfolio project demonstrating Machine Learning, Generative AI, and Software Engineering best practices.*
+Built to demonstrate an end-to-end ML system: not just a model, but the
+preprocessing that does not leak, the evaluation that does not flatter, the
+service that degrades instead of failing, and the documentation that says what
+it does not know.

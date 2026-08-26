@@ -17,7 +17,7 @@
 # dashboard/` — so `make quality` passed on a laptop and the same commit went
 # red in CI on a file the local run never opened. Same failure mode as the mypy
 # split below: two copies of "what gets checked" that drifted.
-PY_PATHS = src/ config/ tests/ scripts/ dashboard/
+PY_PATHS = src/ config/ tests/ scripts/ dashboard/ examples/
 
 # Default target when you just type `make`
 help: ## Show this help message

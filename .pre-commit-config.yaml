@@ -1,0 +1,51 @@
+# Runs the same checks CI runs, before the commit rather than after it.
+#
+# Install once:  pre-commit install
+# Run on demand: pre-commit run --all-files
+#
+# Versions are pinned to requirements-lint.txt. If they drift, a hook passes
+# locally and the same commit fails in CI — the exact failure mode that made
+# requirements-lint.txt a separate pinned file in the first place.
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+        # data/ and models/ are gitignored; this catches anything that slips.
+        args: ["--maxkb=2048"]
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: ["--markdown-linebreak-ext=md"]
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.1.1
+    hooks:
+      - id: flake8
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        # Mirrors CI's `mypy --no-site-packages`: the hook environment has no
+        # ML stack, so this is the same program CI type-checks.
+        files: ^(src|config)/
+        args: ["--ignore-missing-imports", "--warn-return-any"]
+        additional_dependencies: []

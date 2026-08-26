@@ -1,0 +1,52 @@
+name: Documentation
+description: Something in the docs is wrong, unclear, or missing.
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A number that no longer matches the code counts as a bug, not a nitpick.
+        This repository's own convention is that **where a document and the code
+        disagree, the code is right and the document is a bug**.
+
+  - type: input
+    id: where
+    attributes:
+      label: Which document
+      description: Path, and a heading or line number if you have one.
+      placeholder: "docs/model.md — 'Threshold selection'"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of problem
+      options:
+        - Factually wrong — contradicts the code or the artifacts
+        - Out of date — was true once
+        - Unclear or ambiguous
+        - Missing — something that should be documented is not
+        - Broken link or bad formatting
+        - Example does not work
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What it says, and what is actually true
+      description: >
+        Quote the passage if it is short. If you have the correct value, say
+        where you got it — a command output is ideal.
+      placeholder: |
+        docs/model.md says F1 is 0.8949, but models/evaluation_report.json
+        reports 0.9086 at the deployed threshold.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested wording
+      description: Optional. A pull request is very welcome — docs are a good first contribution.

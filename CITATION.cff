@@ -1,0 +1,30 @@
+# Citation metadata. GitHub renders a "Cite this repository" panel from this
+# file. It describes the software, not a paper — there is no publication
+# associated with this project and none is implied.
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "Predictive Maintenance + GenAI Insight Generator"
+abstract: >-
+  An end-to-end predictive maintenance platform. A TensorFlow LSTM predicts
+  equipment failure 24 hours ahead from sensor telemetry, and a language model
+  turns each prediction into a plain-English maintenance report grounded in the
+  engineered features the model actually consumed. Served over a FastAPI REST
+  API with a Streamlit dashboard.
+authors:
+  - family-names: Tomar
+    given-names: Vansh
+    email: vanshwar@gmail.com
+repository-code: "https://github.com/Vanshcloud/Predictive-Maintenance-GenAI"
+url: "https://github.com/Vanshcloud/Predictive-Maintenance-GenAI"
+license: MIT
+version: 1.0.0
+date-released: 2026-08-26
+keywords:
+  - predictive-maintenance
+  - machine-learning
+  - tensorflow
+  - lstm
+  - time-series
+  - langchain
+  - fastapi
