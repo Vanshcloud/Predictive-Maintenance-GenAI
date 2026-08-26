@@ -121,6 +121,82 @@ class TestConfiguration:
         assert settings1 is settings2, "Should return cached singleton"
 
 
+class TestServingContract:
+    """
+    The two configuration invariants that decide what a technician is told.
+
+    These live here, in the smoke suite, and take no fixture — deliberately.
+    The equivalent assertions in tests/unit/test_predictor.py hang off a
+    `predictor` fixture that calls `pytest.skip` when no trained `.keras` is
+    on disk, which is exactly the state CI runs in (models/ is gitignored).
+    So the invariants were asserted only on machines that had already trained
+    a model, and never on the gate that blocks a merge. Both facts below are
+    readable from committed files alone, so both can be checked anywhere.
+    """
+
+    def test_risk_bands_ascend_and_high_is_the_alert_threshold(self):
+        """
+        Bands must ascend, and "high or above" must mean "alerting".
+
+        `Predictor.risk_level()` tests the boundaries top-down, so a MEDIUM
+        set above HIGH would not raise — it would silently make one band
+        unreachable and the dashboard would stop showing a level the API can
+        still emit. The HIGH == threshold equality is the stronger claim:
+        the band boundary and the alert decision are one number, and if they
+        drift the UI can show "medium" for a machine the API has flagged.
+        """
+        from config.settings import get_settings
+
+        s = get_settings()
+        assert s.RISK_BAND_MEDIUM < s.RISK_BAND_HIGH < s.RISK_BAND_CRITICAL, (
+            "Risk bands must ascend low -> medium -> high -> critical; got "
+            f"medium={s.RISK_BAND_MEDIUM}, high={s.RISK_BAND_HIGH}, "
+            f"critical={s.RISK_BAND_CRITICAL}"
+        )
+        assert s.RISK_BAND_HIGH == s.PREDICTION_THRESHOLD, (
+            f"RISK_BAND_HIGH ({s.RISK_BAND_HIGH}) must equal "
+            f"PREDICTION_THRESHOLD ({s.PREDICTION_THRESHOLD}) so that the "
+            '"high" band and the alert decision cannot diverge.'
+        )
+
+    def test_served_threshold_matches_the_committed_evaluation_report(self):
+        """
+        The threshold in settings must be the one evaluation actually chose.
+
+        `scripts/evaluate_model.py` sweeps the validation PR curve and writes
+        the chosen operating point to models/evaluation_report.json, but
+        nothing copies it into `PREDICTION_THRESHOLD` — that edit is manual.
+        A retrain that moves the optimum therefore leaves the API serving the
+        PREVIOUS model's threshold, silently, with every test still green and
+        every published metric describing an operating point nobody is using.
+        Day 15 moved it from 0.6678 to 0.3415; this is what would have caught
+        forgetting the second half of that change.
+
+        The report is committed (the .keras is not), so this runs in CI.
+        """
+        import json
+
+        from config.settings import PROJECT_ROOT, get_settings
+
+        report_path = PROJECT_ROOT / "models" / "evaluation_report.json"
+        if not report_path.exists():
+            pytest.skip(f"no evaluation report at {report_path}")
+
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        chosen = report["test_at_chosen_threshold"]["threshold"]
+        served = get_settings().PREDICTION_THRESHOLD
+
+        # settings carries the rounded value a human can read and quote; the
+        # report carries full float64 precision. Four places is the precision
+        # README.md and docs/RESULTS.md publish, so it is the precision that
+        # has to agree.
+        assert round(served, 4) == round(chosen, 4), (
+            f"PREDICTION_THRESHOLD is {served} but the committed evaluation "
+            f"report chose {chosen}. Re-run scripts/evaluate_model.py and "
+            "update config/settings.py (and RISK_BAND_HIGH with it)."
+        )
+
+
 class TestLogger:
     """Verify the logging system is configured correctly."""
 
