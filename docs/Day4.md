@@ -31,7 +31,7 @@ The repository, the documentation, and the tests disagreed with each other:
 | Source | Claimed |
 |---|---|
 | `docs/handoff.md` | "Day 3 of 12 Complete", Day 4 "🔒 Next" |
-| `CLAUDE.md` | Day 4 in progress; `trainer.py` uses `create_tf_dataset()` with `tf.data...prefetch()`; debugging files `debug_fit*.py` exist at the repo root |
+| Project conventions | Day 4 in progress; `trainer.py` uses `create_tf_dataset()` with `tf.data...prefetch()`; debugging files `debug_fit*.py` exist at the repo root |
 | `tests/unit/test_model.py` | Imports `iter_batches` from `trainer.py`, expects `trainer.optimizer` and a **dict** history — i.e. a *manual training loop* |
 | `src/models/trainer.py` on disk | The `tf.data` + `model.fit()` version — **no `iter_batches`, no `.optimizer`** |
 | `debug_fit*.py` | Did not exist |
@@ -130,7 +130,7 @@ File mtimes showed `test_model.py` written at 02:19 and `trainer.py` at 02:25 �
 | Field | Detail |
 |---|---|
 | **Purpose** | The Day 4 state confusion was itself a documentation failure. It needed a structural fix, not a patch. |
-| **Files affected** | `IMPLEMENTATION_PLAN.md`, `docs/Day1-4.md`, `CLAUDE.md`, `docs/handoff.md` |
+| **Files affected** | `IMPLEMENTATION_PLAN.md`, `docs/Day1-4.md`, the conventions file, `docs/handoff.md` |
 | **Dependencies** | none |
 | **Priority** | P1 |
 | **Expected outcome** | A single source of truth plus one document per day. |
@@ -283,7 +283,7 @@ placement is deliberate).
 ## Documentation system (T9)
 
 Created `IMPLEMENTATION_PLAN.md` (single source of truth) and `docs/Day1.md`–`Day4.md`.
-Updated `CLAUDE.md` (which described the deleted `tf.data` trainer and non-existent
+Updated the conventions file (which described the deleted `tf.data` trainer and non-existent
 `debug_fit*.py` files) and added a "superseded" banner to `docs/handoff.md`.
 
 ---
@@ -523,7 +523,7 @@ in the import list.
    imported before test collection, so this fixes the order for the whole session.
 3. **Docstring corrections** in `trainer.py` and `evaluator.py`, which asserted the
    disproven prefetch-thread theory.
-4. **`CLAUDE.md`** updated with the rule for future entry points.
+4. **The conventions file** updated with the rule for future entry points.
 
 ### Verification
 
@@ -612,7 +612,7 @@ in the import list.
 | **Pros of the global fix** | Airtight — no import order could ever poison the process. |
 | **Cons** | Every data-only script and every data-layer test would pay TensorFlow's ~90 s cold import for nothing. `run_preprocessing.py` does not need TF. |
 | **Reason for selection** | Guard in `src/models/__init__.py` (which covers every current TF consumer) plus `tests/conftest.py`, plus a documented rule for future entry points. |
-| **Impact** | Covers all present code. A future `src/api/main.py` that imports `src.data` before `src.models` could still hit it — which is exactly why the rule is written into `CLAUDE.md` and the plan rather than left implicit. |
+| **Impact** | Covers all present code. A future `src/api/main.py` that imports `src.data` before `src.models` could still hit it — which is exactly why the rule is written into the conventions and the plan rather than left implicit. |
 
 ## D3 — Shuffle epoch order, sort indices within a batch
 
@@ -743,7 +743,7 @@ models/lstm_predictive_maintenance.keras   (gitignored, 1.8 MB)
 ```
 src/models/__init__.py            (import order — load-bearing)
 src/utils/logger.py               (enqueue=True removed; unused import)
-CLAUDE.md                         (corrected stale trainer description; added abseil rule)
+Project conventions               (corrected stale trainer description; added abseil rule)
 handoff.md                        (superseded banner)
 .flake8                           (scripts/*.py: E402 exemption)
 docs/Day1.md                      (corrected the false format-cleanliness claim)
@@ -752,7 +752,7 @@ docs/Day1.md                      (corrected the false format-cleanliness claim)
 
 # Files Deleted
 
-None. (`debug_fit*.py` were referenced by `CLAUDE.md` but did not exist — the reference
+None. (`debug_fit*.py` were referenced by the conventions file but did not exist — the reference
 was removed.)
 
 # Models Generated
@@ -814,7 +814,7 @@ TensorFlow-dependent one — so alphabetical import order decided whether the pr
 train. `fit()` was never the problem; it was never reached.
 
 The fix is three lines and completely invisible, which is why it now carries thirty lines
-of docstring, an `# isort: skip_file`, and a rule in `CLAUDE.md`. A separate 51-issue lint
+of docstring, an `# isort: skip_file`, and a documented rule. A separate 51-issue lint
 debt was cleared, a self-inflicted regex disaster was reverted rather than compounded, and
 a test that had been writing into the real `models/` directory was sandboxed.
 

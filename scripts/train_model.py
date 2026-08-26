@@ -140,7 +140,7 @@ def main():
     # are drawn from glorot_uniform. Without this the script was not
     # reproducible: two runs on identical data produced different weights,
     # different dropout masks, and a different test F1 — while README.md,
-    # AGENTS.md and docs/RESULTS.md all quoted 0.8949 as a fact about this
+    # docs/RESULTS.md and IMPLEMENTATION_PLAN.md all quoted 0.8949 as a fact about this
     # repository. An unreproducible headline metric is an unfalsifiable one.
     # The model was retrained under this seed on Day 15; the figures those
     # files now carry are ones `--seed 42` re-derives.

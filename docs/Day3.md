@@ -293,7 +293,7 @@ explicit assertion instead of relying on review.
 | **Pros** | The only split that honestly simulates deployment: train on the past, predict the future. |
 | **Cons** | Train and test come from different periods, so any distribution drift shows up as apparent model weakness. |
 | **Reason for selection** | With 24-hour lag features, a random split leaks directly. The resulting metrics would be excellent and worthless. |
-| **Impact** | Listed as a "must never change" invariant in `CLAUDE.md` and `IMPLEMENTATION_PLAN.md`. |
+| **Impact** | Listed as a "must never change" invariant in the project conventions and `IMPLEMENTATION_PLAN.md`. |
 
 ## D2 — Fit the scaler on training data only
 

@@ -79,7 +79,7 @@ It had carried a "superseded — read the plan instead" banner since Day 4, whic
 is its own kind of clutter: 60 KB whose only message is *read something else*.
 Deleted, with git preserving it (`git show 9ceb349:docs/handoff.md`) and
 `docs/README.md` recording where it went and why. Live references in
-`CLAUDE.md`, the plan, and both READMEs were updated; the historical mentions
+The conventions file, the plan, and both READMEs were updated; the historical mentions
 inside `Day1.md`–`Day3.md` ("reconstructed from handoff.md") were left alone,
 because they describe how those documents were written and remain true.
 
@@ -238,7 +238,7 @@ rather than assumed safe.
 | TD-2 no checkpoint resume | ✅ repaid Day 5 |
 | TD-3 no training curves | ✅ repaid Day 5 |
 | TD-4 `handoff.md` overlap | ✅ **repaid Day 12** |
-| TD-5 stale `CLAUDE.md` | ✅ repaid Day 4 |
+| TD-5 stale conventions file | ✅ repaid Day 4 |
 | TD-6 threshold hardcoded at 0.5 | ✅ repaid Day 5 |
 | TD-7 no integration tests | ✅ 9 tests (parity + live grounding); API coverage via `TestClient` |
 | TD-8 mypy: 159 errors | ✅ **repaid Day 12** — 0 errors, CI check now blocking (see below) |
@@ -281,7 +281,7 @@ docs/Day12.md      this file
 ```
 README.md                 at-a-glance box, real architecture diagram, docs table
 IMPLEMENTATION_PLAN.md    TD-4 closed, companion docs, folder tree
-CLAUDE.md                 handoff references removed
+Project conventions       handoff references removed
 docs/README.md            handoff row replaced with a provenance note
 ```
 

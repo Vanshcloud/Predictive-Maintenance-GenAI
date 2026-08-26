@@ -30,9 +30,10 @@ ENV/
 !.env.example
 .streamlit/secrets.toml
 
-# --- IDE ---
+# --- Editor / local tool state ---
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 *~
@@ -100,19 +101,17 @@ docker-compose.override.yml
 *.rej
 *.bak
 
-# --- Local agent & editor state ---
-.claude/settings.local.json
-
 # --- OS ---
 .DS_Store
 Thumbs.db
 
-# --- Local session handoff (deliberately not published) ---
-# docs/PROJECT_STATE.md is written for the NEXT agent session, not for readers
-# of this repository: it carries working agreements, scratchpad paths, and
-# unverified in-flight state. Ignored rather than merely untracked, because a
-# `git add -A` would otherwise sweep it into a commit and publish it.
+# --- Local working notes (deliberately not published) ---
+# Scratch state for work in progress: local paths, half-finished measurements,
+# and notes that are not yet true. Ignored rather than merely untracked, because
+# a `git add -A` would otherwise sweep it into a commit and publish it.
 docs/PROJECT_STATE.md
+docs/SCRATCH.md
+NOTES.local.md
 
 # Stray uv artifact: nothing here uses uv (the project is pip + venv, see the
 # Makefile). A bare `uv` invocation in this directory drops a 155-byte lockfile

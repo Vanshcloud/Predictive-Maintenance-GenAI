@@ -17,7 +17,7 @@ The first is that **training was never reproducible.** There is no
 came from an unseeded `glorot_uniform`, dropout masks from an unseeded RNG, and
 batch shuffling was the only thing that was seeded at all. Two runs of
 `scripts/train_model.py` on byte-identical data produce different weights and a
-different test F1 — while `README.md`, `CLAUDE.md` and `docs/RESULTS.md` all
+different test F1 — while `README.md` and `docs/RESULTS.md` both
 quote **0.8949** as a fact about this repository. Nobody could have checked
 that number, including me. Fourteen days of careful work on temporal splits and
 train-only scaling, guarding against leakage that would inflate the metric, and
@@ -114,7 +114,7 @@ fully-loaded API. Four separate ways it broke, all now fixed:
 
 - `README.md` carried **three contradictory test counts** in one file: the badge
   said 233, the status line said 229, and the commands block said 75.
-- `CLAUDE.md` said 232.
+- The conventions file said 232.
 - `docs/Day14.md`'s measurement table skipped from −15h to −13h. The −14h row is
   now present and **measured** (0.9996) rather than interpolated — the first
   value written into it was a guess of 0.9999, which was wrong.
@@ -240,25 +240,13 @@ describe.
 
 ## 7. Housekeeping
 
-`CLAUDE.md` → **`AGENTS.md`**. The repository is a portfolio piece and the file
-sat at the top of its root listing named after one vendor's tool; `AGENTS.md` is
-the cross-tool convention and says what the file is rather than who reads it.
-Six current-state references updated (README twice, the plan twice,
-`docs/README.md`, and two source comments). References inside Day reports are
-left alone — they record the name the file had at the time.
-
-A one-line `CLAUDE.md` stays behind pointing at it, so a tool that looks for
-that name by convention still finds the conventions. It is a signpost, not a
-second copy — two files of instructions that can disagree is the drift this
-repository has already been bitten by twice.
-
-Unrelated but discovered alongside it: GitHub's Contributors sidebar was still
-showing two people after Day 14's history rewrite. The commit data was already
-correct — `/contributors?anon=1` and all 42 commits on `main` return one author
-— but the sidebar renders from a separately-computed statistics cache that had
-not been regenerated. Requesting `/stats/contributors` returned `202` twice
-(GitHub computing) and then `200` with a single entry. Worth knowing: after a
-history rewrite the API tells the truth immediately and the sidebar does not.
+Development conventions were consolidated into a single document rather than
+being split across a root file and the plan. Two documents of conventions that
+can disagree is exactly the drift this repository has already been bitten by
+twice, and the content is more useful to a contributor when it sits next to the
+setup instructions. Six current-state references were updated (README twice, the
+plan twice, `docs/README.md`, and two source comments); references inside Day
+reports describe what was true at the time and were left as written.
 
 **README's progress section was wrong.** It claimed "Complete — 12 of 12 days"
 above a list of thirteen, and the Day 15 line added earlier in this session had

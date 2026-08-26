@@ -72,6 +72,8 @@ in the sidebar, and set the date to 2024-10-31 hour 6.
 - [Documentation](#documentation)
 - [Testing](#testing)
 - [Development Progress](#development-progress)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
 - [License](#license)
 
 ---
@@ -361,8 +363,9 @@ local Ollama model generates the full report keyless.
 ```
 Predictive-Maintenance-GenAI/
 ├── IMPLEMENTATION_PLAN.md   # Single source of truth: scope, architecture, risks, status
-├── AGENTS.md                # Working notes for AI agents in this repo
-├── CLAUDE.md                # One line, pointing at AGENTS.md
+├── CONTRIBUTING.md          # Dev setup, quality gates, and the invariants that must hold
+├── SECURITY.md              # Threat model and vulnerability reporting
+├── CHANGELOG.md             # Keep a Changelog format
 ├── LICENSE                  # MIT
 ├── Makefile                 # make test / lint / format / typecheck / quality
 ├── pyproject.toml           # PEP 621 metadata + Black/isort/pytest/mypy/coverage config
@@ -417,7 +420,9 @@ config/ -> src/utils/ -> src/data/ -> src/models/ -> src/prediction/ -> src/gena
 | [`docs/RESULTS.md`](docs/RESULTS.md) | **Every metric in one place**, each with the caveat it needs |
 | [`docs/architecture.md`](docs/architecture.md) | System architecture diagram and layer responsibilities |
 | [`docs/Day1.md`](docs/Day1.md) … [`docs/Day15.md`](docs/Day15.md) | One report per implementation day: plan, work done, code changes, training results, bugs, design decisions, next steps |
-| [`AGENTS.md`](AGENTS.md) | Repo conventions and non-negotiable invariants, for AI agents |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Development setup, quality gates, code style, and the correctness invariants a change must not break |
+| [`SECURITY.md`](SECURITY.md) | Threat model, what is and is not hardened, and how to report a vulnerability |
+| [`CHANGELOG.md`](CHANGELOG.md) | Release history |
 
 ---
 
@@ -466,11 +471,69 @@ subsequent runs finish in about 4 seconds.
 
 ### After the build
 
-Enhancement, not construction. Each is a full session with its own report.
+Enhancement, not construction. Each has its own report in `docs/`.
 
 - [x] **Day 13** — Point-in-time assessment — rewind to any hour; **5/5 alert at 6 h, 0/5 at 36 h**
 - [x] **Day 14** — Quality-gate drift and accessibility — local and CI gates unified, two WCAG AA contrast failures fixed, the horizon chart above
 - [x] **Day 15** — Full production review — training made reproducible and **retrained seeded** (**F1 0.9086**, t=0.3415), unbounded `/fleet` cache bounded, Windows-safe file I/O
+
+---
+
+## Roadmap
+
+Known limitations, in the order I would address them. Each is a deliberate scope
+boundary rather than an oversight — see [`SECURITY.md`](SECURITY.md) for the
+deployment posture this project currently assumes.
+
+**Before this could face an untrusted network**
+
+- **Authentication and rate limiting.** No endpoint has either. `POST /report`
+  invokes a language model, so with a provider key configured an anonymous
+  caller can spend against the account in a loop.
+- **Bounded request bodies.** `PredictRequest.readings` sets a floor of 48 but no
+  ceiling, and `ReportRequest.question` has no length cap.
+- **A lock on the fleet cache.** Route handlers are synchronous, so FastAPI runs
+  them in a threadpool. Concurrent requests for an uncached `as_of` all miss and
+  all recompute — measured at four independent fleet scorings for four
+  simultaneous callers.
+
+**Engineering improvements**
+
+- `scripts/predict.py --machine N` scores the whole fleet to return one row,
+  because it does not reuse the API's `slice_for()`. Same answer, roughly a
+  thousand times the wall clock.
+- `Predictor.explain_machine()` runs feature engineering twice — once directly
+  and once via `predict_machine()` — costing about 24% on every explain call.
+- The alert threshold is copied by hand from the evaluation report into
+  `config/settings.py`. A test now catches the two drifting apart, but generating
+  the value would be better than checking it.
+
+**Model and data**
+
+- **The dataset is synthetic**, with a degradation pattern designed to be
+  detectable. The pipeline transfers to real telemetry; these metrics would not.
+  Validating against a real fleet is the single highest-value next step.
+- Eight failure events in the held-out period is a small sample for the
+  event-level recall figure, and it is reported as such.
+- Per-component failure prediction — the dataset labels which component failed,
+  and the current model predicts only that *a* failure is coming.
+
+---
+
+## Contributing
+
+Contributions are welcome. [`CONTRIBUTING.md`](CONTRIBUTING.md) covers
+development setup, the quality gates, and — most importantly — the correctness
+invariants in this codebase that fail silently if broken.
+
+```bash
+make setup          # venv + dependencies
+make quality        # lint + format-check + typecheck
+make test           # unit tests
+```
+
+Please read [`SECURITY.md`](SECURITY.md) before reporting anything with a
+security dimension, and note the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ---
 

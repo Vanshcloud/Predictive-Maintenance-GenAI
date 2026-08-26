@@ -211,7 +211,7 @@ class TestFactFormatting:
 class TestProviderSelection:
     def test_unknown_provider_is_rejected(self):
         with pytest.raises(LLMConnectionError, match="Unknown LLM provider"):
-            get_llm(provider="anthropic-but-typo")
+            get_llm(provider="not-a-real-provider")
 
     def test_missing_openai_key_names_the_keyless_alternative(self, monkeypatch):
         """

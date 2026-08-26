@@ -14,7 +14,7 @@ immediately. It must be updated whenever meaningful progress is made.
 | **Repository** | https://github.com/Vanshcloud/Predictive-Maintenance-GenAI |
 | **Branch** | `main` |
 | **Latest commit at time of writing** | `79c094a` (Day 3); Day 4 work is staged in the working tree |
-| **Companion documents** | `docs/Day1.md` … `docs/Day15.md`, `docs/RESULTS.md` (consolidated metrics), `AGENTS.md` (agent instructions) |
+| **Companion documents** | `docs/Day1.md` … `docs/Day15.md`, `docs/RESULTS.md` (consolidated metrics), `CONTRIBUTING.md` (development conventions), `docs/architecture.md` (design-level view) |
 
 
 > **History note (2026-08-23).** Every commit in this repository was rewritten to
@@ -482,7 +482,7 @@ src.data.ingestion ─→ src.data.validation ─→ src.data.preprocessing
 predictive-maintenance-genai/
 │
 ├── IMPLEMENTATION_PLAN.md        # ← THIS FILE. Single source of truth.
-├── AGENTS.md                     # Instructions for AI agents working in this repo
+├── CONTRIBUTING.md               # Development setup, quality gates, invariants
 ├── LICENSE                       # MIT
 ├── README.md                     # Public-facing project README with badges
 ├── Makefile                      # make test / lint / format / typecheck / quality
@@ -1610,7 +1610,7 @@ checkout, which doubles as validation of the installation instructions above.
 | Field | Detail |
 |---|---|
 | **Root cause** | Implementation moves faster than the write-up; a session ends without updating the plan. |
-| **Impact** | The next session (human or AI) works from a false picture and re-derives or breaks decisions. This already happened once — `docs/handoff.md` described Day 3 as current while Day 4 code sat uncommitted in the working tree, and `CLAUDE.md` described a `tf.data` trainer that the tests had already replaced. **Medium-High**, and it compounds. |
+| **Impact** | Whoever picks the work up next — including me, weeks later — works from a false picture and re-derives or breaks decisions. This already happened once: `docs/handoff.md` described Day 3 as current while Day 4 code sat uncommitted in the working tree, and the conventions file described a `tf.data` trainer that the tests had already replaced. **Medium-High**, and it compounds. |
 | **Likelihood** | High without a process. |
 | **Mitigation** | This document plus one `docs/DayX.md` per day; the mandatory session workflow (read plan → read latest day file → inspect repo → run tests → implement → test → **update both documents** → commit); documentation and implementation land in the same commit. |
 | **Recovery** | Reconcile against the repository, which is the ultimate source of truth — file mtimes, git status, logs, and the test suite all carry evidence of true state. |
@@ -1928,7 +1928,7 @@ deadlock) were resolved on Day 4.
 | ~~TD-3~~ | ~~No training curves~~ | — | ✅ **Repaid Day 5** — `training_curves.png`, `pr_curve.png` |
 | ~~TD-4~~ | ~~`docs/handoff.md` overlaps this plan~~ | — | ✅ **Repaid Day 12** — removed; superseded by this plan and by `docs/Day1-3.md`, and preserved in git history |
 | ~~TD-8~~ | ~~mypy reports 159 errors~~ | — | ✅ **Repaid Day 12** — 0 errors across 29 files; the CI check is now **blocking**. 128 of the 159 came from one line: `get_logger()` annotated with `loguru.logger`, an instance rather than a class |
-| ~~TD-5~~ | ~~`CLAUDE.md` referenced a `tf.data` trainer and root-level `debug_fit*.py` files~~ | Drift during Day 4's debugging | ✅ **Repaid Day 4** — `CLAUDE.md` corrected |
+| ~~TD-5~~ | ~~The conventions file referenced a `tf.data` trainer and root-level `debug_fit*.py` files~~ | Drift during Day 4's debugging | ✅ **Repaid Day 4** — corrected |
 | ~~TD-6~~ | ~~Threshold fixed at 0.5~~ | — | ✅ **Repaid Day 5** — validation sweep; deployed t=0.3415 since the Day 15 retrain |
 | ~~TD-7~~ | ~~Integration tests: 9~~ | — | ✅ **Repaid Day 13** — 13 integration tests; `test_time_travel.py` adds four covering point-in-time assessment against the real model, including a leakage check |
 
