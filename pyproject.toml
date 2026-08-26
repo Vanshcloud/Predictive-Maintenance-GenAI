@@ -34,6 +34,29 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
+# ---- Optional LLM providers ----
+# WHY THESE ARE DECLARED HERE AND NOT IN requirements.txt:
+#   src/genai/chains.py imports both packages lazily, inside get_llm(), so that
+#   the base install stays small and a missing provider produces a readable
+#   LLMConnectionError instead of an ImportError at module load. That design is
+#   right — but until now neither package was named in ANY installable file, so
+#   the only record that they exist was a string inside an error message.
+#
+#   That mattered most for `ollama`, which is the keyless path the README leads
+#   with. Without langchain-ollama installed, chains.py silently falls back to
+#   `langchain_community.chat_models.ChatOllama`, which is deprecated and slated
+#   for removal in langchain-community 1.0 — inside the `<1.0.0` range
+#   requirements.txt already allows. The fallback works today and emits a
+#   DeprecationWarning; the extra is how you get the supported class.
+#
+#   Install:  pip install -e ".[ollama]"     # keyless local model
+#             pip install -e ".[google]"     # Gemini
+#             pip install -e ".[llm]"        # both
+[project.optional-dependencies]
+ollama = ["langchain-ollama>=0.1.0,<1.0.0"]
+google = ["langchain-google-genai>=1.0.0,<3.0.0"]
+llm = ["langchain-ollama>=0.1.0,<1.0.0", "langchain-google-genai>=1.0.0,<3.0.0"]
+
 # ---- Black (Code Formatter) ----
 # WHY: Black enforces a consistent code style automatically.
 # No more debates about formatting — just run `black .`
