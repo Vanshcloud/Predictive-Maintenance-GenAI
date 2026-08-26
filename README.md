@@ -58,7 +58,7 @@ in the sidebar, and set the date to 2024-10-31 hour 6.
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [See it work](#see-it-work)
 - [Overview](#overview)
