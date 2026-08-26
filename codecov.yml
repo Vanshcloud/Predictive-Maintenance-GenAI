@@ -1,0 +1,41 @@
+# Codecov configuration.
+# Reference: https://docs.codecov.com/docs/codecovyml-reference
+#
+# Coverage here is DIAGNOSTIC, not a gate. The blocking checks are flake8,
+# Black, isort, mypy, and the test suite. A coverage percentage is a weak proxy
+# for whether the tests would actually fail if the behaviour regressed, and
+# gating on it encourages tests written to move a number.
+
+coverage:
+  precision: 1
+  round: down
+  range: "70...90"
+
+  status:
+    project:
+      default:
+        target: auto
+        # Tolerates the noise of a refactor that moves lines between covered
+        # and uncovered files without changing what is tested.
+        threshold: 2%
+        informational: true
+    patch:
+      default:
+        # New code should be tested — but this is advisory, for the same
+        # reason as above.
+        target: 80%
+        threshold: 5%
+        informational: true
+
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: true      # only comment when coverage actually moved
+
+# Mirrors [tool.coverage.run].omit in pyproject.toml.
+ignore:
+  - "tests/**"
+  - "**/__init__.py"
+  - "scripts/**"        # entry points, exercised end to end rather than unit-tested
+  - "examples/**"
+  - "notebooks/**"

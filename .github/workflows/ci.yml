@@ -122,7 +122,24 @@ jobs:
           python -m pytest tests/ --cov=src --cov=config \
             --cov-report=term-missing --cov-report=xml
 
-      - name: Upload coverage
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.xml
+          flags: unit
+          name: unit-${{ env.PYTHON_VERSION }}
+          # Public repos can upload tokenlessly, but rate limits make that
+          # flaky; the token is used when the secret exists and skipped when
+          # it does not, so a fork's CI is not broken by its absence.
+          token: ${{ secrets.CODECOV_TOKEN }}
+          # Coverage reporting is diagnostic, not a gate. The blocking checks
+          # are lint, types, and the test suite itself — a Codecov outage
+          # should not turn this build red.
+          fail_ci_if_error: false
+
+      - name: Upload coverage artifact
+        # Kept alongside Codecov so the raw report is retrievable from the run
+        # itself, without depending on a third party.
         uses: actions/upload-artifact@v4
         with:
           name: coverage

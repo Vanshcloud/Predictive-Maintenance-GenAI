@@ -23,6 +23,7 @@ import threading
 import time
 from collections import OrderedDict
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
@@ -70,7 +71,7 @@ class MachineDataStore:
         )
 
     @classmethod
-    def load(cls, data_dir) -> "MachineDataStore":
+    def load(cls, data_dir: Path) -> "MachineDataStore":
         """Read the raw tables once, parsing datetimes up front."""
         dataset = {}
         for name in RAW_TABLES:
@@ -88,9 +89,11 @@ class MachineDataStore:
 
     @property
     def is_loaded(self) -> bool:
+        """True when both tables the machine endpoints need are present."""
         return "telemetry" in self.dataset and "machines" in self.dataset
 
     def require_machine(self, machine_id: int) -> None:
+        """Raise ResourceNotFoundError unless this machine is in the dataset."""
         if machine_id not in self.machine_ids:
             raise ResourceNotFoundError(
                 f"Machine {machine_id} is not in the dataset. "
@@ -356,6 +359,7 @@ class PredictionService:
             return results
 
     def invalidate_fleet_cache(self) -> None:
+        """Drop every cached fleet result, for every `as_of`."""
         with self._cache_lock:
             self._fleet_cache.clear()
             self._fleet_cached_at.clear()
@@ -400,12 +404,14 @@ class AppState:
             self.service = PredictionService(self.predictor, self.store)
 
     def shutdown(self) -> None:
+        """Release the model and dataset so the process can exit promptly."""
         self.predictor = None
         self.store = None
         self.service = None
 
     @property
     def is_ready(self) -> bool:
+        """True when predictions can actually be served — what /health reports."""
         return self.service is not None
 
 

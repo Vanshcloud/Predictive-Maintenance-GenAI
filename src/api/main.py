@@ -33,6 +33,7 @@ HOW IT WORKS:
 
 import uuid
 from contextlib import asynccontextmanager
+from typing import AsyncIterator, Dict
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -58,7 +59,7 @@ settings = get_settings()
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Load the model and dataset once, and release them on shutdown."""
     logger.info("API starting up — loading model and dataset...")
     state.startup()
@@ -176,7 +177,7 @@ app.include_router(reports.router)
 
 
 @app.get("/", include_in_schema=False)
-def root():
+def root() -> Dict[str, str]:
     """Point a browser at something useful."""
     return {
         "service": app.title,

@@ -16,6 +16,17 @@
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.dynamic]
+# Runtime dependencies are read from requirements.txt rather than duplicated
+# here. Two lists of pins drift, and this project has been bitten by two
+# sources of truth before; requirements.txt stays canonical because it is what
+# the Dockerfiles and CI install.
+#
+# Without this the built wheel declared ONLY the optional extras and no base
+# dependencies at all, so `pip install` produced a package that ImportErrors on
+# `import src.prediction`.
+dependencies = {file = ["requirements.txt"]}
+
 [tool.setuptools.packages.find]
 # `src` and `config` are the importable top-level packages, because that is
 # what the code imports (`from src.prediction import Predictor`). dashboard/ is
@@ -29,6 +40,7 @@ version = "1.0.0"
 description = "Predict equipment failure 24 hours ahead from sensor telemetry, and explain each prediction in plain English"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"  # TensorFlow has no wheels for 3.13+; 3.12 is what this project is developed on
+dynamic = ["dependencies"]
 license = {text = "MIT"}
 authors = [
     {name = "Vansh Tomar", email = "vanshwar@gmail.com"},

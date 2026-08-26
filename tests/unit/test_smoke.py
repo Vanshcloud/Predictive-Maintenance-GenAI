@@ -145,6 +145,43 @@ class TestVersion:
         assert src.__version__ == packaged
 
 
+class TestPackaging:
+    """
+    The wheel must declare what it needs to run.
+
+    `[project].dependencies` was absent, so the built wheel declared only the
+    optional extras and no base dependencies at all — `pip install` produced a
+    package that ImportErrors on `import src.prediction`. It is now read
+    dynamically from requirements.txt so the two cannot drift.
+    """
+
+    def test_runtime_dependencies_are_declared(self):
+        import tomllib
+
+        from config.settings import PROJECT_ROOT
+
+        with open(PROJECT_ROOT / "pyproject.toml", "rb") as fh:
+            pyproject = tomllib.load(fh)
+
+        assert "dependencies" in pyproject["project"].get("dynamic", []), (
+            "[project].dynamic must list 'dependencies', or the wheel ships "
+            "with no runtime requirements."
+        )
+        source = pyproject["tool"]["setuptools"]["dynamic"]["dependencies"]["file"]
+        assert "requirements.txt" in source
+
+        # The referenced file must actually pin something, or the indirection
+        # is worse than useless — it looks correct and declares nothing.
+        requirements = (PROJECT_ROOT / "requirements.txt").read_text(encoding="utf-8")
+        pinned = [
+            line.strip()
+            for line in requirements.splitlines()
+            if line.strip() and not line.strip().startswith(("#", "-"))
+        ]
+        assert len(pinned) >= 10, f"requirements.txt lists only {len(pinned)} packages"
+        assert any(p.startswith("tensorflow") for p in pinned)
+
+
 class TestServingContract:
     """
     The two configuration invariants that decide what a technician is told.

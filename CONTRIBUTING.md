@@ -98,6 +98,20 @@ make quality              # lint + format-check + typecheck
 make run-api              # uvicorn on :8000  (interactive docs at /docs)
 make run-dashboard        # streamlit on :8501
 make docker-up            # both services in containers, health-gated
+
+make smoke                # verify the install: imports + config load
+make install              # runtime dependencies only
+make install-dev          # everything, including linters and notebooks
+make clean                # remove __pycache__, coverage, and tool caches
+```
+
+**Every script under `scripts/` supports `--help`**, and that is the canonical
+reference for its flags — argparse generates it from the same definitions the
+script runs on, so unlike a hand-written table it cannot drift:
+
+```bash
+python scripts/predict.py --help
+python scripts/train_model.py --help
 ```
 
 The paths the linters check are declared once, as `PY_PATHS` in the `Makefile`.

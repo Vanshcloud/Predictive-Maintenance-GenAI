@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: Support policy
+    url: https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/blob/main/SUPPORT.md
+    about: What to expect from a report, and what is out of scope.
   - name: Security vulnerability
     url: https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/security/advisories/new
     about: Report privately. Please do not open a public issue for a security problem.

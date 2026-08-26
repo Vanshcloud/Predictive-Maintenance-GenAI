@@ -19,7 +19,7 @@ with a dashboard, containerised, and tested end to end.
 
 <!-- Quality -->
 [![Tests](https://img.shields.io/badge/tests-245%20unit%20%2B%2013%20integration-15803d)](docs/benchmarks.md#test-suite)
-[![Coverage](https://img.shields.io/badge/coverage-86%25-15803d)](docs/benchmarks.md#test-suite)
+[![Coverage](https://codecov.io/gh/Vanshcloud/Predictive-Maintenance-GenAI/branch/main/graph/badge.svg)](https://codecov.io/gh/Vanshcloud/Predictive-Maintenance-GenAI)
 [![Model F1](https://img.shields.io/badge/test%20F1-0.9086-15803d)](docs/RESULTS.md)
 [![code style: black](https://img.shields.io/badge/code%20style-black-000000)](https://github.com/psf/black)
 [![imports: isort](https://img.shields.io/badge/imports-isort-1674b1)](https://pycqa.github.io/isort/)
@@ -685,6 +685,10 @@ make test           # unit tests
 
 Please read [`SECURITY.md`](SECURITY.md) before reporting anything with a
 security dimension, and note the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+[`SUPPORT.md`](SUPPORT.md) sets out what to expect from a bug report or a
+question — this is a one-person project, and it says so rather than leaving you
+guessing.
 
 ---
 

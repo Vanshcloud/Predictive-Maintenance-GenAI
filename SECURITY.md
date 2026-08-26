@@ -99,7 +99,28 @@ is a genuine report and I would like to hear about it.
 
 ## Model-specific considerations
 
-Two things worth knowing about the machine-learning surface:
+Three things worth knowing about the machine-learning surface:
+
+### Model artifacts are executable code — treat them as such
+
+`Predictor` loads two files at startup:
+
+| File | Loader | Risk |
+|---|---|---|
+| `scaler.joblib` | `joblib.load()` | **Pickle-backed. Loading a malicious file executes arbitrary code.** |
+| `*.keras` | `keras.load_model()` | Can execute code via custom or `Lambda` layers |
+
+**Only load artifacts you produced yourself, or that came from a source you
+trust as much as you trust your own code.** This is not specific to this
+project — it is true of every pickle-based ML artifact — but it is worth
+stating, because a `.joblib` file looks like data and is not.
+
+The processed tensors are safer: `np.load(..., mmap_mode="r")` leaves
+`allow_pickle` at its default of `False`, so a `.npy` file cannot execute code.
+
+In the container topology, `models/` and `data/` are mounted **read-only**, so
+a compromised API process cannot rewrite the artifacts it will load on restart.
+
 
 - **Predictions are advisory.** This system is a decision aid for maintenance
   scheduling. It should not be wired to anything that actuates equipment
