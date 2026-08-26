@@ -37,3 +37,11 @@ updates:
     directory: "/"
     schedule:
       interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      # Grouped for the same reason the pip updates are: going public opened
+      # five separate action-bump PRs at once, which is precisely the noise
+      # this file's grouping exists to prevent. Action majors are usually
+      # mechanical and are reviewed together or not at all.
+      actions:
+        patterns: ["*"]
