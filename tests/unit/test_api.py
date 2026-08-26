@@ -15,6 +15,9 @@ provider outage reported as an internal error, are the kind of defects that
 survive to production because the happy path looks fine.
 """
 
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 
 import pandas as pd
@@ -656,3 +659,114 @@ class TestFleetCacheIsBounded:
 
         service.fleet(as_of=hot + timedelta(days=99))
         assert pd.Timestamp(hot) in service._fleet_cache
+
+
+class TestFleetCacheUnderConcurrency:
+    """
+    Route handlers are `def`, not `async def`, so FastAPI runs them in a
+    threadpool and concurrency here is real. Checking the cache and filling it
+    used to be unsynchronised, so every request arriving for an uncached
+    `as_of` while another was mid-computation missed too, and recomputed the
+    same answer.
+
+    Measured against the running API before the fix: four concurrent requests
+    for one cold timestamp produced four full fleet scorings and made every
+    caller wait 58 s for work that takes ~14 s once.
+    """
+
+    @staticmethod
+    def _service(scorings, barrier=None):
+        """A service whose scoring is slow enough to overlap, and counted."""
+
+        class Store:
+            machine_ids = [1]
+
+            def slice_for(self, machine_id, window_hours=200, as_of=None):
+                return {}
+
+        class Predictor:
+            def predict_machine(self, sliced, machine_id):
+                scorings.append(machine_id)
+                if barrier is not None:
+                    # Every worker is inside the scoring body at once — the
+                    # exact interleaving the old code got wrong. Without the
+                    # lock this returns; with it, only one thread arrives and
+                    # the barrier times out, which is the point.
+                    try:
+                        barrier.wait(timeout=0.5)
+                    except threading.BrokenBarrierError:
+                        pass
+                time.sleep(0.05)
+                return {
+                    "machine_id": machine_id,
+                    "failure_probability": 0.1,
+                    "will_fail": False,
+                }
+
+        return service_module.PredictionService(Predictor(), Store())
+
+    def test_concurrent_requests_for_one_cold_key_score_the_fleet_once(self):
+        scorings = []
+        service = self._service(scorings)
+        as_of = datetime(2024, 10, 31, 6)
+
+        results = []
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            for r in pool.map(lambda _: service.fleet(as_of=as_of), range(6)):
+                results.append(r)
+
+        # One scoring, not six. This is the whole fix.
+        assert len(scorings) == 1, (
+            f"fleet() scored {len(scorings)} times for one cold key — "
+            "concurrent callers are stampeding the cache instead of waiting"
+        )
+        # And every caller still got the answer.
+        assert all(r == results[0] for r in results)
+        assert len(results) == 6
+
+    def test_a_cache_hit_does_not_block_behind_a_cold_computation(self):
+        """
+        The compute lock must not be held for reads. An operator refreshing a
+        cached view should not wait ~14 s because someone else rewound to an
+        uncached hour.
+        """
+        scorings = []
+        service = self._service(scorings)
+        warm = datetime(2024, 10, 31, 6)
+        service.fleet(as_of=warm)  # populate
+        assert len(scorings) == 1
+
+        cold = datetime(2024, 11, 14)
+        started = threading.Event()
+
+        def slow_cold():
+            started.set()
+            service.fleet(as_of=cold)
+
+        worker = threading.Thread(target=slow_cold, daemon=True)
+        worker.start()
+        started.wait(timeout=2)
+
+        # Hit the warm key while the cold scoring is in flight.
+        elapsed = time.perf_counter()
+        service.fleet(as_of=warm)
+        elapsed = time.perf_counter() - elapsed
+
+        worker.join(timeout=10)
+        assert elapsed < 0.05, (
+            f"a cache hit took {elapsed:.3f}s while another key was computing "
+            "— reads are blocking on the compute lock"
+        )
+
+    def test_concurrent_distinct_keys_all_get_stored(self):
+        """Serialising computation must not lose anyone's result."""
+        scorings = []
+        service = self._service(scorings)
+        stamps = [datetime(2024, 10, 31, h) for h in range(6)]
+
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            list(pool.map(lambda t: service.fleet(as_of=t), stamps))
+
+        assert len(scorings) == 6  # six distinct keys, six scorings
+        for t in stamps:
+            assert pd.Timestamp(t) in service._fleet_cache

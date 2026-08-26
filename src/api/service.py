@@ -19,6 +19,7 @@ THE SLICING CONSTRAINT — measured, and the reason this module exists:
     That is not an optimisation; without it the endpoint cannot exist.
 """
 
+import threading
 import time
 from collections import OrderedDict
 from datetime import datetime, timezone
@@ -185,6 +186,13 @@ class PredictionService:
         # moment in time.
         self._fleet_cache: "OrderedDict[Any, List[Dict[str, Any]]]" = OrderedDict()
         self._fleet_cached_at: Dict[Any, float] = {}
+        # Two locks with deliberately different scopes. `_cache_lock` guards
+        # the two dicts above and is held for microseconds; `_compute_lock`
+        # serialises the ~14 s scoring. Splitting them is what lets a cache
+        # hit return immediately while another thread is mid-computation.
+        # Lock order is always compute -> cache, never the reverse.
+        self._cache_lock = threading.Lock()
+        self._compute_lock = threading.Lock()
 
     def predict_machine(
         self,
@@ -249,6 +257,37 @@ class PredictionService:
         }
         return self.predictor.predict_machine(dataset, request.machine_id)
 
+    def _fresh_entry(self, key: Any) -> Optional[List[Dict[str, Any]]]:
+        """
+        Return the cached fleet for `key` if present and within the TTL.
+
+        Takes `_cache_lock` rather than `_compute_lock`, so a hit never waits
+        behind a cold scoring for some other `as_of`. Refreshing LRU recency
+        on a read is a mutation, which is precisely why it needs the lock —
+        and it must keep happening: a view an operator returns to repeatedly
+        is the one worth keeping, and re-inserting it costs the full ~16 s.
+        """
+        with self._cache_lock:
+            entry = self._fleet_cache.get(key)
+            if entry is None:
+                return None
+            age = time.monotonic() - self._fleet_cached_at.get(key, 0.0)
+            if age >= FLEET_CACHE_TTL_SECONDS:
+                return None
+            self._fleet_cache.move_to_end(key)
+            logger.debug(f"Fleet cache hit for as_of={key} ({age:.0f}s old)")
+            return entry
+
+    def _store_fleet(self, key: Any, results: List[Dict[str, Any]]) -> None:
+        """Insert under the cache lock, then evict down to the ceiling."""
+        with self._cache_lock:
+            self._fleet_cache[key] = results
+            self._fleet_cache.move_to_end(key)
+            self._fleet_cached_at[key] = time.monotonic()
+            while len(self._fleet_cache) > FLEET_CACHE_MAX_ENTRIES:
+                evicted, _ = self._fleet_cache.popitem(last=False)
+                self._fleet_cached_at.pop(evicted, None)
+
     def fleet(
         self, force: bool = False, as_of: Optional[pd.Timestamp] = None
     ) -> List[Dict[str, Any]]:
@@ -258,41 +297,68 @@ class PredictionService:
         Scoring the fleet one machine at a time costs roughly 160 ms each, so
         a 100-machine fleet is ~16 s — far too slow to recompute per request,
         and far too useful to omit.
+
+        WHY THIS IS LOCKED — measured, not theoretical:
+            Route handlers are `def`, not `async def`, so FastAPI runs them in
+            a threadpool and concurrency here is real. Checking the cache and
+            filling it were previously unsynchronised, so every request that
+            arrived for an uncached `as_of` while another was still computing
+            missed too, and computed the same answer again.
+
+            Four concurrent requests for one cold timestamp produced four full
+            fleet scorings and made every caller wait 58 s for work that takes
+            ~14 s once. The scoring is CPU-bound TensorFlow inference, so the
+            duplicates did not merely waste effort — they contended for the
+            same cores and made the answer four times slower to arrive.
+
+        WHY ONE COMPUTE LOCK AND NOT ONE PER KEY:
+            Per-key locks would let two different `as_of` values compute at
+            once, which sounds better and is not: the work is CPU-bound, so
+            running two scorings concurrently makes both slower rather than
+            finishing sooner. A per-key lock table would also need its own
+            bounded lifecycle, which is exactly the unbounded-growth bug this
+            cache already had once.
         """
         key = None if as_of is None else pd.Timestamp(as_of)
-        age = time.monotonic() - self._fleet_cached_at.get(key, 0.0)
-        if not force and key in self._fleet_cache and age < FLEET_CACHE_TTL_SECONDS:
-            logger.debug(f"Fleet cache hit for as_of={key} ({age:.0f}s old)")
-            self._fleet_cache.move_to_end(key)
-            return self._fleet_cache[key]
 
-        started = time.perf_counter()
-        results = []
-        for machine_id in self.store.machine_ids:
-            try:
-                results.append(self.predict_machine(machine_id, as_of=as_of))
-            except Exception as e:
-                # One unscoreable machine must not blank the whole fleet view.
-                logger.warning(f"Skipping machine {machine_id}: {e}")
+        if not force:
+            hit = self._fresh_entry(key)
+            if hit is not None:
+                return hit
 
-        results.sort(key=lambda r: r["failure_probability"], reverse=True)
-        self._fleet_cache[key] = results
-        self._fleet_cache.move_to_end(key)
-        self._fleet_cached_at[key] = time.monotonic()
-        while len(self._fleet_cache) > FLEET_CACHE_MAX_ENTRIES:
-            evicted, _ = self._fleet_cache.popitem(last=False)
-            self._fleet_cached_at.pop(evicted, None)
+        with self._compute_lock:
+            # Re-check under the lock. Whoever held it may have been computing
+            # this very key, in which case waiting was the whole point and the
+            # answer is now cached. `force` skips this so an explicit refresh
+            # still recomputes rather than collecting a freshly cached result.
+            if not force:
+                hit = self._fresh_entry(key)
+                if hit is not None:
+                    return hit
 
-        alerting = sum(1 for r in results if r["will_fail"])
-        logger.info(
-            f"Scored fleet of {len(results)} machines in "
-            f"{time.perf_counter() - started:.1f}s — {alerting} alerting"
-        )
-        return results
+            started = time.perf_counter()
+            results = []
+            for machine_id in self.store.machine_ids:
+                try:
+                    results.append(self.predict_machine(machine_id, as_of=as_of))
+                except Exception as e:
+                    # One unscoreable machine must not blank the whole fleet view.
+                    logger.warning(f"Skipping machine {machine_id}: {e}")
+
+            results.sort(key=lambda r: r["failure_probability"], reverse=True)
+            self._store_fleet(key, results)
+
+            alerting = sum(1 for r in results if r["will_fail"])
+            logger.info(
+                f"Scored fleet of {len(results)} machines in "
+                f"{time.perf_counter() - started:.1f}s — {alerting} alerting"
+            )
+            return results
 
     def invalidate_fleet_cache(self) -> None:
-        self._fleet_cache.clear()
-        self._fleet_cached_at.clear()
+        with self._cache_lock:
+            self._fleet_cache.clear()
+            self._fleet_cached_at.clear()
 
 
 class AppState:
