@@ -35,9 +35,12 @@ encountered, design decisions, remaining tasks, next-day plan, and project healt
 | [Day 11](Day11.md) | Docker, CI/CD & deployment | 2 images built and verified (**2.87 GB** / **803 MB**), compose stack healthy, build context 7.3 GB → 2.9 MB |
 | [Day 12](Day12.md) | Final polish, docs & demo | Clean-checkout verified (193 pass / 18 skip), dataset MD5 reproducible, TD-4 closed |
 | [Day 13](Day13.md) | Point-in-time assessment (`as_of`) | Rewind the fleet to any hour; **5/5 alert 6 h before failure, 0/5 at 36 h** — 229 unit + 13 integration tests |
+| [Day 14](Day14.md) | Quality-gate drift & accessibility | Local and CI gates unified on one path list; two WCAG AA contrast failures fixed; the horizon chart |
+| [Day 15](Day15.md) | Production review | Training seeded and retrained — **F1 0.9086, t=0.3415**; `/fleet` cache bounded; Windows-safe file I/O — 238 unit + 13 integration tests |
 
 > These are **daily** reports, not weekly. The project is structured as 12 one-day
-> milestones; see the Roadmap section of `IMPLEMENTATION_PLAN.md`.
+> milestones, followed by post-project enhancement sessions (Days 13–15); see the
+> Roadmap section of `IMPLEMENTATION_PLAN.md`.
 
 ---
 

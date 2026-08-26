@@ -7,7 +7,7 @@
 ![LangChain](https://img.shields.io/badge/LangChain-0.2%2B-green?logo=chainlink&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-teal?logo=fastapi&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
-![Tests](https://img.shields.io/badge/tests-238%20unit%20%2B%2013%20integration-brightgreen)
+![Tests](https://img.shields.io/badge/tests-241%20unit%20%2B%2013%20integration-brightgreen)
 [![CI](https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/actions/workflows/ci.yml/badge.svg)](https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/actions/workflows/ci.yml)
 ![Model F1](https://img.shields.io/badge/model%20F1-0.9086-success)
 
@@ -81,7 +81,7 @@ in the sidebar, and set the date to 2024-10-31 hour 6.
 > **At a glance:** an LSTM predicts equipment failure 24 hours ahead from four
 > sensors, and an LLM turns each prediction into a work order a technician can
 > act on. On held-out data it caught **8 of 8 failure events** with a median
-> 24 hours of warning, at **26 false alarms across 172,800 hourly readings**.
+> 23.5 hours of warning, at **21 false alarms across 172,800 hourly readings**.
 > Predictions serve in **137 ms**; the whole thing runs with no API key.
 >
 > Full numbers, with their caveats, in **[docs/RESULTS.md](docs/RESULTS.md)**.
@@ -179,7 +179,9 @@ See [docs/architecture.md](docs/architecture.md) for the detailed architecture d
 - Git
 - ~6 GB free disk space (the generated dataset and its processed tensors)
 - (Optional) An OpenAI / Google API key for the GenAI features — a local Ollama model
-  works with no key at all
+  works with no key at all. The provider packages are optional extras, imported
+  lazily, so install the one you want:
+  `pip install -e ".[ollama]"` (keyless) or `pip install -e ".[google]"`
 - (Optional) Docker for containerized deployment
 
 ### Quick Setup
@@ -276,7 +278,7 @@ make docker-build
 make docker-up                                # api :8000 · dashboard :8501
 
 # Quality
-make test                                     # 75 tests
+make test                                     # 241 unit tests
 make quality                                  # lint + format-check + typecheck
 ```
 
@@ -380,12 +382,12 @@ Predictive-Maintenance-GenAI/
 │                            #   train_model, evaluate_model, predict
 ├── tests/
 │   ├── conftest.py          # Session bootstrap (import order matters — see the file)
-│   ├── unit/                # 113 tests, ~18s
-│   └── integration/         # 4 tests — training/serving parity; `make test-integration`
+│   ├── unit/                # 241 tests, ~27s
+│   └── integration/         # 13 tests — parity, grounding, time travel; `make test-integration`
 ├── docs/
 │   ├── README.md            # Documentation index
 │   ├── architecture.md      # System architecture diagram
-│   ├── Day1.md … Day12.md   # One report per implementation day
+│   ├── Day1.md … Day15.md   # One report per implementation day
 │   ├── RESULTS.md           # Every metric, with its caveats
 │
 ├── data/
@@ -422,14 +424,14 @@ config/ -> src/utils/ -> src/data/ -> src/models/ -> src/prediction/ -> src/gena
 ## Testing
 
 ```bash
-make test          # 238 unit tests
+make test          # 241 unit tests
 make test-cov      # with coverage report
 make lint          # flake8
 make format        # black + isort (writes)
 make quality       # lint + format-check + typecheck (no writes)
 ```
 
-**Current status: 238 unit + 13 integration tests passing, 0 flake8 issues, mypy clean, Black and isort clean.**
+**Current status: 241 unit + 13 integration tests passing, 0 flake8 issues, mypy clean, Black and isort clean.**
 
 Tests run against the committed `data/sample/` fixture, so they need no generated data.
 The first run pays roughly 90 seconds for TensorFlow's initial import on ARM64 macOS;

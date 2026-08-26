@@ -1977,7 +1977,7 @@ Beyond the 12-day scope, in rough priority order:
 | `dashboard/` | 100% |
 | `docker/` + CI | 100% — images built, compose verified. **CI status belongs on the [live badge](https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/actions/workflows/ci.yml), not in this table** — a flat "CI green" here read as true through three consecutive red runs (#6–#8). |
 | Documentation | 95% |
-| Tests | 238 unit + 13 integration passing; flake8/Black/isort/mypy clean across five paths, locally and in CI |
+| Tests | 241 unit + 13 integration passing; flake8/Black/isort/mypy clean across five paths, locally and in CI |
 
 ---
 

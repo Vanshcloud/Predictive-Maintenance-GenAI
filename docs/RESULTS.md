@@ -58,7 +58,7 @@ Input (batch, 24, 63)
 ```
 
 Trained with class-weighted binary crossentropy (**{0: 0.50, 1: 364.89}**),
-Adam at 0.001, batch 256. Early stopping on `val_f1` fired at epoch 20 of 30;
+Adam at 0.001, batch 256. Early stopping on `val_f1` fired at epoch 28 of 30;
 best weights came from **epoch 23** (`val_f1` 0.9602).
 
 ---
@@ -214,12 +214,12 @@ naming the fix.
 
 | Suite | Count |
 |---|---|
-| Unit | **229** |
+| Unit | **241** |
 | Integration | 13 (parity, live-model grounding, point-in-time assessment) |
 | flake8 / Black / isort | clean |
 | mypy | **0 errors**, blocking in CI |
 
-On a clean checkout with no model and no generated data: **211 pass, 18 skip**
+On a clean checkout with no model and no generated data: **223 pass, 18 skip**
 from the unit suite — tests needing a trained model skip rather than fail. The
 13 integration tests skip in their entirety, for the same reason.
 
