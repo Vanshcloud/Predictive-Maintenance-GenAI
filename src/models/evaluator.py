@@ -333,7 +333,14 @@ class ModelEvaluator:
             precision = precision_score(y_test, y_pred, zero_division=0)
             recall = recall_score(y_test, y_pred, zero_division=0)
             f1 = f1_score(y_test, y_pred, zero_division=0)
-            cm = confusion_matrix(y_test, y_pred)
+            # labels=[0, 1] pins the shape at 2x2. Without it sklearn infers
+            # the labels from the data, so a split containing only one class
+            # yields a 1x1 matrix — and `confusion_matrix` is published in
+            # models/evaluation_report.json and read as [[tn, fp], [fn, tp]].
+            # A consumer indexing [1][1] gets an IndexError instead of a zero.
+            # Identical to the unlabelled call whenever both classes appear,
+            # which is every non-degenerate evaluation.
+            cm = confusion_matrix(y_test, y_pred, labels=[0, 1])
 
             metrics = {
                 "auc": float(auc),

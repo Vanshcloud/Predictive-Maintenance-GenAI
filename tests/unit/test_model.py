@@ -451,6 +451,10 @@ class TestModelEvaluator:
         assert metrics["auc"] == 0.0
         assert not math.isnan(metrics["auc"])
 
+        # The matrix is published as [[tn, fp], [fn, tp]]; it must keep that
+        # shape even here, or a consumer indexing [1][1] gets an IndexError.
+        assert np.array(metrics["confusion_matrix"]).shape == (2, 2)
+
         def _reject(token: str) -> float:
             raise ValueError(f"metrics.json would contain the bare token {token}")
 
