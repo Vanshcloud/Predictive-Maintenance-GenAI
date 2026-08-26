@@ -32,7 +32,7 @@ WHY THIS FILE EXISTS:
     tests/unit/test_model.py hangs the suite indefinitely.
 
     Do not remove this import, and do not "clean up" the noqa.
-    See also: src/models/__init__.py and docs/Day4.md.
+    See also: src/models/__init__.py and docs/devlog/day-04.md.
 """
 
 # Imported purely for its side effect: it fixes abseil symbol resolution order.

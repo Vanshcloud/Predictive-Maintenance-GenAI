@@ -1,0 +1,39 @@
+# Dependency updates.
+#
+# Grouped rather than one PR per package: this project pins five requirements
+# files plus two Dockerfiles, and ungrouped updates produce a dozen PRs a week
+# that nobody reads. The lint group matters most — those versions decide whether
+# the build is red, and an unreviewed formatter bump turns CI red with no code
+# change (which is why requirements-lint.txt is pinned in the first place).
+
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      lint-tooling:
+        patterns: ["black", "flake8", "isort", "mypy"]
+      ml-stack:
+        patterns: ["tensorflow", "scikit-learn", "numpy", "pandas", "joblib"]
+      langchain:
+        patterns: ["langchain*", "openai"]
+      web:
+        patterns: ["fastapi", "uvicorn*", "streamlit", "altair", "requests", "httpx"]
+    ignore:
+      # TensorFlow drives the supported Python range; a major bump is a
+      # deliberate migration, not a dependency update.
+      - dependency-name: tensorflow
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: docker
+    directory: "/docker"
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly

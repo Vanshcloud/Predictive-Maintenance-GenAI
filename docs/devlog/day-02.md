@@ -10,7 +10,7 @@
 | **Status** | ✅ Complete — commit `6ed62e9` |
 
 > **Note on this document.** Written retroactively on 2026-08-23 when the
-> `IMPLEMENTATION_PLAN.md` + `docs/DayX.md` system was introduced. Reconstructed from
+> `../IMPLEMENTATION_PLAN.md` + devlog system was introduced. Reconstructed from
 > `docs/handoff.md`, git history, and the repository. Nothing has been invented to fill gaps.
 
 ---
@@ -315,7 +315,7 @@ No bugs. One **known limitation** was discovered:
 | **Root cause** | Not a bug — arithmetic. At the real-world failure rate, 10 machines × 30 days has an expected failure count below 1. The sample is *correctly* generated; it is simply too small to contain a rare event. |
 | **Files affected** | `data/sample/failures.csv` |
 | **Solution** | Accepted rather than "fixed". Inflating the failure rate in the sample would make it unrepresentative, and enlarging it would defeat the purpose of a small committed fixture. |
-| **Verification** | Documented as K-1 in `IMPLEMENTATION_PLAN.md`. |
+| **Verification** | Documented as K-1 in `../IMPLEMENTATION_PLAN.md`. |
 | **Lessons learned** | A test fixture derived from a rare-event dataset will not contain the rare event. Tests that need a positive class must **synthesize** it explicitly. Day 4's model tests do exactly this — `y = [0,0,0,0,0,0,0,0,1,1]` — and are clearer for it, because the class-weight arithmetic is then asserted against known numbers rather than whatever the data happened to contain. |
 
 ---

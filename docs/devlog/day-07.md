@@ -395,7 +395,7 @@ src/genai/prompts.py              personas, templates, fact formatter
 src/genai/chains.py               provider factory, ReportGenerator
 scripts/generate_report.py        CLI with --dry-run
 tests/unit/test_genai.py          28 tests
-docs/Day7.md                      this file
+day-07.md                      this file
 ```
 
 # Files Modified

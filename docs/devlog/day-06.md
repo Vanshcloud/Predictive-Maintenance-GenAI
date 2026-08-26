@@ -477,7 +477,7 @@ src/prediction/predictor.py                      the inference boundary
 scripts/predict.py                               CLI
 tests/unit/test_predictor.py                     18 tests
 tests/integration/test_training_serving_parity.py  4 tests
-docs/Day6.md                                     this file
+day-06.md                                     this file
 ```
 
 # Files Modified

@@ -1,0 +1,72 @@
+name: Bug report
+description: Something behaves differently from what the documentation says.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For anything with a security dimension, please follow
+        [SECURITY.md](../blob/main/SECURITY.md) instead of opening a public issue.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: >
+        The smallest sequence that shows the problem. If it involves a
+        prediction, include the machine id and the `as_of` timestamp — the
+        point-in-time behaviour makes those essential to reproducing anything.
+      placeholder: |
+        1. python scripts/run_preprocessing.py
+        2. curl "localhost:8000/machines/51/predict?as_of=2024-10-31T06:00:00"
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output
+      description: Traceback or log lines. Pasted as text rather than a screenshot, please.
+      render: shell
+
+  - type: input
+    id: version
+    attributes:
+      label: Commit or version
+      placeholder: "git rev-parse --short HEAD"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [macOS, Linux, Windows (WSL), Windows (native), Other]
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      description: "`python --version`. Note that 3.13+ is unsupported — TensorFlow publishes no wheels for it."
+      placeholder: "3.12.14"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: "`make test` passes on a clean checkout of this commit"
+        - label: I have read the relevant section of the documentation

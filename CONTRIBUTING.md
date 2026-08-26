@@ -190,7 +190,7 @@ Any new entry point that uses TensorFlow must import `src.models` (or
 for the test suite, which is why it imports TensorFlow and nothing else.
 
 The full diagnosis, including the sampled stack trace, is in
-[`docs/Day4.md`](docs/Day4.md).
+[`docs/devlog/day-04.md`](docs/devlog/day-04.md).
 
 ### 2. The API must slice before it scores
 

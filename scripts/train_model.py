@@ -19,7 +19,8 @@ import numpy as np
 # Ensure src can be found if running from root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-# This line is why the abseil ordering in docs/Day4.md holds for this script:
+# This line is why the abseil ordering in docs/devlog/day-04.md holds for this
+# script:
 # it drags TensorFlow in before `src.models` pulls sklearn (and therefore
 # Arrow) in below. isort placed it here on its own — third-party sorts above
 # first-party — and that placement is the correct one, so it needs no
@@ -104,7 +105,7 @@ def main():
         help=(
             "Validation metric driving early stopping and checkpointing "
             "(default: val_f1). val_auc saturates under this class imbalance "
-            "and selects on noise — see docs/Day5.md."
+            "and selects on noise — see docs/devlog/day-05.md."
         ),
     )
     args = parser.parse_args()
@@ -140,8 +141,9 @@ def main():
     # are drawn from glorot_uniform. Without this the script was not
     # reproducible: two runs on identical data produced different weights,
     # different dropout masks, and a different test F1 — while README.md,
-    # docs/RESULTS.md and IMPLEMENTATION_PLAN.md all quoted 0.8949 as a fact about this
-    # repository. An unreproducible headline metric is an unfalsifiable one.
+    # docs/RESULTS.md and docs/IMPLEMENTATION_PLAN.md all quoted 0.8949 as a
+    # fact about this repository. An unreproducible headline metric is an
+    # unfalsifiable one.
     # The model was retrained under this seed on Day 15; the figures those
     # files now carry are ones `--seed 42` re-derives.
     #

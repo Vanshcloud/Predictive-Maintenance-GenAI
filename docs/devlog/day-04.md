@@ -130,7 +130,7 @@ File mtimes showed `test_model.py` written at 02:19 and `trainer.py` at 02:25 �
 | Field | Detail |
 |---|---|
 | **Purpose** | The Day 4 state confusion was itself a documentation failure. It needed a structural fix, not a patch. |
-| **Files affected** | `IMPLEMENTATION_PLAN.md`, `docs/Day1-4.md`, the conventions file, `docs/handoff.md` |
+| **Files affected** | `../IMPLEMENTATION_PLAN.md`, `day-01.md`–`day-04.md`, the conventions file, `docs/handoff.md` |
 | **Dependencies** | none |
 | **Priority** | P1 |
 | **Expected outcome** | A single source of truth plus one document per day. |
@@ -282,7 +282,7 @@ placement is deliberate).
 
 ## Documentation system (T9)
 
-Created `IMPLEMENTATION_PLAN.md` (single source of truth) and `docs/Day1.md`–`Day4.md`.
+Created `../IMPLEMENTATION_PLAN.md` (single source of truth) and `day-01.md`–`day-04.md`.
 Updated the conventions file (which described the deleted `tf.data` trainer and non-existent
 `debug_fit*.py` files) and added a "superseded" banner to `docs/handoff.md`.
 
@@ -566,7 +566,7 @@ in the import list.
 | **Files affected** | 14 source files, `.flake8` |
 | **Solution** | Black + isort repo-wide; unused imports and dead code removed; long lines wrapped; `scripts/*.py: E402` exemption added for `sys.path` bootstrapping. |
 | **Verification** | flake8 0 issues; Black and isort clean; 75/75 tests still passing. |
-| **Lessons learned** | Configuring a quality gate is not enforcing one. Day 11's CI is what will keep this from recurring. The retroactive claim in `docs/Day1.md` has been corrected rather than quietly dropped. |
+| **Lessons learned** | Configuring a quality gate is not enforcing one. Day 11's CI is what will keep this from recurring. The retroactive claim in `day-01.md` has been corrected rather than quietly dropped. |
 
 ## B4 — Self-inflicted: a regex lint fix corrupted three files
 
@@ -662,7 +662,7 @@ in the import list.
 | **Pros** | Day 4 opened with three sources describing three different systems and lost work — that *is* the cost of documentation drift, paid in full. |
 | **Cons** | A substantial writing session mid-project. |
 | **Reason for selection** | The failure had already happened. Fixing the process was cheaper than paying that cost again on Days 5–12. |
-| **Impact** | `IMPLEMENTATION_PLAN.md` + `docs/DayX.md` + a mandatory session workflow; `docs/handoff.md` frozen with a "superseded" banner rather than deleted. |
+| **Impact** | `../IMPLEMENTATION_PLAN.md` + one devlog entry per milestone, with a documented update discipline; `docs/handoff.md` frozen with a "superseded" banner rather than deleted. |
 
 ---
 
@@ -731,8 +731,8 @@ src/models/evaluator.py           (imbalance-aware metrics)
 scripts/train_model.py            (training entry point)
 tests/unit/test_model.py          (7 tests)
 tests/conftest.py                 (TF-first import guard — CRITICAL)
-IMPLEMENTATION_PLAN.md            (single source of truth)
-docs/Day1.md  docs/Day2.md  docs/Day3.md  docs/Day4.md
+../IMPLEMENTATION_PLAN.md            (single source of truth)
+day-01.md  day-02.md  day-03.md  day-04.md
 models/metrics.json               (committed — evaluation evidence)
 models/training_history.json      (committed — per-epoch curves)
 models/lstm_predictive_maintenance.keras   (gitignored, 1.8 MB)
@@ -746,7 +746,7 @@ src/utils/logger.py               (enqueue=True removed; unused import)
 Project conventions               (corrected stale trainer description; added abseil rule)
 handoff.md                        (superseded banner)
 .flake8                           (scripts/*.py: E402 exemption)
-docs/Day1.md                      (corrected the false format-cleanliness claim)
+day-01.md                      (corrected the false format-cleanliness claim)
 + 14 files reformatted by Black/isort across src/, scripts/, tests/, config/
 ```
 

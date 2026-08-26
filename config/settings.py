@@ -100,7 +100,7 @@ class Settings(BaseSettings):
 
     # ---- Inference ----
     # Alert threshold, chosen by sweeping the precision-recall curve on the
-    # VALIDATION split (never on test) — see docs/Day5.md. 0.5 is not a
+    # VALIDATION split (never on test) — see docs/devlog/day-05.md. 0.5 is not a
     # sensible default at a ~1:864 positive rate; this value is measured.
     PREDICTION_THRESHOLD: float = 0.3415
 

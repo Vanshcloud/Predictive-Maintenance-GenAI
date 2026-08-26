@@ -280,7 +280,7 @@ docker/docker-compose.yml         two services, volumes, health-gated startup
 .dockerignore                     7.3 GB -> 2.9 MB build context
 requirements-dashboard.txt        streamlit, altair, pandas, requests
 .github/workflows/ci.yml          quality, test, security, docker
-docs/Day11.md                     this file
+day-11.md                     this file
 ```
 
 # Files Modified

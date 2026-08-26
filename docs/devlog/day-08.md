@@ -340,7 +340,7 @@ src/genai/assistant.py                     MaintenanceAssistant
 scripts/ask.py                             interactive CLI
 tests/unit/test_assistant.py               20 tests
 tests/integration/test_llm_grounding.py    5 live-model tests
-docs/Day8.md                               this file
+day-08.md                               this file
 ```
 
 # Files Modified

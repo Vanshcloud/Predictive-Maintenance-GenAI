@@ -10,7 +10,7 @@
 | **Status** | ✅ Complete — commit `79c094a` |
 
 > **Note on this document.** Written retroactively on 2026-08-23 when the
-> `IMPLEMENTATION_PLAN.md` + `docs/DayX.md` system was introduced. Reconstructed from
+> `../IMPLEMENTATION_PLAN.md` + devlog system was introduced. Reconstructed from
 > `docs/handoff.md`, git history, the preprocessing module, and the artifacts in
 > `data/processed/`. Nothing has been invented to fill gaps.
 
@@ -293,7 +293,7 @@ explicit assertion instead of relying on review.
 | **Pros** | The only split that honestly simulates deployment: train on the past, predict the future. |
 | **Cons** | Train and test come from different periods, so any distribution drift shows up as apparent model weakness. |
 | **Reason for selection** | With 24-hour lag features, a random split leaks directly. The resulting metrics would be excellent and worthless. |
-| **Impact** | Listed as a "must never change" invariant in the project conventions and `IMPLEMENTATION_PLAN.md`. |
+| **Impact** | Listed as a "must never change" invariant in the project conventions and `../IMPLEMENTATION_PLAN.md`. |
 
 ## D2 — Fit the scaler on training data only
 
@@ -353,7 +353,7 @@ explicit assertion instead of relying on review.
 | **Pros** | Preprocessing runs once; training iterations are fast; the data and model layers stay genuinely decoupled; artifacts are inspectable. |
 | **Cons** | 5.2 GB on disk; the artifacts can go stale relative to the code that produced them. |
 | **Reason for selection** | Re-running an expensive pipeline on every experiment is a waste, and the decoupling enforces the project's layering rule. |
-| **Impact** | Day 4's trainer reads `.npy` files and never imports pandas — which turned out to matter enormously, since pandas is what poisons TensorFlow (see `docs/Day4.md`). |
+| **Impact** | Day 4's trainer reads `.npy` files and never imports pandas — which turned out to matter enormously, since pandas is what poisons TensorFlow (see `day-04.md`). |
 
 ## D8 — Windows built per machine
 

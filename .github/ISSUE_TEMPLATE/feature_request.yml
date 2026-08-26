@@ -1,0 +1,52 @@
+name: Feature request
+description: Suggest a capability or an improvement.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that the project makes hard or impossible?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Including "do nothing" — what makes that insufficient?
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Data pipeline / feature engineering
+        - Model / training / evaluation
+        - Prediction pipeline
+        - Report generation
+        - REST API
+        - Dashboard
+        - Containers / CI
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: invariants
+    attributes:
+      label: Correctness
+      description: >
+        CONTRIBUTING.md lists invariants that fail silently if broken — the
+        temporal split, train-only scaler fitting, and point-in-time filtering
+        among them.
+      options:
+        - label: I have checked this proposal against those invariants

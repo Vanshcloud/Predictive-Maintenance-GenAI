@@ -3,7 +3,7 @@
 > **Scope of this document.** This is the *design-level* view: layers, responsibilities,
 > and how data moves between them. Every layer described here is implemented and tested.
 > For the full project history, current status, and the reasoning behind each decision,
-> see [`../IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md). For how to work on the
+> see [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md). For how to work on the
 > code, see [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
 
 ## System Architecture

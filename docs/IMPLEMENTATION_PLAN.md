@@ -2,26 +2,23 @@
 
 **Single source of truth for the Predictive Maintenance + GenAI Insight Generator project.**
 
-This document is written so that any developer — or any AI model with no prior conversation
-history — can read it plus the matching `docs/DayX.md` file and continue the project
-immediately. It must be updated whenever meaningful progress is made.
+This document is written so that a developer with no prior context can read it, plus the
+matching entry in [`devlog/`](devlog/README.md), and pick the project up immediately. It is
+updated whenever meaningful progress is made.
 
 | Field | Value |
 |---|---|
-| **Last updated** | 2026-08-25 (end of Day 15 — full-repository production review) |
-| **Current milestone** | **Day 12 of 12 — complete.** All milestones delivered; Days 13–14 are post-project. |
-| **Overall completion** | **100% of the 12-day plan** |
+| **Last updated** | 2026-08-26 |
+| **Status** | **Feature complete.** All 12 planned milestones delivered; Days 13–15 are post-project enhancement. |
 | **Repository** | https://github.com/Vanshcloud/Predictive-Maintenance-GenAI |
 | **Branch** | `main` |
-| **Latest commit at time of writing** | `79c094a` (Day 3); Day 4 work is staged in the working tree |
-| **Companion documents** | `docs/Day1.md` … `docs/Day15.md`, `docs/RESULTS.md` (consolidated metrics), `CONTRIBUTING.md` (development conventions), `docs/architecture.md` (design-level view) |
+| **Companion documents** | `devlog/day-01.md` … `devlog/day-15.md`, `docs/RESULTS.md` (consolidated metrics), `CONTRIBUTING.md` (development conventions), `docs/architecture.md` (design-level view) |
 
 
-> **History note (2026-08-23).** Every commit in this repository was rewritten to
-> normalise the author name to `Vanshcloud` and to strip AI co-author trailers. File
-> contents were unchanged, but **all commit hashes changed**. SHAs quoted in this
-> document have been updated to the current ones. If you have an older hash from a
-> screenshot or terminal log, use `git log --oneline` to find its replacement by message.
+> **History note (2026-08-23).** Commit metadata was normalised across the repository's
+> history. File contents were unchanged, but **all commit hashes changed**. SHAs quoted in
+> this document refer to the current ones; if you have an older hash from a screenshot or
+> terminal log, find its replacement by message with `git log --oneline`.
 
 ---
 
@@ -579,10 +576,10 @@ predictive-maintenance-genai/
 │   ├── README.md                 # Documentation index
 │   ├── RESULTS.md                # Every metric, with its caveats
 │   ├── architecture.md           # Architecture diagram + tech stack
-│   ├── Day1.md                   # One file per implementation day
-│   ├── Day2.md
-│   ├── Day3.md
-│   └── Day4.md
+│   ├── devlog/day-01.md                   # One file per implementation day
+│   ├── devlog/day-02.md
+│   ├── devlog/day-03.md
+│   └── devlog/day-04.md
 │
 ├── notebooks/                    # Jupyter scratch space (.gitkeep)
 ├── dashboard/                    # Streamlit app (Day 10) (.gitkeep)
@@ -808,7 +805,7 @@ machine. Training hangs at 0% CPU with no traceback and no timeout.
 
 The training loop is therefore fully synchronous: read batch → train step → read next
 batch. The cost is real (I/O is not overlapped with compute) but a hanging trainer has
-infinite cost. See Risk R-3 and `docs/Day4.md`.
+infinite cost. See Risk R-3 and `devlog/day-04.md`.
 
 ## Versioning
 
@@ -1502,7 +1499,7 @@ checkout, which doubles as validation of the installation instructions above.
 | **Impact** | Training and inference both hang indefinitely. **Critical.** |
 | **Likelihood** | Certain — hit three times on Day 4 across three different input-pipeline styles. |
 | **Mitigation** | Neither `fit()` nor `predict()` is used. `ModelTrainer.train()` is a synchronous `GradientTape` loop; `ModelEvaluator._predict_in_batches()` calls `model(x, training=False)` directly. Callbacks reimplemented inline. |
-| **Recovery** | Documented in `src/models/trainer.py`'s docstring and `docs/Day4.md`. If a future TF version fixes it, the loop can be replaced — but only with a benchmark proving `fit()` completes. |
+| **Recovery** | Documented in `src/models/trainer.py`'s docstring and `devlog/day-04.md`. If a future TF version fixes it, the loop can be replaced — but only with a benchmark proving `fit()` completes. |
 | **Cost accepted** | No I/O/compute overlap, and manual reimplementation of four callbacks. Worth it: a hanging trainer has infinite cost. |
 | **Status** | Mitigated. |
 
@@ -1557,7 +1554,7 @@ checkout, which doubles as validation of the installation instructions above.
 | **Root cause** | Day 4 passes `X_val=X_test` for monitoring, so early stopping and checkpoint selection observe the test set. |
 | **Impact** | Reported test metrics are mildly optimistic — model selection has peeked. **Medium.** |
 | **Likelihood** | Certain, currently. |
-| **Mitigation** | Explicitly logged as **TD-1** here and in `docs/Day4.md`, so no reader mistakes the Day 4 numbers for a clean generalization estimate. |
+| **Mitigation** | Explicitly logged as **TD-1** here and in `devlog/day-04.md`, so no reader mistakes the Day 4 numbers for a clean generalization estimate. |
 | **Recovery** | Day 5: carve a chronological validation slice from the tail of the training period; touch the test set once, at the end. |
 | **Status** | Open, scheduled. |
 
@@ -1612,7 +1609,7 @@ checkout, which doubles as validation of the installation instructions above.
 | **Root cause** | Implementation moves faster than the write-up; a session ends without updating the plan. |
 | **Impact** | Whoever picks the work up next — including me, weeks later — works from a false picture and re-derives or breaks decisions. This already happened once: `docs/handoff.md` described Day 3 as current while Day 4 code sat uncommitted in the working tree, and the conventions file described a `tf.data` trainer that the tests had already replaced. **Medium-High**, and it compounds. |
 | **Likelihood** | High without a process. |
-| **Mitigation** | This document plus one `docs/DayX.md` per day; the mandatory session workflow (read plan → read latest day file → inspect repo → run tests → implement → test → **update both documents** → commit); documentation and implementation land in the same commit. |
+| **Mitigation** | This document plus one devlog entry per milestone; reconciling against the repository rather than trusting the write-up; documentation and implementation landing in the same commit. |
 | **Recovery** | Reconcile against the repository, which is the ultimate source of truth — file mtimes, git status, logs, and the test suite all carry evidence of true state. |
 | **Status** | Addressed by this document's existence and the Day 4 reconciliation. |
 
@@ -1760,21 +1757,21 @@ Each day has a matching document in `docs/`.
 
 | Day | Date | Focus | Document | Status |
 |---|---|---|---|---|
-| **Day 1** | 2026-08-19 | Project setup & foundation | `docs/Day1.md` | ✅ Complete — commit `e952e24`, `e3408fd` |
-| **Day 2** | 2026-08-20 | Dataset, EDA & data pipeline | `docs/Day2.md` | ✅ Complete — commit `6ed62e9` |
-| **Day 3** | 2026-08-21 | Feature engineering & preprocessing | `docs/Day3.md` | ✅ Complete — commit `79c094a` |
-| **Day 4** | 2026-08-22/23 | LSTM architecture & training | `docs/Day4.md` | ✅ Complete — 75/75 tests, trained model, AUC 0.9999 |
-| **Day 5** | 2026-08-23 | Model evaluation & optimization | `docs/Day5.md` | ✅ Complete — 3-way split, F1 0.8949, 90 tests |
-| **Day 6** | 2026-08-24 | Prediction pipeline & inference | `docs/Day6.md` | ✅ Complete — R-6 closed, 113 unit + 4 integration tests |
-| **Day 7** | 2026-08-24 | LangChain setup & report generation | `docs/Day7.md` | ✅ Complete — grounded reports, R-10 closed, 141 tests |
-| **Day 8** | 2026-08-24 | GenAI assistant & maintenance Q&A | `docs/Day8.md` | ✅ Complete — multi-turn sessions, live grounding tests, 161 tests |
-| **Day 9** | 2026-08-24 | FastAPI REST API | `docs/Day9.md` | ✅ Complete — 9 endpoints, 185 unit tests |
-| **Day 10** | 2026-08-24 | Streamlit dashboard | `docs/Day10.md` | ✅ Complete — 3 views, 211 unit tests |
-| **Day 11** | 2026-08-24 | Docker, CI/CD & deployment | `docs/Day11.md` | ✅ Complete — images built (2.87 GB / 803 MB), compose verified, 4 CI jobs |
-| **Day 12** | 2026-08-24 | Final polish, docs & demo | `docs/Day12.md` | ✅ Complete — clean-checkout verified, RESULTS.md, TD-4 closed |
-| **Day 13** | 2026-08-25 | Point-in-time assessment (`as_of`) | `docs/Day13.md` | ✅ Complete — post-project; 229 unit + 13 integration tests |
-| **Day 14** | 2026-08-25 | Quality-gate drift, accessibility & the horizon chart | `docs/Day14.md` | ✅ Complete — post-project; local/CI gates unified, 2 WCAG AA failures fixed, 233 unit tests, README demo asset |
-| **Day 15** | 2026-08-25 | Full-repository production review + seeded retrain | `docs/Day15.md` | ✅ Complete — post-project; training made reproducible and retrained (**F1 0.9086**, t=0.3415), unbounded `/fleet` cache bounded, `plot_horizon.py` hardened, 238 unit tests |
+| **Day 1** | 2026-08-19 | Project setup & foundation | `devlog/day-01.md` | ✅ Complete — commit `e952e24`, `e3408fd` |
+| **Day 2** | 2026-08-20 | Dataset, EDA & data pipeline | `devlog/day-02.md` | ✅ Complete — commit `6ed62e9` |
+| **Day 3** | 2026-08-21 | Feature engineering & preprocessing | `devlog/day-03.md` | ✅ Complete — commit `79c094a` |
+| **Day 4** | 2026-08-22/23 | LSTM architecture & training | `devlog/day-04.md` | ✅ Complete — 75/75 tests, trained model, AUC 0.9999 |
+| **Day 5** | 2026-08-23 | Model evaluation & optimization | `devlog/day-05.md` | ✅ Complete — 3-way split, F1 0.8949, 90 tests |
+| **Day 6** | 2026-08-24 | Prediction pipeline & inference | `devlog/day-06.md` | ✅ Complete — R-6 closed, 113 unit + 4 integration tests |
+| **Day 7** | 2026-08-24 | LangChain setup & report generation | `devlog/day-07.md` | ✅ Complete — grounded reports, R-10 closed, 141 tests |
+| **Day 8** | 2026-08-24 | GenAI assistant & maintenance Q&A | `devlog/day-08.md` | ✅ Complete — multi-turn sessions, live grounding tests, 161 tests |
+| **Day 9** | 2026-08-24 | FastAPI REST API | `devlog/day-09.md` | ✅ Complete — 9 endpoints, 185 unit tests |
+| **Day 10** | 2026-08-24 | Streamlit dashboard | `devlog/day-10.md` | ✅ Complete — 3 views, 211 unit tests |
+| **Day 11** | 2026-08-24 | Docker, CI/CD & deployment | `devlog/day-11.md` | ✅ Complete — images built (2.87 GB / 803 MB), compose verified, 4 CI jobs |
+| **Day 12** | 2026-08-24 | Final polish, docs & demo | `devlog/day-12.md` | ✅ Complete — clean-checkout verified, RESULTS.md, TD-4 closed |
+| **Day 13** | 2026-08-25 | Point-in-time assessment (`as_of`) | `devlog/day-13.md` | ✅ Complete — post-project; 229 unit + 13 integration tests |
+| **Day 14** | 2026-08-25 | Quality-gate drift, accessibility & the horizon chart | `devlog/day-14.md` | ✅ Complete — post-project; local/CI gates unified, 2 WCAG AA failures fixed, 233 unit tests, README demo asset |
+| **Day 15** | 2026-08-25 | Full-repository production review + seeded retrain | `devlog/day-15.md` | ✅ Complete — post-project; training made reproducible and retrained (**F1 0.9086**, t=0.3415), unbounded `/fleet` cache bounded, `plot_horizon.py` hardened, 238 unit tests |
 
 Days 13 and 14 sit outside the original 12 milestones. Day 13 exists because the
 finished product had a presentation defect the plan never anticipated: assessed at
@@ -1782,7 +1779,7 @@ the dataset's last hour the fleet is always quiet, so the demo showed a model do
 nothing. Day 14 exists because several checks were passing without proving what
 they appeared to prove — the local and CI quality gates were checking different
 programs, and the dashboard's two most-scanned risk colours failed WCAG AA. See
-`docs/Day13.md` and `docs/Day14.md`.
+`devlog/day-13.md` and `devlog/day-14.md`.
 
 ```
 Day 1  ✅ Foundation
@@ -1821,7 +1818,7 @@ Day 12 ✅ Demo
 | Training entry point | `scripts/train_model.py` |
 | **Two platform deadlocks diagnosed and fixed** | `tests/conftest.py`, trainer/evaluator docstrings |
 | **Full test suite green: 75/75** | `make test`, ~4 s warm |
-| **This documentation system** | `IMPLEMENTATION_PLAN.md`, `docs/Day1-4.md` |
+| **This documentation system** | `IMPLEMENTATION_PLAN.md`, `devlog/day-01.md`–`day-04.md` |
 
 ## Day 4 results (2026-08-23)
 
@@ -1926,7 +1923,7 @@ deadlock) were resolved on Day 4.
 | ~~TD-1~~ | ~~Validation set *is* the test set~~ | — | ✅ **Repaid Day 5** — 3-way chronological split; test period unchanged |
 | ~~TD-2~~ | ~~No checkpoint resume~~ | — | ✅ **Repaid Day 5** — `--resume` + `<checkpoint>.state.json` |
 | ~~TD-3~~ | ~~No training curves~~ | — | ✅ **Repaid Day 5** — `training_curves.png`, `pr_curve.png` |
-| ~~TD-4~~ | ~~`docs/handoff.md` overlaps this plan~~ | — | ✅ **Repaid Day 12** — removed; superseded by this plan and by `docs/Day1-3.md`, and preserved in git history |
+| ~~TD-4~~ | ~~`docs/handoff.md` overlaps this plan~~ | — | ✅ **Repaid Day 12** — removed; superseded by this plan and by `devlog/day-01.md`–`day-03.md`, and preserved in git history |
 | ~~TD-8~~ | ~~mypy reports 159 errors~~ | — | ✅ **Repaid Day 12** — 0 errors across 29 files; the CI check is now **blocking**. 128 of the 159 came from one line: `get_logger()` annotated with `loguru.logger`, an instance rather than a class |
 | ~~TD-5~~ | ~~The conventions file referenced a `tf.data` trainer and root-level `debug_fit*.py` files~~ | Drift during Day 4's debugging | ✅ **Repaid Day 4** — corrected |
 | ~~TD-6~~ | ~~Threshold fixed at 0.5~~ | — | ✅ **Repaid Day 5** — validation sweep; deployed t=0.3415 since the Day 15 retrain |
@@ -1981,26 +1978,18 @@ Beyond the 12-day scope, in rough priority order:
 
 ---
 
-# Session Workflow (mandatory)
+# Keeping this document true
 
-Every implementation session, in order:
+Two rules, learned the hard way (see Risk R-13, and Day 4's reconciliation).
 
-1. Read **`IMPLEMENTATION_PLAN.md`** (this file) — especially *Current Project Status*.
-2. Read the **latest `docs/DayX.md`** — especially *Remaining Tasks* and *Next Day Plan*.
-3. **Inspect the repository** — `git status`, `ls` the relevant directories, check file
-   mtimes. Do not trust the docs over the filesystem; when they disagree, the filesystem
-   wins and the docs get corrected.
-4. **Check git status** for uncommitted work from an interrupted session.
-5. **Verify previous work still exists** — artifacts, data files, model checkpoints.
-6. **Run the tests before changing anything** (`make test`) to establish a baseline.
-7. **Continue from the latest unfinished task.**
-8. **Work autonomously to the next meaningful milestone.**
-9. **Run the tests after every major change.**
-10. **Fix failures before proceeding** — never build on a red suite.
-11. **Update `IMPLEMENTATION_PLAN.md`** — at minimum *Current Project Status*.
-12. **Update `docs/DayX.md`** with everything performed.
-13. **Never let documentation fall behind implementation.** Docs and code ship in the
-    same commit.
+**The repository outranks the documentation.** Where this file and the code disagree, the
+code is right and this file is a bug. Reconcile against `git status`, the artifacts on
+disk, and the test suite — all three carry evidence of true state; a written claim does
+not.
 
-At session end, report: completed work · files changed · tests executed · bugs fixed ·
-completion percentage · remaining tasks · recommended next steps.
+**Documentation ships in the same commit as the code that changed it**, never as a
+follow-up. A status section updated a day late is a status section that was wrong for a
+day, and this project has already been bitten by that twice.
+
+Day-to-day development practice — setup, the quality gates, testing expectations, and the
+correctness invariants — is documented in [`../CONTRIBUTING.md`](../CONTRIBUTING.md).

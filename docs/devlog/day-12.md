@@ -72,15 +72,15 @@ a threshold that barely transferred, the cost cliff, and no auth.
 
 ## T3 — TD-4 closed: `docs/handoff.md` removed ✅
 
-1,377 lines, superseded section by section by `IMPLEMENTATION_PLAN.md`, with
-its Day 1–3 detail already living in the reconstructed `Day1.md`–`Day3.md`.
+1,377 lines, superseded section by section by `../IMPLEMENTATION_PLAN.md`, with
+its Day 1–3 detail already living in the reconstructed `day-01.md`–`day-03.md`.
 
 It had carried a "superseded — read the plan instead" banner since Day 4, which
 is its own kind of clutter: 60 KB whose only message is *read something else*.
 Deleted, with git preserving it (`git show 9ceb349:docs/handoff.md`) and
 `docs/README.md` recording where it went and why. Live references in
 The conventions file, the plan, and both READMEs were updated; the historical mentions
-inside `Day1.md`–`Day3.md` ("reconstructed from handoff.md") were left alone,
+inside `day-01.md`–`day-03.md` ("reconstructed from handoff.md") were left alone,
 because they describe how those documents were written and remain true.
 
 ## T4 — README pass ✅
@@ -167,7 +167,7 @@ succession, each superseding the last.
 |---|---|
 | **Alternatives** | Keep the superseded banner; move it to an `archive/` folder; trim it to a short narrative log. |
 | **Pros** | `docs/` now contains only documents worth opening. Nothing is lost — git has every version. |
-| **Cons** | A reader following a `Day1.md` reference to "reconstructed from handoff.md" will not find the file in the working tree. |
+| **Cons** | A reader following a `day-01.md` reference to "reconstructed from handoff.md" will not find the file in the working tree. |
 | **Reason for selection** | It had been superseded for eight days and the banner did not make it less confusing, only longer. `docs/README.md` names the retrieval command, so the cost is one line of friction against 60 KB of clutter. |
 
 ## D2 — Put the results above the setup instructions
@@ -247,7 +247,7 @@ rather than assumed safe.
 
 | Omission | Why, and what it would take |
 |---|---|
-| **No authentication** | The demo runs on a trusted network. v2 design is written down in `IMPLEMENTATION_PLAN.md`: an API-key header checked by a FastAPI dependency, keys stored hashed, per-key rate limits. ~2 h. |
+| **No authentication** | The demo runs on a trusted network. v2 design is written down in `../IMPLEMENTATION_PLAN.md`: an API-key header checked by a FastAPI dependency, keys stored hashed, per-key rate limits. ~2 h. |
 | **No rate limiting** | `/report` is the only endpoint with real per-call cost. Needed before any public deployment. |
 | **Report generation holds a worker** | Up to 120 s in a threadpool. Correct at this scale; a job queue (202 + poll) is the right change at higher concurrency. |
 | **No prediction persistence** | `/machines/{id}/history` returns sensor readings, not past predictions. SQLite would do it. |
@@ -273,14 +273,14 @@ rather than assumed safe.
 
 ```
 docs/RESULTS.md    every metric in one place, with its caveats
-docs/Day12.md      this file
+day-12.md      this file
 ```
 
 # Files Modified
 
 ```
 README.md                 at-a-glance box, real architecture diagram, docs table
-IMPLEMENTATION_PLAN.md    TD-4 closed, companion docs, folder tree
+../IMPLEMENTATION_PLAN.md    TD-4 closed, companion docs, folder tree
 Project conventions       handoff references removed
 docs/README.md            handoff row replaced with a provenance note
 ```

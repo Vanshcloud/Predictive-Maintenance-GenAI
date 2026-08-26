@@ -58,7 +58,7 @@ into the strongest leakage test in the repository.
 The user asked why the dataset is dated 2024. The answer is that
 `scripts/generate_data.py` hardcodes `datetime(2024, 1, 1)` so that seed 42
 produces a byte-identical dataset on every machine, forever — a property
-`docs/Day12.md` verified by MD5 on a fresh clone.
+`day-12.md` verified by MD5 on a fresh clone.
 
 The obvious response was to regenerate with recent dates. I did not, and the
 reasoning is the substance of the day:
@@ -184,7 +184,7 @@ than merely being accepted.
 call record and made `calls[-1]` the wrong one. Fixed by passing `as_of` down —
 which is what the real service does anyway — and asserting on the first entry.
 
-**`IMPLEMENTATION_PLAN.md` still said Day 4 was in progress** and Days 5–12
+**`../IMPLEMENTATION_PLAN.md` still said Day 4 was in progress** and Days 5–12
 pending, four sections below a completion bar reading 100%. Exactly the drift
 R-13 was written to catch, sitting in the file that documents R-13. Corrected.
 
@@ -227,7 +227,7 @@ and it would not have fixed the actual problem.
 | `tests/unit/test_dashboard_app.py` | `TestRewind`, 5 tests |
 | `tests/unit/test_dashboard_client.py` | 2 tests |
 | `tests/integration/test_time_travel.py` | **New** — 4 tests |
-| `IMPLEMENTATION_PLAN.md` | Roadmap entry, stale status sections, TD-7 closed, K-6 added |
+| `../IMPLEMENTATION_PLAN.md` | Roadmap entry, stale status sections, TD-7 closed, K-6 added |
 | `docs/RESULTS.md` | Horizon evidence; counts corrected |
 
 ---

@@ -24,7 +24,7 @@ Confirmed by sampling a hung process:
 
 `evaluator` imports sklearn.metrics; `lstm_model` imports tensorflow. Importing
 evaluator first is exactly the poisoned order, and it is what hung
-`scripts/train_model.py`. See docs/Day4.md.
+`scripts/train_model.py`. See docs/devlog/day-04.md.
 
 Any entry point that uses TensorFlow must therefore import `src.models` (or
 tensorflow itself) before importing `src.data`, which pulls in pandas.

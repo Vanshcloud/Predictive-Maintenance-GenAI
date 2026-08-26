@@ -38,7 +38,7 @@ looking correct and being correct.
 
 - 13 days complete, commit `d8a02ac`. **CI was red**, and had been since at least
   run #6 — the quality job was failing on the mypy step for exactly the
-  `no-any-return` reason described below. The conventions file, `IMPLEMENTATION_PLAN.md`
+  `no-any-return` reason described below. The conventions file, `../IMPLEMENTATION_PLAN.md`
   and commit `a45d573` all asserted CI was green; that was true when written for
   `458ce03` and went stale silently. The README's CI badge was a hardcoded
   `shields.io/badge/CI-passing-brightgreen` — a static image that reads
@@ -216,7 +216,7 @@ in. Machine 51:
 > These figures describe the **unseeded Day 5 model**, which Day 15 replaced
 > with a seeded retrain. The committed chart now shows the new model: machine
 > 51 crosses at −16h against a 0.3415 threshold. The numbers above are left as
-> they were measured — see `docs/Day15.md`.
+> they were measured — see `day-15.md`.
 
 The flat left-hand side carries as much weight as the climb: a day out the
 model is silent, and *should* be, because 24 hours is the horizon it was

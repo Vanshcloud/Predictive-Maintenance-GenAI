@@ -354,7 +354,7 @@ local Ollama model generates the full report keyless.
 > **One caveat, stated plainly.** The dataset is synthetic, with a degradation pattern
 > deliberately designed to be detectable. These metrics reflect *this dataset's*
 > difficulty, not that of real industrial equipment. The pipeline transfers; the numbers
-> would not. Full accounting in [`docs/Day5.md`](docs/Day5.md).
+> would not. Full accounting in [`docs/devlog/day-05.md`](docs/devlog/day-05.md).
 
 ---
 
@@ -362,13 +362,19 @@ local Ollama model generates the full report keyless.
 
 ```
 Predictive-Maintenance-GenAI/
-├── IMPLEMENTATION_PLAN.md   # Single source of truth: scope, architecture, risks, status
+├── README.md                # You are here
 ├── CONTRIBUTING.md          # Dev setup, quality gates, and the invariants that must hold
 ├── SECURITY.md              # Threat model and vulnerability reporting
+├── CODE_OF_CONDUCT.md       # Contributor Covenant 2.1
 ├── CHANGELOG.md             # Keep a Changelog format
 ├── LICENSE                  # MIT
 ├── Makefile                 # make test / lint / format / typecheck / quality
 ├── pyproject.toml           # PEP 621 metadata + Black/isort/pytest/mypy/coverage config
+│
+├── .github/
+│   ├── workflows/ci.yml     # Lint, types, tests, image builds, dependency audit
+│   ├── ISSUE_TEMPLATE/      # Bug report + feature request forms
+│   └── dependabot.yml       # Grouped monthly dependency updates
 │
 ├── config/                  # Centralized configuration (pydantic-settings)
 ├── src/
@@ -388,10 +394,11 @@ Predictive-Maintenance-GenAI/
 │   ├── unit/                # 241 tests, ~27s
 │   └── integration/         # 13 tests — parity, grounding, time travel; `make test-integration`
 ├── docs/
-│   ├── README.md            # Documentation index
-│   ├── architecture.md      # System architecture diagram
-│   ├── Day1.md … Day15.md   # One report per implementation day
-│   ├── RESULTS.md           # Every metric, with its caveats
+│   ├── README.md                 # Documentation index
+│   ├── IMPLEMENTATION_PLAN.md    # Full engineering spec: scope, risks, milestones
+│   ├── architecture.md           # Layers, module responsibilities, invariants
+│   ├── RESULTS.md                # Every metric, with its caveats
+│   └── devlog/                   # Build journal — one entry per milestone
 │
 ├── data/
 │   ├── raw/                 # gitignored — regenerate with generate_data.py
@@ -415,11 +422,11 @@ config/ -> src/utils/ -> src/data/ -> src/models/ -> src/prediction/ -> src/gena
 
 | Document | What it is |
 |---|---|
-| [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) | **Start here.** Single source of truth — objectives, requirements, stack, architecture, dataset, model, training, evaluation, deployment, coding standards, testing strategy, risk register, milestones, and current status |
-| [`docs/README.md`](docs/README.md) | Documentation index |
+| [`docs/`](docs/README.md) | **Documentation index** — start here |
+| [`docs/architecture.md`](docs/architecture.md) | Layer diagram, module responsibilities, and the correctness invariants |
 | [`docs/RESULTS.md`](docs/RESULTS.md) | **Every metric in one place**, each with the caveat it needs |
-| [`docs/architecture.md`](docs/architecture.md) | System architecture diagram and layer responsibilities |
-| [`docs/Day1.md`](docs/Day1.md) … [`docs/Day15.md`](docs/Day15.md) | One report per implementation day: plan, work done, code changes, training results, bugs, design decisions, next steps |
+| [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) | Full engineering specification: scope, requirements, dataset, model, deployment plan, risk register, milestones |
+| [`docs/devlog/`](docs/devlog/README.md) | Build journal — one entry per milestone, including what went wrong and why |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Development setup, quality gates, code style, and the correctness invariants a change must not break |
 | [`SECURITY.md`](SECURITY.md) | Threat model, what is and is not hardened, and how to report a vulnerability |
 | [`CHANGELOG.md`](CHANGELOG.md) | Release history |
@@ -452,7 +459,7 @@ subsequent runs finish in about 4 seconds.
 
 ## Development Progress
 
-**The 12-day build is complete**, followed by three post-project sessions.
+**The 12-day build is complete**, followed by three post-project milestones.
 
 ### The build — 12 of 12 days
 

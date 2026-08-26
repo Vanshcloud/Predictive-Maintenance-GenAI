@@ -155,7 +155,7 @@ def main():
             "available but defaults OFF: with only ~175 validation positives "
             "and a 100:1 cost ratio, the cost optimum collapses to a "
             "near-zero threshold that reaches recall 1.0 on validation and "
-            "loses 15 points of F1 on test. See docs/Day5.md."
+            "loses 15 points of F1 on test. See docs/devlog/day-05.md."
         ),
     )
     parser.add_argument("--no-plots", action="store_true", help="Skip figure output")

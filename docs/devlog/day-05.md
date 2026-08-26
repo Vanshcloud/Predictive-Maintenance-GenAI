@@ -516,7 +516,7 @@ New tests:
 
 ```
 scripts/evaluate_model.py         threshold sweep, plots, single test scoring
-docs/Day5.md                      this file
+day-05.md                      this file
 models/evaluation_report.json     committed — threshold selection + test metrics
 models/pr_curve.png               committed — PR + cost curves
 models/training_curves.png        committed — train vs validation, 4 panels

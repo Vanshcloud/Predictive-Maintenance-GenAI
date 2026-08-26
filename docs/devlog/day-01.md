@@ -9,8 +9,8 @@
 | **Milestone** | M1 — Foundation |
 | **Status** | ✅ Complete |
 
-> **Note on this document.** `docs/Day1.md` was written retroactively on 2026-08-23, when the
-> `IMPLEMENTATION_PLAN.md` + `docs/DayX.md` documentation system was introduced. Its content is
+> **Note on this document.** `day-01.md` was written retroactively on 2026-08-23, when the
+> `../IMPLEMENTATION_PLAN.md` + per-milestone devlog documentation system was introduced. Its content is
 > reconstructed from `docs/handoff.md`, the git history (`e952e24`, `e3408fd`), and the repository
 > itself. Details recorded at the time are preserved; nothing has been invented to fill gaps —
 > where a fact was not recorded, this file says so.
@@ -169,7 +169,7 @@ rotating file sink at `logs/app_{date}.log` (5 MB rotation, 3-day retention, zip
 compression). Every module obtains its logger via `get_logger(__name__)`.
 
 At this point the file sink was configured with `enqueue=True` for thread safety. **This
-was later removed on Day 4** — see `docs/Day4.md`, where its background writer thread was
+was later removed on Day 4** — see `day-04.md`, where its background writer thread was
 implicated in the TensorFlow deadlock investigation.
 
 ## Exception hierarchy (T5)
@@ -286,7 +286,7 @@ No model training occurred on Day 1. No dataset existed yet.
 | **Files affected** | `venv/` (recreated), `requirements.txt` (Python constraint documented) |
 | **Solution** | `brew install python@3.12`; recreate the virtualenv from `/opt/homebrew/bin/python3.12`. |
 | **Verification** | `python --version` → 3.12.14; `import tensorflow` succeeds. |
-| **Lessons learned** | **Check framework compatibility before choosing a Python version, not after.** Newest is not safest. This constraint is now recorded in `IMPLEMENTATION_PLAN.md` under Constraints and in Risk R-4, because it will bite again on any machine where the venv is rebuilt carelessly. |
+| **Lessons learned** | **Check framework compatibility before choosing a Python version, not after.** Newest is not safest. This constraint is now recorded in `../IMPLEMENTATION_PLAN.md` under Constraints and in Risk R-4, because it will bite again on any machine where the venv is rebuilt carelessly. |
 
 ---
 

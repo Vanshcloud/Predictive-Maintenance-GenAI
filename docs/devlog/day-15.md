@@ -67,7 +67,7 @@ Note on the import: `from tensorflow import keras` sits in the third-party block
 above `from src.models import ...`, which is where isort put it. That placement
 is correct rather than merely tolerated — it drags TensorFlow in before
 `src.models` pulls in sklearn and therefore Arrow, which is the abseil ordering
-`docs/Day4.md` exists to protect. Only `numpy` precedes it, and it links no
+`day-04.md` exists to protect. Only `numpy` precedes it, and it links no
 abseil of its own.
 
 ## 2. The fleet cache grew without bound
@@ -115,7 +115,7 @@ fully-loaded API. Four separate ways it broke, all now fixed:
 - `README.md` carried **three contradictory test counts** in one file: the badge
   said 233, the status line said 229, and the commands block said 75.
 - The conventions file said 232.
-- `docs/Day14.md`'s measurement table skipped from −15h to −13h. The −14h row is
+- `day-14.md`'s measurement table skipped from −15h to −13h. The −14h row is
   now present and **measured** (0.9996) rather than interpolated — the first
   value written into it was a guess of 0.9999, which was wrong.
 - `README.md` claimed the chart could be reproduced "in one command with the
@@ -231,9 +231,9 @@ all eight held-out failure events hour by hour through the API confirms the
 retrained model warns on every one, with a median of 23.5 h of lead time and a
 worst case of 16 h (machine 51, the machine in the chart).
 
-`docs/Day5.md` and this file's §4 table are left as they were measured. They are
+`day-05.md` and this file's §4 table are left as they were measured. They are
 session records, not current-state claims; `docs/RESULTS.md` and
-`IMPLEMENTATION_PLAN.md` carry the current numbers and now say which model they
+`../IMPLEMENTATION_PLAN.md` carry the current numbers and now say which model they
 describe.
 
 ---

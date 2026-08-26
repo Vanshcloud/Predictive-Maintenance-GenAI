@@ -276,7 +276,7 @@ dashboard/api_client.py             HTTP client, three failure types
 dashboard/app.py                    three-view Streamlit dashboard
 tests/unit/test_dashboard_client.py 14 tests
 tests/unit/test_dashboard_app.py    12 render tests
-docs/Day10.md                       this file
+day-10.md                       this file
 ```
 
 # References

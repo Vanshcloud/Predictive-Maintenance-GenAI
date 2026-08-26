@@ -279,4 +279,4 @@ model returns **p ≈ 1.0000**; assessed 24 hours earlier, **p ≈ 0.0000**.
 | `models/training_history.json` | Per-epoch loss, AUC, precision, recall, F1 |
 | `models/training_curves.png` | Train vs validation, four panels |
 | `models/pr_curve.png` | PR curve with both operating points, and cost vs threshold |
-| [`docs/Day4.md`](Day4.md) – [`docs/Day11.md`](Day11.md) | The reasoning behind each number, including what went wrong |
+| [`devlog/day-04.md`](devlog/day-04.md) – [`devlog/day-11.md`](devlog/day-11.md) | The reasoning behind each number, including what went wrong |
