@@ -140,7 +140,7 @@ jobs:
       - name: Upload coverage artifact
         # Kept alongside Codecov so the raw report is retrievable from the run
         # itself, without depending on a third party.
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: coverage.xml

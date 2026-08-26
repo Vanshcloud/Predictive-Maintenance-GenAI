@@ -114,7 +114,7 @@ jobs:
         # artifacts are attached to a release rather than after.
         run: twine check dist/*
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: distributions
           path: dist/
