@@ -22,58 +22,6 @@ Nothing yet.
 
 First release. Everything below shipped together.
 
-### Added
-
-- Contributor-facing documentation: `CONTRIBUTING.md`, `SECURITY.md`,
-  `CODE_OF_CONDUCT.md`, and this changelog. Development conventions, the layering
-  rule, and the correctness invariants are now documented in `CONTRIBUTING.md`
-  and [`docs/architecture.md`](docs/architecture.md).
-- Optional dependency extras for the LLM providers, which are imported lazily and
-  were previously undeclared: `pip install -e ".[ollama]"`, `".[google]"`, or
-  `".[llm]"`.
-- Two configuration tests that run without a trained model, so they execute in
-  CI: one asserting the risk bands ascend and that `RISK_BAND_HIGH` equals
-  `PREDICTION_THRESHOLD`, one asserting the served threshold matches the
-  committed evaluation report. The equivalent assertions previously lived in a
-  test that skipped whenever no model artifact was present — which is every CI
-  run.
-
-### Fixed
-
-- **Concurrent `/fleet` requests stampeded the cache.** Route handlers are
-  synchronous, so FastAPI runs them in a threadpool; checking the cache and
-  filling it were unsynchronised, so every request arriving for an uncached
-  `as_of` while another was computing missed too and recomputed the same
-  answer. Measured: four concurrent requests for one cold timestamp produced
-  four full fleet scorings and made every caller wait 57.8 s for work that
-  takes 13.4 s once. Now serialised behind a compute lock, with cache reads on
-  a separate short-lived lock so a hit still returns in milliseconds while a
-  cold scoring is in flight.
-- **`ModelEvaluator.evaluate()` wrote invalid JSON on single-class input.** The
-  guard was written as `except ValueError`, which scikit-learn stopped raising in
-  1.6 — it now warns and returns `nan`. The fallback had become unreachable, so
-  `nan` reached `models/metrics.json`, where `json.dump` writes it as a bare
-  `NaN` token that no strict JSON parser accepts. Now tests the precondition
-  directly.
-- **The confusion matrix could change shape.** `confusion_matrix()` inferred its
-  labels from the data, returning a 1×1 matrix when only one class was present,
-  despite being published and read as `[[tn, fp], [fn, tp]]`. Pinned with
-  `labels=[0, 1]`, which is identical for every two-class input.
-- **`make setup` failed on every platform except Apple Silicon**, having
-  hardcoded a Homebrew ARM interpreter path. It now delegates to
-  `scripts/setup.sh`, which already resolved `python3.12 → 3.11 → 3.10` from
-  `PATH`. That script is also now independent of the working directory it is
-  invoked from.
-- Corrected published figures that had drifted from the artifacts they describe:
-  the README summary quoted the pre-retrain model's false-alarm count and lead
-  time, `docs/RESULTS.md` reported an early-stopping epoch that contradicted
-  `models/training_history.json`, and test counts were stale in six places.
-- Corrected two docstrings that described behaviour the code does not have —
-  most importantly `create_sequences()`, whose description of the label pairing
-  implied a leak the implementation does not contain.
-
----
-
 
 ### Added
 
@@ -136,6 +84,21 @@ First release. Everything below shipped together.
   integration tests; a dependency audit; image builds; and a smoke test asserting
   the API starts degraded rather than crashing when no model is mounted.
 
+- Contributor-facing documentation: `CONTRIBUTING.md`, `SECURITY.md`,
+  `CODE_OF_CONDUCT.md`, and this changelog. Development conventions, the layering
+  rule, and the correctness invariants are now documented in `CONTRIBUTING.md`
+  and [`docs/architecture.md`](docs/architecture.md).
+- Optional dependency extras for the LLM providers, which are imported lazily and
+  were previously undeclared: `pip install -e ".[ollama]"`, `".[google]"`, or
+  `".[llm]"`.
+- Two configuration tests that run without a trained model, so they execute in
+  CI: one asserting the risk bands ascend and that `RISK_BAND_HIGH` equals
+  `PREDICTION_THRESHOLD`, one asserting the served threshold matches the
+  committed evaluation report. The equivalent assertions previously lived in a
+  test that skipped whenever no model artifact was present — which is every CI
+  run.
+
+
 ### Changed
 
 - Training is seeded end to end, so published metrics are reproducible rather
@@ -149,6 +112,7 @@ First release. Everything below shipped together.
 - Dashboard risk colours meet WCAG AA contrast at their rendered size, asserted
   numerically by tests rather than judged by eye.
 
+
 ### Fixed
 
 - An abseil symbol collision between TensorFlow and Apache Arrow that deadlocked
@@ -160,6 +124,40 @@ First release. Everything below shipped together.
   been a single unbounded slot that would serve a present-day answer to a
   request about a past date.
 - All 159 outstanding type errors resolved, making `mypy` blocking in CI.
+
+- **Concurrent `/fleet` requests stampeded the cache.** Route handlers are
+  synchronous, so FastAPI runs them in a threadpool; checking the cache and
+  filling it were unsynchronised, so every request arriving for an uncached
+  `as_of` while another was computing missed too and recomputed the same
+  answer. Measured: four concurrent requests for one cold timestamp produced
+  four full fleet scorings and made every caller wait 57.8 s for work that
+  takes 13.4 s once. Now serialised behind a compute lock, with cache reads on
+  a separate short-lived lock so a hit still returns in milliseconds while a
+  cold scoring is in flight.
+- **`ModelEvaluator.evaluate()` wrote invalid JSON on single-class input.** The
+  guard was written as `except ValueError`, which scikit-learn stopped raising in
+  1.6 — it now warns and returns `nan`. The fallback had become unreachable, so
+  `nan` reached `models/metrics.json`, where `json.dump` writes it as a bare
+  `NaN` token that no strict JSON parser accepts. Now tests the precondition
+  directly.
+- **The confusion matrix could change shape.** `confusion_matrix()` inferred its
+  labels from the data, returning a 1×1 matrix when only one class was present,
+  despite being published and read as `[[tn, fp], [fn, tp]]`. Pinned with
+  `labels=[0, 1]`, which is identical for every two-class input.
+- **`make setup` failed on every platform except Apple Silicon**, having
+  hardcoded a Homebrew ARM interpreter path. It now delegates to
+  `scripts/setup.sh`, which already resolved `python3.12 → 3.11 → 3.10` from
+  `PATH`. That script is also now independent of the working directory it is
+  invoked from.
+- Corrected published figures that had drifted from the artifacts they describe:
+  the README summary quoted the pre-retrain model's false-alarm count and lead
+  time, `docs/RESULTS.md` reported an early-stopping epoch that contradicted
+  `models/training_history.json`, and test counts were stale in six places.
+- Corrected two docstrings that described behaviour the code does not have —
+  most importantly `create_sequences()`, whose description of the label pairing
+  implied a leak the implementation does not contain.
+
+---
 
 [Unreleased]: https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/releases/tag/v1.0.0

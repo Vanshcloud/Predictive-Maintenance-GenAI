@@ -136,6 +136,11 @@ jobs:
           # are lint, types, and the test suite itself — a Codecov outage
           # should not turn this build red.
           fail_ci_if_error: false
+          # ...but a swallowed failure must still be READABLE. Without this,
+          # a rejected upload and a successful one produce an identical green
+          # step, which is the silent-failure mode this project tries hard to
+          # avoid everywhere else. verbose puts the reason in the log.
+          verbose: true
 
       - name: Upload coverage artifact
         # Kept alongside Codecov so the raw report is retrievable from the run

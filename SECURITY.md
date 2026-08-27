@@ -121,12 +121,15 @@ The processed tensors are safer: `np.load(..., mmap_mode="r")` leaves
 In the container topology, `models/` and `data/` are mounted **read-only**, so
 a compromised API process cannot rewrite the artifacts it will load on restart.
 
+### Predictions are advisory
 
-- **Predictions are advisory.** This system is a decision aid for maintenance
-  scheduling. It should not be wired to anything that actuates equipment
-  without a human in the loop.
-- **Generated reports are grounded, not trusted.** Every figure a language model
-  quotes is supplied to it from the prediction record; it is given nothing else,
-  and the model's narrative never influences the prediction. An LLM failure
-  degrades the system to "prediction available, narrative unavailable" and never
-  to a wrong number. Report text is rendered without raw HTML enabled.
+This system is a decision aid for maintenance scheduling. It should not be
+wired to anything that actuates equipment without a human in the loop.
+
+### Reports are grounded, not trusted
+
+Every figure a language model quotes is supplied to it from the prediction
+record; it is given nothing else, and the model's narrative never influences the
+prediction. An LLM failure degrades the system to "prediction available,
+narrative unavailable" and never to a wrong number. Report text is rendered
+without raw HTML enabled.
