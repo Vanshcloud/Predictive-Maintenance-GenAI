@@ -11,7 +11,7 @@
 #   data/raw/ and models/ are gitignored — together about 5 GB. The suite is
 #   built to survive their absence: tests needing a trained model skip rather
 #   than fail, and everything else runs against the committed data/sample/
-#   fixture. Verified locally by hiding both and re-running: 223 pass, 18 skip.
+#   fixture. Verified locally by hiding both and re-running: 228 pass, 18 skip.
 #   That is precisely the state this job sees.
 # =============================================================================
 

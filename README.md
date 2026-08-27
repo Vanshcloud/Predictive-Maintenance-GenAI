@@ -325,7 +325,7 @@ make docker-build
 make docker-up                                # api :8000 · dashboard :8501
 
 # Quality
-make test                                     # 241 unit tests
+make test                                     # 246 unit tests
 make quality                                  # lint + format-check + typecheck
 ```
 
@@ -436,7 +436,7 @@ Predictive-Maintenance-GenAI/
 │                            #   train_model, evaluate_model, predict
 ├── tests/
 │   ├── conftest.py          # Session bootstrap (import order matters — see the file)
-│   ├── unit/                # 241 tests, ~27s
+│   ├── unit/                # 246 tests, ~27s
 │   └── integration/         # 13 tests — parity, grounding, time travel; `make test-integration`
 ├── docs/
 │   ├── README.md                 # Documentation index
@@ -481,14 +481,14 @@ config/ -> src/utils/ -> src/data/ -> src/models/ -> src/prediction/ -> src/gena
 ## Testing
 
 ```bash
-make test          # 241 unit tests
+make test          # 246 unit tests
 make test-cov      # with coverage report
 make lint          # flake8
 make format        # black + isort (writes)
 make quality       # lint + format-check + typecheck (no writes)
 ```
 
-**Current status: 241 unit + 13 integration tests passing, 0 flake8 issues, mypy clean, Black and isort clean.**
+**Current status: 246 unit + 13 integration tests passing, 0 flake8 issues, mypy clean, Black and isort clean.**
 
 Tests run against the committed `data/sample/` fixture, so they need no generated data.
 The first run pays roughly 90 seconds for TensorFlow's initial import on ARM64 macOS;

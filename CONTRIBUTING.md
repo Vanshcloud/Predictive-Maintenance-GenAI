@@ -15,6 +15,7 @@ If you only read one section, make it
 - [Development setup](#development-setup)
 - [Everyday commands](#everyday-commands)
 - [Quality gates](#quality-gates)
+  - [Pre-commit hooks](#pre-commit-hooks)
 - [Project layout and the layering rule](#project-layout-and-the-layering-rule)
 - [Invariants that must not break](#invariants-that-must-not-break)
 - [Two non-obvious gotchas](#two-non-obvious-gotchas)
@@ -47,6 +48,7 @@ source venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements-dev.txt
 cp .env.example .env
+pre-commit install
 ```
 
 ### Optional LLM providers
@@ -138,6 +140,23 @@ programs:
 
 Both must be clean. Four `no-any-return` errors once reached the main branch
 because only the first was being run locally.
+
+### Pre-commit hooks
+
+`.pre-commit-config.yaml` runs Black, isort, flake8, and mypy on the files you
+are committing, plus a set of hygiene checks — trailing whitespace, missing
+final newlines, mixed line endings, unparseable YAML/TOML/JSON, merge-conflict
+markers, accidentally staged private keys, and files over 2 MB.
+
+```bash
+pre-commit install          # once, after cloning
+pre-commit run --all-files  # check the whole tree
+```
+
+Installing is optional but recommended: the hooks catch locally, in about a
+second, most of what CI would otherwise take several minutes to reject. CI does
+not run pre-commit, so a green `pre-commit run --all-files` is not a substitute
+for `make quality`.
 
 ---
 
