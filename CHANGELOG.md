@@ -14,7 +14,14 @@ Every metric quoted below is stated with its caveats in
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- `scripts/capture_screenshots.py` — drives the running Streamlit dashboard with
+  Playwright and regenerates all three README screenshots, so the images cannot
+  drift away from the real UI.
+- The three dashboard screenshots themselves under `docs/images/`, replacing the
+  placeholders in the README's Screenshots section.
+- `playwright` in `requirements-dev.txt`, required by that script.
 
 ---
 
