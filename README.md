@@ -111,7 +111,7 @@ in the sidebar, and set the date to 2024-10-31 hour 6.
 - [Project Structure](#project-structure)
 - [Documentation](#documentation)
 - [Testing](#testing)
-- [Development Progress](#development-progress)
+- [Project Status](#project-status)
 - [Roadmap](#roadmap)
 - [Screenshots](#screenshots)
 - [FAQ](#faq)
@@ -502,32 +502,26 @@ subsequent runs finish in about 4 seconds.
 
 ---
 
-## Development Progress
+## Project Status
 
-**The 12-day build is complete**, followed by three post-project milestones.
+**Status: complete.** The project has reached its planned scope, and every
+component below is built, tested, and documented.
 
-### The build — 12 of 12 days
+It was built over 12 days, followed by three post-project milestones. The build
+journal — one entry per milestone, including the bugs and the dead ends — is in
+**[`docs/devlog/`](docs/devlog/README.md)**.
 
-- [x] **Day 1** — Project setup, folder structure, configuration, logging, testing infrastructure
-- [x] **Day 2** — Synthetic dataset (883K rows), exploratory data analysis, ingestion + validation
-- [x] **Day 3** — Feature engineering (63 features), labeling, temporal split, LSTM sequencing
-- [x] **Day 4** — LSTM architecture, training pipeline, evaluation
-- [x] **Day 5** — 3-way split, threshold sweep, training curves, resume — **F1 0.8949**
-- [x] **Day 6** — Prediction pipeline — training/serving parity verified, **8/8 failure events caught**
-- [x] **Day 7** — LangChain reports — grounded in real sensor evidence, runs keyless on local Ollama
-- [x] **Day 8** — Conversational assistant — multi-turn Q&A that declines what the data cannot answer
-- [x] **Day 9** — FastAPI REST API — 9 endpoints, **137 ms** predictions, LLM failures degrade gracefully
-- [x] **Day 10** — Streamlit dashboard — pure API client, holds no model of its own
-- [x] **Day 11** — Docker + GitHub Actions CI — two images (**2.87 GB** API, **803 MB** UI), compose verified
-- [x] **Day 12** — Clean-checkout verified, consolidated results, docs complete
-
-### After the build
-
-Enhancement, not construction. Each has its own report in `docs/`.
-
-- [x] **Day 13** — Point-in-time assessment — rewind to any hour; **5/5 alert at 6 h, 0/5 at 36 h**
-- [x] **Day 14** — Quality-gate drift and accessibility — local and CI gates unified, two WCAG AA contrast failures fixed, the horizon chart above
-- [x] **Day 15** — Full production review — training made reproducible and **retrained seeded** (**F1 0.9086**, t=0.3415), unbounded `/fleet` cache bounded, Windows-safe file I/O
+| | |
+|---|---|
+| **Data pipeline** | Synthetic generator (883K rows, five related tables) → 63 engineered features → chronological three-way split → `(N, 24, 63)` sequences |
+| **Model** | 149,825-parameter LSTM, seeded and reproducible — **F1 0.9086** at t=0.3415, **8 of 8** failure events caught |
+| **Prediction** | Training/serving parity verified; point-in-time assessment rewinds the fleet to any hour |
+| **GenAI** | LangChain reports grounded in real sensor evidence; multi-turn Q&A that declines what the data cannot answer; runs keyless on local Ollama |
+| **API** | FastAPI — 9 endpoints, **137 ms** predictions, degrades gracefully when no model or LLM is available |
+| **Dashboard** | Streamlit — a pure HTTP client of the API, holding no model of its own |
+| **Deployment** | Two Docker images (**2.87 GB** API, **803 MB** dashboard), compose-verified |
+| **CI** | GitHub Actions — lint, format, types, 246 unit + 13 integration tests, CodeQL, link checking, release automation |
+| **Documentation** | 39 documents, every metric stated with its caveats |
 
 ---
 
