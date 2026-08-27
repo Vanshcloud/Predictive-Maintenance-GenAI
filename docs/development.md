@@ -219,7 +219,7 @@ python -m pytest tests/unit/test_predictor.py -x --pdb
 ```
 tests/
 ├── conftest.py          # imports TensorFlow first — load-bearing, do not "clean up"
-├── unit/                # 245 tests, ~26 s, run against data/sample/
+├── unit/                # 246 tests, ~26 s, run against data/sample/
 └── integration/         # 13 tests, ~9 min, need generated data + a model
 ```
 

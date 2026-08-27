@@ -408,7 +408,7 @@ pip install -r requirements-lint.txt
 ### 18 tests skip
 
 Expected without a trained model — they skip rather than fail so CI stays
-green on a clean checkout. Full run: 245 unit, of which 18 need artifacts.
+green on a clean checkout. Full run: 246 unit, of which 18 need artifacts.
 
 ### `test_served_threshold_matches_the_committed_evaluation_report` fails
 

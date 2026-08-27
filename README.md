@@ -18,7 +18,7 @@ with a dashboard, containerised, and tested end to end.
 [![Last commit](https://img.shields.io/github/last-commit/Vanshcloud/Predictive-Maintenance-GenAI?color=1a6076)](https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/commits/main)
 
 <!-- Quality -->
-[![Tests](https://img.shields.io/badge/tests-245%20unit%20%2B%2013%20integration-15803d)](docs/benchmarks.md#test-suite)
+[![Tests](https://img.shields.io/badge/tests-246%20unit%20%2B%2013%20integration-15803d)](docs/benchmarks.md#test-suite)
 [![Coverage](https://codecov.io/gh/Vanshcloud/Predictive-Maintenance-GenAI/branch/main/graph/badge.svg)](https://codecov.io/gh/Vanshcloud/Predictive-Maintenance-GenAI)
 [![Model F1](https://img.shields.io/badge/test%20F1-0.9086-15803d)](docs/RESULTS.md)
 [![code style: black](https://img.shields.io/badge/code%20style-black-000000)](https://github.com/psf/black)
