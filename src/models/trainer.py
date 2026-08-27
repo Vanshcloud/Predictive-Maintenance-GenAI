@@ -156,6 +156,12 @@ class ModelTrainer:
         seq_len = self.model.input_shape[1]
         n_features = self.model.input_shape[2]
 
+        # Bound to a local so the closure below captures a non-Optional Adam;
+        # train() already rejects an uncompiled model before reaching here.
+        optimizer = self.optimizer
+        if optimizer is None:
+            raise ModelTrainingError("compile() must be called before train().")
+
         @tf.function(
             input_signature=[
                 tf.TensorSpec(shape=(None, seq_len, n_features), dtype=tf.float32),
@@ -169,7 +175,7 @@ class ModelTrainer:
                 loss = self.loss_fn(y_batch, preds, sample_weight=sample_weights)
 
             grads = tape.gradient(loss, self.model.trainable_variables)
-            self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
+            optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
             return loss, preds
 
         return train_step
@@ -457,7 +463,7 @@ class ModelTrainer:
         """
         payload = {
             "epoch": epoch,
-            "best_score": float(best_score),
+            "best_score": best_score,
             "history": history,
         }
         self._state_path(checkpoint_path).write_text(
