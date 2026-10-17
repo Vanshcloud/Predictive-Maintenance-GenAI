@@ -167,7 +167,7 @@ rather than loaded.
 
 | Suite | Count | Time |
 |---|---|---|
-| Unit | 246 | **~26 s** |
+| Unit | 304 | **~26 s** |
 | Integration | 13 | ~9 min |
 | Coverage | 86% | — |
 

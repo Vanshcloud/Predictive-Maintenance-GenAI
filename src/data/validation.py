@@ -42,7 +42,7 @@ USAGE:
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List
 
 import pandas as pd
 
@@ -160,6 +160,22 @@ SCHEMAS: Dict[str, Dict[str, str]] = {
     },
 }
 
+# How each declared kind above is checked. These used to be documentation
+# only: a sensor column read as text, or an unparsed datetime, passed the
+# schema check and failed later — or crashed the range check outright.
+_DTYPE_CHECKS: Dict[str, Callable[[pd.Series], bool]] = {
+    "datetime64": pd.api.types.is_datetime64_any_dtype,
+    "int": pd.api.types.is_integer_dtype,
+    # Whole-number sensor exports are read as int; still a valid reading.
+    "float": lambda s: pd.api.types.is_float_dtype(s)
+    or pd.api.types.is_integer_dtype(s),
+    "object": lambda s: pd.api.types.is_object_dtype(s)
+    or pd.api.types.is_string_dtype(s),
+}
+
+# Tables of discrete events, which can legitimately be empty for a period.
+EVENT_TABLES = ("errors", "maintenance", "failures")
+
 # Valid sensor value ranges (physically possible values)
 SENSOR_RANGES: Dict[str, Dict[str, float]] = {
     "voltage": {"min": 50.0, "max": 300.0},
@@ -239,7 +255,9 @@ class DataValidator:
         # Range checks only for tables with sensor data
         if table_name == "telemetry":
             for sensor, ranges in SENSOR_RANGES.items():
-                if sensor in df.columns:
+                # A non-numeric column is already a schema error; comparing it
+                # with a number would raise instead of reporting.
+                if sensor in df.columns and pd.api.types.is_numeric_dtype(df[sensor]):
                     report.checks.append(
                         self._check_range(df, sensor, ranges["min"], ranges["max"])
                     )
@@ -282,12 +300,18 @@ class DataValidator:
     # ==================================================================
 
     def _check_not_empty(self, df: pd.DataFrame, table_name: str) -> ValidationCheck:
-        """Check that the DataFrame is not empty."""
+        """
+        Check that the DataFrame is not empty.
+
+        Blocking for telemetry and machines, which every row is built from.
+        An event log with zero events is a real observation — the committed
+        sample has no failures by design — so there it is reported, not fatal.
+        """
         if len(df) == 0:
             return ValidationCheck(
                 name="not_empty",
                 passed=False,
-                severity="error",
+                severity="warning" if table_name in EVENT_TABLES else "error",
                 message=f"Table '{table_name}' is empty (0 rows)",
             )
         return ValidationCheck(
@@ -330,6 +354,25 @@ class DataValidator:
                     "extra": sorted(extra_cols),
                     "expected": sorted(expected_cols),
                     "actual": sorted(actual_cols),
+                },
+            )
+
+        # A 0-row column has no observed type (pandas reads it as object);
+        # emptiness is _check_not_empty's to report, not a type error.
+        wrong_types = {
+            col: str(df[col].dtype)
+            for col, kind in expected_schema.items()
+            if not df.empty and not _DTYPE_CHECKS[kind](df[col])
+        }
+        if wrong_types:
+            return ValidationCheck(
+                name="schema_check",
+                passed=False,
+                severity="error",
+                message=f"Wrong column types: {wrong_types}",
+                details={
+                    "wrong_types": wrong_types,
+                    "expected": {c: expected_schema[c] for c in wrong_types},
                 },
             )
 

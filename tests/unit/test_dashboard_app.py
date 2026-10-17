@@ -192,6 +192,24 @@ class TestFleetOverview:
 
         assert any("Nothing needs action" in s.value for s in app.success)
 
+    def test_unassessed_machines_are_never_presented_as_healthy(self):
+        """
+        No alerts among the machines that WERE scored says nothing about the
+        ones that were not. Reassurance would be a false all-clear.
+        """
+        partial = {
+            **FLEET,
+            "machines_alerting": 0,
+            "predictions": FLEET["predictions"][1:],
+            "unassessed_machine_ids": [7, 9],
+        }
+        app = run_app(make_client(fleet=partial))
+
+        assert not app.exception, f"dashboard raised: {app.exception}"
+        assert not any("Nothing needs action" in s.value for s in app.success)
+        warning = " ".join(w.value for w in app.warning)
+        assert "unknown" in warning and "7, 9" in warning
+
 
 class TestMachineDetail:
     def test_renders_without_error(self):

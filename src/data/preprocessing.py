@@ -66,6 +66,12 @@ ROLLING_WINDOWS = [3, 12, 24]
 # Lag periods (in hours)
 LAG_PERIODS = [1, 6, 24]
 
+# Order of the hours_since_maint_* features. Not alphabetical on purpose: this
+# is the order recorded in the deployed data/processed/feature_columns.txt (the
+# first-appearance order in the generated data), and changing it would change
+# the schema. Components not listed here follow, sorted.
+MAINTENANCE_COMPONENTS = ("comp1", "comp4", "comp3", "comp2")
+
 
 class DataPreprocessor:
     """
@@ -257,7 +263,13 @@ class DataPreprocessor:
         maintenance = maintenance.copy()
         maintenance["datetime"] = pd.to_datetime(maintenance["datetime"])
 
-        components = maintenance["comp"].unique()
+        # Fixed order, so the feature schema does not depend on which
+        # component happens to appear first in a given maintenance log.
+        # Iterating `.unique()` did exactly that: the sample data produced
+        # the same 63 names as the deployed schema in a different order.
+        present = set(maintenance["comp"].unique())
+        components = [c for c in MAINTENANCE_COMPONENTS if c in present]
+        components += sorted(present - set(MAINTENANCE_COMPONENTS))
 
         for comp in components:
             comp_maint = maintenance[maintenance["comp"] == comp][
@@ -344,9 +356,12 @@ class DataPreprocessor:
                 df[f"{col}_rolling_mean_{window}h"] = grouped.transform(
                     lambda x: x.rolling(window, min_periods=1).mean()
                 )
-                # Rolling std — captures variability/stability
+                # Rolling std — captures variability/stability. The first row
+                # is a single reading, which has no spread: 0, not NaN.
                 df[f"{col}_rolling_std_{window}h"] = grouped.transform(
-                    lambda x: x.rolling(window, min_periods=1).std()
+                    lambda x: x.rolling(window, min_periods=1)
+                    .std()
+                    .mask(np.arange(len(x)) == 0, 0.0)
                 )
 
         # --- Lag features ---
@@ -357,19 +372,24 @@ class DataPreprocessor:
             grouped = df.groupby("machine_id")[col]
 
             for lag in LAG_PERIODS:
-                # Value N hours ago
-                df[f"{col}_lag_{lag}h"] = grouped.transform(lambda x: x.shift(lag))
+                # Value N hours ago. The first N rows have none, so they take
+                # the machine's earliest reading — which is in the past for
+                # every one of them.
+                df[f"{col}_lag_{lag}h"] = grouped.transform(
+                    lambda x: x.shift(lag).mask(np.arange(len(x)) < lag, x.iloc[0])
+                )
                 # Rate of change over N hours
                 df[f"{col}_change_{lag}h"] = df[col] - df[f"{col}_lag_{lag}h"]
 
-        # Fill NaN from rolling/lag operations
-        # WHY: The first N rows per machine have no history for rolling.
-        # Forward fill uses the first available value as the initial state.
+        # Carry the last known value over missing readings — forward only.
+        # This used to be ffill().bfill(), and the backward fill copied LATER
+        # readings into earlier rows: a historical prediction changed when
+        # newer data was appended. Whatever is still NaN here (a sensor that
+        # has not reported yet) stays NaN, and scaling maps it to the training
+        # mean — no value from the future is ever used.
         df = df.sort_values(["machine_id", "datetime"])
         feature_cols = [c for c in df.columns if c not in ["datetime", "machine_id"]]
-        df[feature_cols] = df.groupby("machine_id")[feature_cols].transform(
-            lambda x: x.ffill().bfill()
-        )
+        df[feature_cols] = df.groupby("machine_id")[feature_cols].ffill()
 
         n_features_after = len(df.columns)
         logger.info(

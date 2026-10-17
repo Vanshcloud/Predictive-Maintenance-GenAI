@@ -18,7 +18,7 @@ with a dashboard, containerised, and tested end to end.
 [![Last commit](https://img.shields.io/github/last-commit/Vanshcloud/Predictive-Maintenance-GenAI?color=1a6076)](https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/commits/main)
 
 <!-- Quality -->
-[![Tests](https://img.shields.io/badge/tests-246%20unit%20%2B%2013%20integration-15803d)](docs/benchmarks.md#test-suite)
+[![Tests](https://img.shields.io/badge/tests-304%20unit%20%2B%2013%20integration-15803d)](docs/benchmarks.md#test-suite)
 [![Coverage](https://codecov.io/gh/Vanshcloud/Predictive-Maintenance-GenAI/branch/main/graph/badge.svg)](https://codecov.io/gh/Vanshcloud/Predictive-Maintenance-GenAI)
 [![Model F1](https://img.shields.io/badge/test%20F1-0.9086-15803d)](docs/RESULTS.md)
 [![code style: black](https://img.shields.io/badge/code%20style-black-000000)](https://github.com/psf/black)
@@ -34,7 +34,7 @@ with a dashboard, containerised, and tested end to end.
 [![Pull requests](https://img.shields.io/github/issues-pr/Vanshcloud/Predictive-Maintenance-GenAI?color=6b7280)](https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/pulls)
 
 <p>
-<a href="#quick-start"><b>Quick start</b></a> ·
+<a href="#quick-setup"><b>Quick start</b></a> ·
 <a href="docs/README.md"><b>Documentation</b></a> ·
 <a href="docs/api.md"><b>API</b></a> ·
 <a href="docs/model.md"><b>Model card</b></a> ·
@@ -144,9 +144,9 @@ Industrial equipment failures cost the global manufacturing industry **$50 billi
 | Traditional Approach | This Project |
 |---|---|
 | Fix equipment **after** it breaks | Predict failures **before** they happen |
-| ML model outputs a number (0.87) | GenAI explains: *"Bearing temperature rising 3°C/hr, recommend immediate inspection"* |
+| ML model outputs a number (0.87) | GenAI explains: *"Vibration at 62 mm/s, up 24 mm/s in 24 hours — inspect for worn bearings or loose components"* |
 | Requires ML expertise to interpret | Maintenance managers can read plain-English reports |
-| Isolated scripts | Production-ready API + Dashboard |
+| Isolated scripts | Containerised REST API + dashboard |
 
 ---
 
@@ -160,7 +160,7 @@ Industrial equipment failures cost the global manufacturing industry **$50 billi
           │        merge · 63 engineered features · 24h labels
           │        temporal split · scale on train only · 24-step windows
           ▼
- LSTM  (128 → 64 → 32 → 1)          class-weighted, {0: 0.50, 1: 364.89}
+ LSTM  (128 → 64 → 32 → 1)          class-weighted, {0: 0.50, 1: 362.53}
           │
           ▼
  Predictor          raw tables in → probability + risk band + evidence out
@@ -325,7 +325,7 @@ make docker-build
 make docker-up                                # api :8000 · dashboard :8501
 
 # Quality
-make test                                     # 246 unit tests
+make test                                     # 304 unit tests
 make quality                                  # lint + format-check + typecheck
 ```
 
@@ -436,7 +436,7 @@ Predictive-Maintenance-GenAI/
 │                            #   train_model, evaluate_model, predict
 ├── tests/
 │   ├── conftest.py          # Session bootstrap (import order matters — see the file)
-│   ├── unit/                # 246 tests, ~27s
+│   ├── unit/                # 304 tests, ~27s
 │   └── integration/         # 13 tests — parity, grounding, time travel; `make test-integration`
 ├── docs/
 │   ├── README.md                 # Documentation index
@@ -481,14 +481,14 @@ config/ -> src/utils/ -> src/data/ -> src/models/ -> src/prediction/ -> src/gena
 ## Testing
 
 ```bash
-make test          # 246 unit tests
+make test          # 304 unit tests
 make test-cov      # with coverage report
 make lint          # flake8
 make format        # black + isort (writes)
 make quality       # lint + format-check + typecheck (no writes)
 ```
 
-**Current status: 246 unit + 13 integration tests passing, 0 flake8 issues, mypy clean, Black and isort clean.**
+**Current status: 304 unit + 13 integration tests passing, 0 flake8 issues, mypy clean, Black and isort clean.**
 
 Tests run against the committed `data/sample/` fixture, so they need no generated data.
 The first run pays roughly 90 seconds for TensorFlow's initial import on ARM64 macOS;
@@ -520,7 +520,7 @@ journal — one entry per milestone, including the bugs and the dead ends — is
 | **API** | FastAPI — 9 endpoints, **137 ms** predictions, degrades gracefully when no model or LLM is available |
 | **Dashboard** | Streamlit — a pure HTTP client of the API, holding no model of its own |
 | **Deployment** | Two Docker images (**2.87 GB** API, **803 MB** dashboard), compose-verified |
-| **CI** | GitHub Actions — lint, format, types, 246 unit + 13 integration tests, CodeQL, link checking, release automation |
+| **CI** | GitHub Actions — lint, format, types, 304 unit + 13 integration tests, CodeQL, link checking, release automation |
 | **Documentation** | 39 documents, every metric stated with its caveats |
 
 ---

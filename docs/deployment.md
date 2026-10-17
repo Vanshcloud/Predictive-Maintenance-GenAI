@@ -334,14 +334,27 @@ Because artifacts are mounted read-only, a retrain is a swap and a restart:
 python scripts/train_model.py
 python scripts/evaluate_model.py
 
-# If the chosen threshold moved, update config/settings.py — both
-# PREDICTION_THRESHOLD and RISK_BAND_HIGH. A test enforces that they agree.
-
 docker compose -f docker/docker-compose.yml restart api
 curl -fsS localhost:8000/health | jq '{status, version, threshold}'
 ```
 
-No image rebuild. Roll back by restoring the previous `.keras` and restarting.
+No image rebuild — **as long as only the mounted artifacts changed** (`models/`,
+`data/`). Roll back by restoring the previous `.keras` and restarting.
+
+**Settings are not mounted.** `config/` and `src/` are copied into the image at
+build time, so a restart keeps serving the values that were baked in. If the
+chosen threshold moved, update `config/settings.py` — both
+`PREDICTION_THRESHOLD` and `RISK_BAND_HIGH`; a test enforces that they agree —
+and rebuild:
+
+```bash
+docker compose -f docker/docker-compose.yml up -d --build api
+curl -fsS localhost:8000/health | jq '{threshold}'   # confirm the new value is live
+```
+
+The same applies to any source change. `make docker-up` and `make docker-up-d`
+pass `--build` for this reason; a bare `docker compose up` reuses the existing
+image.
 
 ---
 

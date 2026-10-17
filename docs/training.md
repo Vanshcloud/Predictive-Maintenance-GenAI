@@ -70,7 +70,7 @@ Writes to `data/processed/`:
 
 | File | Contents |
 |---|---|
-| `X_train.npy` / `y_train.npy` | 567,000 sequences, 800 positive |
+| `X_train.npy` / `y_train.npy` | 567,000 sequences, 782 positive |
 | `X_val.npy` / `y_val.npy` | 129,000 sequences, 175 positive |
 | `X_test.npy` / `y_test.npy` | 172,800 sequences, 200 positive |
 | `scaler.joblib` | The fitted `StandardScaler` — **training statistics** |

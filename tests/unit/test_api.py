@@ -333,13 +333,60 @@ class TestRequestValidation:
         response = client.post("/predict", json={"machine_id": 7})
         assert response.status_code == 422
 
+    @pytest.mark.parametrize(
+        "timeline",
+        [
+            pytest.param([datetime(2024, 12, 1)] * 48, id="duplicated"),
+            pytest.param(
+                [datetime(2024, 12, 1) + timedelta(days=d) for d in range(48)],
+                id="daily",
+            ),
+            pytest.param(
+                [datetime(2024, 12, 1) + timedelta(hours=h) for h in range(48)][::-1],
+                id="newest-first",
+            ),
+            pytest.param(
+                [
+                    datetime(2024, 12, 1) + timedelta(hours=h)
+                    for h in range(49)
+                    if h != 30
+                ],
+                id="one-hour-gap",
+            ),
+        ],
+    )
+    def test_readings_must_be_consecutive_hours(self, client, timeline):
+        """
+        Feature windows count rows, so 48 rows are 48 hours only if they are.
+
+        Each of these used to be accepted and scored as hourly history.
+        """
+        readings = self._readings(len(timeline))
+        for reading, moment in zip(readings, timeline):
+            reading["datetime"] = moment.isoformat()
+
+        response = client.post("/predict", json={"machine_id": 7, "readings": readings})
+
+        assert response.status_code == 422
+        assert "consecutive hourly" in str(response.json())
+
+    def test_timezone_aware_readings_are_accepted(self, client):
+        """The same consecutive hours, written with an offset, are still valid."""
+        readings = self._readings()
+        for reading in readings:
+            reading["datetime"] += "+05:30"
+
+        response = client.post("/predict", json={"machine_id": 7, "readings": readings})
+
+        assert response.status_code == 200
+
 
 class TestReportEndpoint:
     """The slow path, and its isolation from the fast one."""
 
     def test_generates_a_report(self, client, monkeypatch):
         class StubGenerator:
-            def __init__(self, provider=None):
+            def __init__(self, provider=None, **kwargs):
                 pass
 
             def generate_report(self, record):
@@ -360,9 +407,35 @@ class TestReportEndpoint:
         # The prediction travels with the report.
         assert body["prediction"]["machine_id"] == 51
 
+    def test_the_provider_client_gets_the_report_deadline(self, client, monkeypatch):
+        """
+        `asyncio.wait_for` only stops waiting; the blocking provider call kept
+        its thread until the client's own default (600 s per attempt for
+        OpenAI) expired. The deadline has to reach the client itself.
+        """
+        from src.api.routes import reports
+
+        seen = {}
+
+        class StubGenerator:
+            def __init__(self, provider=None, **kwargs):
+                seen.update(kwargs)
+
+            def generate_report(self, record):
+                return "ok"
+
+        import src.genai as genai_module
+
+        monkeypatch.setattr(genai_module, "ReportGenerator", StubGenerator)
+
+        response = client.post("/report", json={"machine_id": 51, "model": "m"})
+
+        assert response.status_code == 200
+        assert seen == {"model": "m", "timeout": reports.REPORT_TIMEOUT_SECONDS}
+
     def test_a_question_is_answered_instead_of_a_report(self, client, monkeypatch):
         class StubGenerator:
-            def __init__(self, provider=None):
+            def __init__(self, provider=None, **kwargs):
                 pass
 
             def answer_question(self, record, question):
@@ -389,7 +462,7 @@ class TestReportEndpoint:
         """
 
         class DeadGenerator:
-            def __init__(self, provider=None):
+            def __init__(self, provider=None, **kwargs):
                 pass
 
             def generate_report(self, record):
@@ -408,6 +481,106 @@ class TestReportEndpoint:
 
     def test_unknown_machine_in_report_is_404(self, client):
         assert client.post("/report", json={"machine_id": 9999}).status_code == 404
+
+
+class TestReportCapacity:
+    """
+    A timed-out provider call keeps its report slot until its thread returns.
+
+    Measured before the fix: wait_for + run_in_threadpool returned 504 and
+    handed the threadpool token back while the thread ran on, so with a
+    limit of one, four timed-out reports left four live threads.
+    """
+
+    @pytest.fixture
+    def blocked(self, monkeypatch):
+        """A provider that hangs until released; counts its live threads."""
+        import src.genai as genai_module
+        from src.api.routes import reports
+
+        release = threading.Event()
+        live, started = [], []
+
+        class BlockedGenerator:
+            def __init__(self, provider=None, **kwargs):
+                pass
+
+            def generate_report(self, record):
+                started.append(1)
+                live.append(1)
+                try:
+                    release.wait(30)
+                    return "late report"
+                finally:
+                    live.pop()
+
+        monkeypatch.setattr(genai_module, "ReportGenerator", BlockedGenerator)
+        monkeypatch.setattr(reports, "REPORT_TIMEOUT_SECONDS", 0.2)
+        monkeypatch.setattr(reports, "_report_slots", threading.BoundedSemaphore(1))
+        yield release, live, started
+        release.set()
+
+    @staticmethod
+    def _wait_until(condition, seconds=5.0):
+        stop = time.monotonic() + seconds
+        while not condition() and time.monotonic() < stop:
+            time.sleep(0.01)
+        return condition()
+
+    def test_timed_out_workers_stay_counted(self, client, blocked):
+        release, live, started = blocked
+
+        codes = [client.post("/report", json={"machine_id": 51}) for _ in range(4)]
+
+        assert [r.status_code for r in codes] == [504, 503, 503, 503]
+        assert len(started) == 1 and len(live) == 1, "a refused call still ran"
+        assert "0.8700" in codes[1].json()["detail"], "503 must keep the prediction"
+        # The rest of the API is not starved while the slot is held.
+        assert client.get("/health").status_code == 200
+
+        release.set()
+        assert self._wait_until(lambda: not live), "the worker never finished"
+        assert client.post("/report", json={"machine_id": 51}).status_code == 200
+
+    def test_concurrent_requests_cannot_exceed_the_cap(self, client, blocked):
+        release, live, started = blocked
+        with ThreadPoolExecutor(8) as pool:
+            codes = sorted(
+                r.status_code
+                for r in pool.map(
+                    lambda _: client.post("/report", json={"machine_id": 51}),
+                    range(8),
+                )
+            )
+
+        assert codes == [503] * 7 + [504]
+        assert len(started) == 1
+
+    def test_success_and_failure_both_free_the_slot(self, client, monkeypatch):
+        import src.genai as genai_module
+        from src.api.routes import reports
+
+        outcomes = iter([LLMConnectionError("down"), "ok", "ok"])
+
+        class Generator:
+            def __init__(self, provider=None, **kwargs):
+                pass
+
+            def generate_report(self, record):
+                outcome = next(outcomes)
+                if isinstance(outcome, Exception):
+                    raise outcome
+                return outcome
+
+        monkeypatch.setattr(genai_module, "ReportGenerator", Generator)
+        monkeypatch.setattr(reports, "_report_slots", threading.BoundedSemaphore(1))
+
+        codes = [
+            client.post("/report", json={"machine_id": 51}).status_code
+            for _ in range(3)
+        ]
+
+        assert codes == [502, 200, 200]
 
 
 class TestErrorShaping:
@@ -579,6 +752,35 @@ class TestTimeTravel:
         _, _, as_of = service.calls[0]
         assert as_of == datetime(2024, 10, 30, 12, 0)
 
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/machines/51/predict?as_of=2024-10-30T17:30:00%2B05:30",
+            "/machines/51/explain?as_of=2024-10-30T12:00:00Z",
+            "/fleet?as_of=2024-10-30T17:30:00%2B05:30",
+        ],
+    )
+    def test_an_aware_timestamp_reaches_the_service_as_utc(self, client, path):
+        """
+        The stored telemetry is naive, and pandas refuses to compare it with an
+        aware timestamp — `?as_of=...Z` used to be a 500. An offset must be
+        honoured, not dropped: 17:30+05:30 is 12:00 UTC.
+        """
+        assert client.get(path).status_code == 200
+
+        _, _, as_of = service_module.state.service.calls[0]
+        assert as_of == datetime(2024, 10, 30, 12, 0)
+        assert as_of.tzinfo is None
+
+    def test_an_aware_timestamp_can_slice_the_store(self):
+        """End to end through the real store, where the 500 was raised."""
+        from src.api.schemas import ReportRequest
+
+        request = ReportRequest(machine_id=1, as_of="2024-06-01T01:00:00Z")
+        sliced = self._store().slice_for(1, as_of=request.as_of)
+
+        assert list(sliced["telemetry"]["voltage"]) == [170.0, 171.0]
+
     def test_an_unparseable_timestamp_is_rejected(self, client):
         assert client.get("/machines/51/predict?as_of=last-tuesday").status_code == 422
 
@@ -659,6 +861,84 @@ class TestFleetCacheIsBounded:
 
         service.fleet(as_of=hot + timedelta(days=99))
         assert pd.Timestamp(hot) in service._fleet_cache
+
+
+class TestUnassessableFleet:
+    """
+    A machine that could not be scored has UNKNOWN status, not a healthy one.
+
+    Before the data starts, or within its first 48 hours, machines lack
+    history. Each was skipped silently: an entirely unscoreable fleet came
+    back as a successful "0 alerting", and a partial one simply omitted the
+    machines it could not score — which read the same as "fine".
+    """
+
+    @staticmethod
+    def _service(machine_ids=(1, 2, 3), unscoreable=()):
+        class Store:
+            def __init__(self):
+                self.machine_ids = list(machine_ids)
+
+            def require_machine(self, machine_id):
+                pass
+
+            def slice_for(self, machine_id, window_hours=200, as_of=None):
+                return {}
+
+        class Predictor:
+            def predict_machine(self, sliced, machine_id):
+                if machine_id in unscoreable:
+                    raise PredictionError("No complete sequences could be built.")
+                return _record(machine_id, 0.01, False)
+
+        return service_module.PredictionService(Predictor(), Store())
+
+    def _get(self, monkeypatch, service, path):
+        with _client_with(
+            monkeypatch,
+            predictor=object(),
+            store=service.store,
+            service=service,
+            model_error=None,
+        ) as test_client:
+            return test_client.get(path)
+
+    def test_a_fully_assessed_fleet_has_no_unknowns(self, monkeypatch):
+        body = self._get(monkeypatch, self._service(), "/fleet").json()
+
+        assert body["machines_assessed"] == 3
+        assert body["unassessed_machine_ids"] == []
+
+    def test_a_partial_fleet_names_the_machines_it_could_not_assess(self, monkeypatch):
+        service = self._service(unscoreable=(2,))
+
+        body = self._get(monkeypatch, service, "/fleet").json()
+
+        assert body["machines_assessed"] == 2
+        assert body["unassessed_machine_ids"] == [2]
+        assert 2 not in [p["machine_id"] for p in body["predictions"]]
+
+    def test_alerts_only_still_reports_the_unknowns(self, monkeypatch):
+        """An unknown machine could be one that should be alerting."""
+        service = self._service(unscoreable=(2,))
+
+        body = self._get(monkeypatch, service, "/fleet?alerts_only=true").json()
+
+        assert body["predictions"] == []
+        assert body["unassessed_machine_ids"] == [2]
+
+    def test_the_service_refuses_to_report_an_empty_assessment(self):
+        service = self._service(machine_ids=(1, 2), unscoreable=(1, 2))
+        with pytest.raises(PredictionError, match="none of the 2 machines"):
+            service.fleet(as_of=datetime(2024, 1, 1))
+
+    def test_the_route_reports_insufficient_data_not_a_healthy_fleet(self, monkeypatch):
+        service = self._service(machine_ids=(1, 2), unscoreable=(1, 2))
+
+        response = self._get(monkeypatch, service, "/fleet?as_of=2024-01-01T00:00:00")
+
+        assert response.status_code == 422
+        assert "could be assessed" in response.json()["detail"]
 
 
 class TestFleetCacheUnderConcurrency:
@@ -770,3 +1050,183 @@ class TestFleetCacheUnderConcurrency:
         assert len(scorings) == 6  # six distinct keys, six scorings
         for t in stamps:
             assert pd.Timestamp(t) in service._fleet_cache
+
+
+class TestDatasetAvailability:
+    """
+    startup() promises never to raise and to report problems as "degraded".
+    An unreadable CSV raised straight through it, so the API never came up;
+    a missing event log was not a problem at all — /health said "ok" while
+    every stored prediction filled errors and maintenance with defaults.
+    """
+
+    from config.settings import PROJECT_ROOT
+
+    SAMPLE = PROJECT_ROOT / "data" / "sample"
+
+    def _copy_sample(self, tmp_path):
+        import shutil
+
+        for name in service_module.RAW_TABLES:
+            shutil.copy(self.SAMPLE / f"{name}.csv", tmp_path / f"{name}.csv")
+        return tmp_path
+
+    def test_a_complete_dataset_loads(self, tmp_path):
+        store = service_module.MachineDataStore.load(self._copy_sample(tmp_path))
+
+        assert store.is_loaded
+        assert store.problems == []
+
+    def test_an_unreadable_table_degrades_instead_of_crashing(self, tmp_path):
+        data_dir = self._copy_sample(tmp_path)
+        (data_dir / "errors.csv").write_text("")
+
+        store = service_module.MachineDataStore.load(data_dir)
+
+        assert not store.is_loaded
+        assert "errors.csv could not be read" in " ".join(store.problems)
+
+    @pytest.mark.parametrize("table", ["errors", "maintenance"])
+    def test_a_missing_event_log_is_not_a_loaded_dataset(self, tmp_path, table):
+        data_dir = self._copy_sample(tmp_path)
+        (data_dir / f"{table}.csv").unlink()
+
+        store = service_module.MachineDataStore.load(data_dir)
+
+        assert not store.is_loaded
+        assert f"{table}.csv not found" in " ".join(store.problems)
+
+    def test_startup_survives_and_the_503_says_why(self, tmp_path, monkeypatch):
+        from types import SimpleNamespace
+
+        data_dir = self._copy_sample(tmp_path)
+        (data_dir / "maintenance.csv").write_text("")
+        monkeypatch.setattr(service_module, "Predictor", lambda: object())
+        app_state = service_module.AppState()
+        app_state.settings = SimpleNamespace(raw_data_path=data_dir)
+
+        app_state.startup()  # must not raise
+
+        assert not app_state.is_ready
+        assert "maintenance.csv" in app_state.data_error
+
+        with _client_with(
+            monkeypatch,
+            predictor=app_state.predictor,
+            store=app_state.store,
+            service=None,
+            model_error=None,
+        ) as test_client:
+            monkeypatch.setattr(
+                service_module.state, "data_error", app_state.data_error
+            )
+            response = test_client.get("/machines/1/predict")
+
+        assert response.status_code == 503
+        assert "maintenance.csv" in response.json()["detail"]
+
+    @pytest.mark.parametrize(
+        "table,column",
+        [
+            ("machines", "machine_id"),
+            ("telemetry", "voltage"),
+            ("telemetry", "datetime"),
+            ("errors", "error_id"),
+            ("maintenance", "comp"),
+        ],
+    )
+    def test_a_table_missing_a_required_column_is_not_loaded(
+        self, tmp_path, table, column
+    ):
+        # machines without machine_id raised KeyError out of startup; telemetry
+        # without voltage was "loaded" and /health said ok while every
+        # prediction failed for want of the feature.
+        data_dir = self._copy_sample(tmp_path)
+        path = data_dir / f"{table}.csv"
+        pd.read_csv(path).drop(columns=[column]).to_csv(path, index=False)
+
+        store = service_module.MachineDataStore.load(data_dir)  # must not raise
+
+        assert not store.is_loaded
+        assert f"{table}.csv is invalid" in " ".join(store.problems)
+        assert column in " ".join(store.problems)
+
+    def test_a_sensor_column_read_as_text_is_not_loaded(self, tmp_path):
+        data_dir = self._copy_sample(tmp_path)
+        path = data_dir / "telemetry.csv"
+        frame = pd.read_csv(path)
+        frame["vibration"] = frame["vibration"].astype(str)
+        frame.loc[0, "vibration"] = "sensor fault"
+        frame.to_csv(path, index=False)
+
+        store = service_module.MachineDataStore.load(data_dir)
+
+        assert not store.is_loaded
+        assert "vibration" in " ".join(store.problems)
+
+    def test_an_unparseable_timestamp_is_not_loaded(self, tmp_path):
+        data_dir = self._copy_sample(tmp_path)
+        path = data_dir / "errors.csv"
+        frame = pd.read_csv(path)
+        frame.loc[0, "datetime"] = "not a date"
+        frame.to_csv(path, index=False)
+
+        store = service_module.MachineDataStore.load(data_dir)
+
+        assert not store.is_loaded
+        assert "errors.csv could not be read" in " ".join(store.problems)
+
+    def test_an_empty_machines_table_is_not_loaded(self, tmp_path):
+        data_dir = self._copy_sample(tmp_path)
+        (data_dir / "machines.csv").write_text("machine_id,model,age\n")
+
+        store = service_module.MachineDataStore.load(data_dir)
+
+        assert not store.is_loaded
+        assert "machines.csv is invalid" in " ".join(store.problems)
+
+    def test_an_event_log_with_no_events_still_loads(self, tmp_path):
+        # Zero events is a real observation, not a schema failure.
+        data_dir = self._copy_sample(tmp_path)
+        (data_dir / "errors.csv").write_text("datetime,machine_id,error_id\n")
+
+        store = service_module.MachineDataStore.load(data_dir)
+
+        assert store.is_loaded
+        assert store.problems == []
+
+    def test_health_and_endpoints_agree_on_an_invalid_dataset(
+        self, tmp_path, monkeypatch
+    ):
+        from types import SimpleNamespace
+
+        data_dir = self._copy_sample(tmp_path)
+        path = data_dir / "telemetry.csv"
+        pd.read_csv(path).drop(columns=["voltage"]).to_csv(path, index=False)
+        monkeypatch.setattr(service_module, "Predictor", lambda: object())
+        app_state = service_module.AppState()
+        app_state.settings = SimpleNamespace(raw_data_path=data_dir)
+
+        app_state.startup()
+
+        assert not app_state.is_ready
+        with _client_with(
+            monkeypatch,
+            predictor=app_state.predictor,
+            store=app_state.store,
+            service=app_state.service,
+            model_error=None,
+        ) as test_client:
+            monkeypatch.setattr(
+                service_module.state, "data_error", app_state.data_error
+            )
+            health = test_client.get("/health").json()
+            machines = test_client.get("/machines")
+            predict = test_client.get("/machines/1/predict")
+
+        assert health["status"] == "degraded"
+        assert health["dataset_loaded"] is False
+        assert health["machines_known"] == 0
+        assert machines.status_code == 503
+        assert predict.status_code == 503
+        assert "voltage" in predict.json()["detail"]

@@ -77,7 +77,7 @@ Input                 (batch, 24, 63)
 
 Two stacked LSTM layers: the first returns the full sequence so the second sees
 a temporal representation rather than a single summary vector. Dropout at 0.3
-between them — with 800 positive training examples, overfitting is the
+between them — with 782 positive training examples, overfitting is the
 principal risk.
 
 Training uses a hand-written `GradientTape` loop rather than `model.fit()`.
@@ -147,7 +147,7 @@ someone picked.
 
 | Split | Sequences | Positives | Rate |
 |---|---|---|---|
-| Train | 567,000 | 800 | 1:709 |
+| Train | 567,000 | 782 | 1:725 |
 | Validation | 129,000 | 175 | 1:737 |
 | Test | 172,800 | 200 | 1:864 |
 
@@ -170,7 +170,7 @@ sharing a timestamp land in the same split.
 
 Roughly **0.13% positive** — about 1 failure hour per 745.
 
-Handled with class-weighted binary cross-entropy, `{0: 0.50, 1: 364.89}`,
+Handled with class-weighted binary cross-entropy, `{0: 0.50, 1: 362.53}`,
 computed as the inverse class ratio. Resampling was not used: SMOTE on a
 time-series window synthesises sequences that never occurred, and undersampling
 discards the majority-class variety the model needs in order to learn what

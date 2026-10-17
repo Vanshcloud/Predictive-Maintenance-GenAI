@@ -243,6 +243,43 @@ class TestProviderSelection:
         assert "langchain-google-genai" in message or "google" in message
         settings_module.get_settings.cache_clear()
 
+    def test_openai_model_override_is_used(self, monkeypatch):
+        """
+        `model=` reached ChatOpenAI twice — once from settings, once through
+        **kwargs — and the TypeError surfaced as "provider unavailable".
+        """
+        from config import settings as settings_module
+
+        settings_module.get_settings.cache_clear()
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test-not-real")
+        try:
+            llm = get_llm(provider="openai", model="gpt-override")
+            assert llm.model_name == "gpt-override"
+        finally:
+            settings_module.get_settings.cache_clear()
+
+    def test_google_model_override_is_used(self, monkeypatch):
+        """Same defect on the Google branch; the package is an optional extra."""
+        import sys
+        import types
+
+        from config import settings as settings_module
+
+        class FakeGoogleChat:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+        fake = types.ModuleType("langchain_google_genai")
+        fake.ChatGoogleGenerativeAI = FakeGoogleChat
+        monkeypatch.setitem(sys.modules, "langchain_google_genai", fake)
+        settings_module.get_settings.cache_clear()
+        monkeypatch.setenv("GOOGLE_API_KEY", "test-key-not-real")
+        try:
+            llm = get_llm(provider="google", model="gemini-override")
+            assert llm.kwargs["model"] == "gemini-override"
+        finally:
+            settings_module.get_settings.cache_clear()
+
 
 class TestReportGeneration:
     def test_generates_a_report(self, record):
@@ -378,3 +415,432 @@ class TestFleetSummary:
         generator = ReportGenerator(llm=fake_llm())
         with pytest.raises(ReportGenerationError, match="No predictions"):
             generator.generate_fleet_summary([])
+
+
+class TestProviderDeadline:
+    """
+    The report route's timeout must stop the provider call, not just the wait.
+
+    These run the real provider client against a local server that accepts
+    the request and never answers — the shape of a hung provider. What is
+    verified is that the LOCAL call gives up and frees its thread. Whether a
+    hosted provider stops generating once the connection drops is outside
+    anything a client can verify.
+    """
+
+    @pytest.fixture
+    def hung_server(self):
+        import threading
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+        release = threading.Event()
+
+        class Hang(BaseHTTPRequestHandler):
+            def do_POST(self):
+                self.rfile.read(int(self.headers.get("content-length", 0)))
+                release.wait(30)
+
+            def log_message(self, *args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Hang)
+        server.daemon_threads = True
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        yield f"http://127.0.0.1:{server.server_port}"
+        release.set()
+        server.shutdown()
+        server.server_close()
+
+    @staticmethod
+    def _generate_within(generator, record, seconds):
+        """Run generate_report on a thread; return (thread_finished, error)."""
+        import threading
+
+        outcome = {}
+
+        def call():
+            try:
+                generator.generate_report(record)
+            except Exception as e:  # the error type is asserted by the caller
+                outcome["error"] = e
+
+        worker = threading.Thread(target=call, daemon=True)
+        worker.start()
+        worker.join(seconds)
+        return not worker.is_alive(), outcome.get("error")
+
+    def test_openai_call_stops_at_the_deadline(self, record, hung_server, monkeypatch):
+        from config import settings as settings_module
+
+        settings_module.get_settings.cache_clear()
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test-not-real")
+        try:
+            generator = ReportGenerator(
+                provider="openai", base_url=f"{hung_server}/v1", timeout=1.0
+            )
+            finished, error = self._generate_within(generator, record, seconds=8)
+        finally:
+            settings_module.get_settings.cache_clear()
+
+        assert finished, "the provider call outlived its deadline"
+        assert isinstance(error, LLMConnectionError)
+
+    def test_ollama_call_stops_at_the_deadline(self, record, hung_server, monkeypatch):
+        from config import settings as settings_module
+
+        settings_module.get_settings.cache_clear()
+        monkeypatch.setenv("OLLAMA_BASE_URL", hung_server)
+        try:
+            generator = ReportGenerator(provider="ollama", timeout=1.0)
+            finished, error = self._generate_within(generator, record, seconds=8)
+        finally:
+            settings_module.get_settings.cache_clear()
+
+        assert finished, "the provider call outlived its deadline"
+        assert isinstance(error, LLMConnectionError)
+
+    def test_google_call_stops_at_the_deadline(self, record, hung_server, monkeypatch):
+        """
+        Optional extra, so skipped where it is not installed. Verified with
+        langchain-google-genai 2.x over REST; the default gRPC transport is
+        not exercised here.
+        """
+        pytest.importorskip("langchain_google_genai")
+        from config import settings as settings_module
+
+        settings_module.get_settings.cache_clear()
+        monkeypatch.setenv("GOOGLE_API_KEY", "test-key-not-real")
+        try:
+            generator = ReportGenerator(
+                provider="google",
+                transport="rest",
+                client_options={"api_endpoint": hung_server},
+                timeout=1.0,
+            )
+            finished, error = self._generate_within(generator, record, seconds=8)
+        finally:
+            settings_module.get_settings.cache_clear()
+
+        assert finished, "the provider call outlived its deadline"
+        assert isinstance(error, LLMConnectionError)
+
+    def test_hosted_clients_do_not_retry_past_the_deadline(self, monkeypatch):
+        """Each retry restarts the clock; OpenAI's client retries twice."""
+        from config import settings as settings_module
+
+        settings_module.get_settings.cache_clear()
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test-not-real")
+        try:
+            llm = get_llm(provider="openai", timeout=5.0)
+        finally:
+            settings_module.get_settings.cache_clear()
+
+        assert llm.request_timeout == 5.0
+        assert llm.max_retries == 0
+
+
+class TestTotalDeadline:
+    """
+    The provider timeout limits each read, not the whole call. A provider
+    still sending (tokens, whitespace, keep-alives) never trips it, so a
+    1 s timeout let a trickling server hold the call for 5 s, and longer
+    trickles had no limit. These run the real clients against a local server
+    that would keep sending for ~6 s, and require the local call to end
+    within a few seconds of a 1 s deadline.
+    """
+
+    @pytest.fixture
+    def trickle_server(self):
+        import json
+        import threading
+        import time
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+        dropped = threading.Event()
+        state = {"mode": "tokens"}
+
+        def sse(payload):
+            return b"data: " + json.dumps(payload).encode() + b"\n\n"
+
+        def openai_chunk(text):
+            return sse(
+                {
+                    "id": "x",
+                    "object": "chat.completion.chunk",
+                    "created": 0,
+                    "model": "m",
+                    "choices": [
+                        {"index": 0, "delta": {"content": text}, "finish_reason": None}
+                    ],
+                }
+            )
+
+        class Trickle(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def _chunk(self, data):
+                self.wfile.write(b"%x\r\n%s\r\n" % (len(data), data))
+                self.wfile.flush()
+
+            def do_POST(self):
+                body = self.rfile.read(int(self.headers.get("content-length", 0)))
+                streaming = json.loads(body or b"{}").get("stream")
+                ollama = self.path.startswith("/api/")
+                if ollama:
+                    piece = (
+                        json.dumps(
+                            {
+                                "model": "m",
+                                "message": {"role": "assistant", "content": "tok "},
+                                "done": False,
+                            }
+                        )
+                        + "\n"
+                    ).encode()
+                elif state["mode"] == "keepalive":
+                    piece = b": keep-alive\n\n"
+                elif streaming:
+                    piece = openai_chunk("tok ")
+                else:
+                    piece = b" "  # whitespace before a JSON body is still JSON
+                self.send_response(200)
+                self.send_header(
+                    "Content-Type",
+                    (
+                        "application/x-ndjson"
+                        if ollama
+                        else "text/event-stream" if streaming else "application/json"
+                    ),
+                )
+                self.send_header("Transfer-Encoding", "chunked")
+                self.end_headers()
+                try:
+                    for _ in range(20):
+                        self._chunk(piece)
+                        time.sleep(0.3)
+                    self.wfile.write(b"0\r\n\r\n")
+                except (BrokenPipeError, ConnectionResetError):
+                    dropped.set()
+                self.close_connection = True
+
+            def log_message(self, *args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Trickle)
+        server.daemon_threads = True
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        yield f"http://127.0.0.1:{server.server_port}", state, dropped
+        server.shutdown()
+        server.server_close()
+
+    @staticmethod
+    def _within(call, seconds):
+        """Run `call` on a thread; return (finished, error, elapsed)."""
+        import threading
+        import time
+
+        outcome = {}
+
+        def run():
+            try:
+                call()
+            except Exception as e:  # the error type is asserted by the caller
+                outcome["error"] = e
+
+        started = time.monotonic()
+        worker = threading.Thread(target=run, daemon=True)
+        worker.start()
+        worker.join(seconds)
+        return not worker.is_alive(), outcome.get("error"), time.monotonic() - started
+
+    @pytest.fixture
+    def openai_key(self, monkeypatch):
+        from config import settings as settings_module
+
+        settings_module.get_settings.cache_clear()
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test-not-real")
+        yield
+        settings_module.get_settings.cache_clear()
+
+    @pytest.mark.parametrize("mode", ["tokens", "keepalive"])
+    def test_openai_stream_stops_at_the_total_deadline(
+        self, record, trickle_server, openai_key, mode
+    ):
+        url, state, dropped = trickle_server
+        state["mode"] = mode
+        generator = ReportGenerator(
+            provider="openai", base_url=f"{url}/v1", timeout=1.0
+        )
+
+        finished, error, elapsed = self._within(
+            lambda: generator.generate_report(record), seconds=4
+        )
+
+        assert finished, "the provider call outlived its total deadline"
+        assert isinstance(error, LLMConnectionError)
+        assert "deadline" in str(error)
+        assert dropped.wait(5), "the connection was not closed"
+
+    def test_openai_non_streaming_bytes_stop_at_the_total_deadline(
+        self, trickle_server, openai_key
+    ):
+        # The byte-level check, with no streaming involved: what a direct
+        # get_llm(timeout=...) caller gets.
+        url, _, dropped = trickle_server
+        llm = get_llm(provider="openai", base_url=f"{url}/v1", timeout=1.0)
+
+        finished, error, _ = self._within(lambda: llm.invoke("hi"), seconds=4)
+
+        assert finished, "the provider call outlived its total deadline"
+        # openai re-raises it as APITimeoutError("Request timed out.").
+        assert error is not None and "deadline" in str(error.__cause__)
+        assert dropped.wait(5), "the connection was not closed"
+
+    def test_ollama_stream_stops_at_the_total_deadline(
+        self, record, trickle_server, monkeypatch
+    ):
+        from config import settings as settings_module
+
+        url, _, _ = trickle_server
+        settings_module.get_settings.cache_clear()
+        monkeypatch.setenv("OLLAMA_BASE_URL", url)
+        try:
+            generator = ReportGenerator(provider="ollama", timeout=1.0)
+        finally:
+            settings_module.get_settings.cache_clear()
+
+        finished, error, _ = self._within(
+            lambda: generator.generate_report(record), seconds=4
+        )
+
+        assert finished, "the provider call outlived its total deadline"
+        assert isinstance(error, LLMConnectionError)
+        assert "deadline" in str(error)
+
+    @pytest.fixture
+    def slow_header_server(self):
+        """
+        Sends the status line, then one header line every 0.1 s for 1.4 s,
+        then a complete chat completion. Every read gets a byte well inside
+        a 0.2 s per-read timeout, and the chunk check only starts after the
+        headers: a 0.2 s deadline took 1.47 s here before the socket clamp.
+        """
+        import json
+        import socketserver
+        import threading
+        import time
+
+        body = json.dumps(
+            {
+                "id": "x",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "m",
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": "hi"},
+                        "finish_reason": "stop",
+                    }
+                ],
+            }
+        ).encode()
+        state = {"delay": 0.1}
+
+        class SlowHeaders(socketserver.BaseRequestHandler):
+            def handle(self):
+                try:  # keep-alive: answer every request on the connection
+                    while self.request.recv(65536):
+                        self.request.sendall(b"HTTP/1.1 200 OK\r\n")
+                        for i in range(14):
+                            time.sleep(state["delay"])
+                            self.request.sendall(b"X-Slow-%d: 1\r\n" % i)
+                        self.request.sendall(
+                            b"Content-Type: application/json\r\n"
+                            b"Content-Length: %d\r\n\r\n" % len(body) + body
+                        )
+                except OSError:
+                    pass
+
+        server = socketserver.ThreadingTCPServer(("127.0.0.1", 0), SlowHeaders)
+        server.daemon_threads = True
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        yield f"http://127.0.0.1:{server.server_address[1]}", state
+        server.shutdown()
+        server.server_close()
+
+    def test_slow_headers_stop_at_the_total_deadline(
+        self, slow_header_server, openai_key
+    ):
+        url, _ = slow_header_server
+        llm = get_llm(provider="openai", base_url=f"{url}/v1", timeout=0.2)
+
+        finished, error, elapsed = self._within(lambda: llm.invoke("hi"), seconds=4)
+
+        assert finished
+        assert elapsed < 0.7, f"0.2 s deadline took {elapsed:.2f}s"
+        assert error is not None and "deadline" in str(error.__cause__)
+
+    def test_a_client_reused_after_its_deadline_still_works(
+        self, slow_header_server, openai_key
+    ):
+        # The clamp belongs to the connection, so a kept-alive connection
+        # would fail the next request with the previous one's deadline.
+        import time
+
+        url, state = slow_header_server
+        state["delay"] = 0
+        llm = get_llm(provider="openai", base_url=f"{url}/v1", timeout=0.3)
+
+        first = llm.invoke("hi").content
+        time.sleep(0.4)
+        second = llm.invoke("hi").content
+
+        assert first == second == "hi"
+
+    def test_any_streaming_model_is_stopped_and_closed(self, record):
+        """Provider-agnostic: the check between chunks, on a fake model."""
+        import time
+
+        from langchain_core.language_models import BaseChatModel
+        from langchain_core.messages import AIMessageChunk
+        from langchain_core.outputs import ChatGenerationChunk
+
+        closed = []
+
+        class Endless(BaseChatModel):
+            @property
+            def _llm_type(self):
+                return "endless"
+
+            def _generate(self, *args, **kwargs):
+                raise NotImplementedError
+
+            def _stream(self, *args, **kwargs):
+                try:
+                    while True:
+                        time.sleep(0.1)
+                        yield ChatGenerationChunk(message=AIMessageChunk(content="t "))
+                finally:
+                    closed.append(True)
+
+        generator = ReportGenerator(llm=Endless(), timeout=0.5)
+
+        finished, error, elapsed = self._within(
+            lambda: generator.generate_report(record), seconds=4
+        )
+
+        assert finished and elapsed < 2
+        assert isinstance(error, LLMConnectionError)
+        assert closed, "the model's stream was left open"
+
+    def test_a_deadline_does_not_change_the_text(self, record):
+        text = "Machine 51: vibration is 2.02 sigma above baseline."
+        with_deadline = ReportGenerator(
+            llm=FakeListChatModel(responses=[text]), timeout=30
+        ).generate_report(record)
+        without = ReportGenerator(
+            llm=FakeListChatModel(responses=[text])
+        ).generate_report(record)
+
+        assert with_deadline == without == text

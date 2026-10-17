@@ -28,7 +28,10 @@ def health() -> HealthResponse:
         model_loaded=model_loaded,
         model_name=state.settings.MODEL_NAME,
         dataset_loaded=dataset_loaded,
-        machines_known=len(state.store.machine_ids) if state.store else 0,
+        # Matches /machines, which 503s unless the dataset is loaded.
+        machines_known=(
+            len(state.store.machine_ids) if state.store and dataset_loaded else 0
+        ),
         threshold=state.settings.PREDICTION_THRESHOLD,
         version=state.settings.APP_VERSION,
         data_start=data_start,

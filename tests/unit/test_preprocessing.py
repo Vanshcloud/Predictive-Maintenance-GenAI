@@ -235,10 +235,75 @@ class TestFeatureEngineering:
             n_after > n_before
         ), f"Expected more columns after engineering: {n_before} → {n_after}"
 
+    @pytest.mark.parametrize("sensor_offline_hours", [0, 30])
+    @pytest.mark.parametrize("cut", [1, 2, 6, 25, 40])
+    def test_features_never_use_later_rows(
+        self, preprocessor, small_dataset, cut, sensor_offline_hours
+    ):
+        """
+        Appending newer readings must not change any earlier row's features.
 
-# ===========================================================================
-# LABEL CREATION TESTS
-# ===========================================================================
+        A backward fill once copied later readings into the first rows of
+        every machine, and into any stretch where a sensor had not reported
+        yet — so a historical prediction moved when new data arrived. Also
+        run with vibration offline for the first 30 hours, the case where the
+        leak reached furthest into the future.
+        """
+        dataset = dict(small_dataset)
+        telemetry = small_dataset["telemetry"].copy()
+        start = telemetry["datetime"].min()
+        offline = telemetry["datetime"] < start + timedelta(hours=sensor_offline_hours)
+        telemetry.loc[offline, "vibration"] = np.nan
+        dataset["telemetry"] = telemetry
+
+        full = preprocessor.engineer_features(preprocessor.merge_tables(dataset))
+
+        truncated_input = dict(dataset)
+        truncated_input["telemetry"] = telemetry[
+            telemetry["datetime"] < start + timedelta(hours=cut)
+        ]
+        truncated = preprocessor.engineer_features(
+            preprocessor.merge_tables(truncated_input)
+        )
+
+        earlier = full[full["datetime"] < start + timedelta(hours=cut)]
+        pd.testing.assert_frame_equal(
+            earlier.reset_index(drop=True),
+            truncated[earlier.columns].reset_index(drop=True),
+        )
+
+    # ===========================================================================
+    # LABEL CREATION TESTS
+    # ===========================================================================
+
+    def test_maintenance_feature_order_does_not_depend_on_the_log(
+        self, preprocessor, small_dataset
+    ):
+        """
+        Columns were created in first-appearance order of `comp`, so two logs
+        with the same events in a different order produced different schemas.
+        The order is pinned to the one the deployed feature_columns.txt
+        records: comp1, comp4, comp3, comp2.
+        """
+        start = small_dataset["telemetry"]["datetime"].min()
+
+        def maint_columns(comps):
+            dataset = dict(small_dataset)
+            dataset["maintenance"] = pd.DataFrame(
+                {
+                    "datetime": [start + timedelta(hours=h) for h in (5, 6, 7, 8)],
+                    "machine_id": [1, 2, 3, 1],
+                    "comp": comps,
+                }
+            )
+            merged = preprocessor.merge_tables(dataset)
+            return [c for c in merged.columns if c.startswith("hours_since_maint_")]
+
+        expected = [
+            f"hours_since_maint_{c}" for c in ("comp1", "comp4", "comp3", "comp2")
+        ]
+        assert maint_columns(["comp2", "comp3", "comp4", "comp1"]) == expected
+        assert maint_columns(["comp1", "comp2", "comp3", "comp4"]) == expected
 
 
 class TestLabelCreation:

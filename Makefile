@@ -97,14 +97,18 @@ run-dashboard: ## Start Streamlit dashboard
 docker-build: ## Build both container images
 	docker compose -f docker/docker-compose.yml build
 
+# --build on both: config/ and src/ are baked into the image, and `up` alone
+# reuses an existing image — so after a source change it served the old code
+# and the old settings. Layer caching makes the rebuild near-free when nothing
+# changed.
 docker-up: ## Run API + dashboard in containers (needs a trained model)
-	docker compose -f docker/docker-compose.yml up
+	docker compose -f docker/docker-compose.yml up --build
 
 # Detached, for the case where the next command in the shell needs the stack
 # already running — `make docker-up` holds the terminal, so a README that said
 # "run these two commands" only ever ran the first one.
 docker-up-d: ## Same, in the background
-	docker compose -f docker/docker-compose.yml up -d
+	docker compose -f docker/docker-compose.yml up -d --build
 
 docker-down: ## Stop the containers
 	docker compose -f docker/docker-compose.yml down

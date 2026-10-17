@@ -13,10 +13,10 @@ WHY THIS FILE EXISTS:
     the docs cannot drift from the behaviour.
 """
 
-from datetime import datetime
-from typing import Dict, List, Literal, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Annotated, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import AfterValidator, BaseModel, Field, field_validator
 
 # Not `status.HTTP_422_UNPROCESSABLE_ENTITY`. Starlette renamed that constant to
 # ...UNPROCESSABLE_CONTENT (RFC 9110 dropped "Entity") and deprecated the old
@@ -39,10 +39,28 @@ SENSOR_BOUNDS = {
 }
 
 
+def _to_dataset_time(value: datetime) -> datetime:
+    """
+    Express a timestamp the way the dataset does: naive, in UTC.
+
+    The stored telemetry carries no timezone, and pandas refuses to compare a
+    naive column with an aware value — so `?as_of=...Z` was a 500. An aware
+    timestamp is converted to UTC; a naive one is taken to be UTC already.
+    """
+    if value.tzinfo is not None:
+        value = value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
+
+
+# Every timestamp that crosses the API boundary uses this type, so readings,
+# `as_of` query parameters and report requests all mean the same instant.
+DatasetTime = Annotated[datetime, AfterValidator(_to_dataset_time)]
+
+
 class SensorReading(BaseModel):
     """One hourly reading from one machine."""
 
-    datetime: datetime
+    datetime: DatasetTime
     voltage: float = Field(..., description="Volts")
     rotation: float = Field(..., description="RPM")
     pressure: float = Field(..., description="PSI")
@@ -85,6 +103,17 @@ class PredictRequest(BaseModel):
                 f"{len(readings)} readings supplied; at least 48 hours of history "
                 "are required to build a single prediction window."
             )
+        # Feature engineering counts ROWS: a 24-row window is "24 hours" only
+        # if the rows are exactly an hour apart. Duplicates, gaps, daily data
+        # or reversed order would be scored as if they were hourly.
+        for i in range(1, len(readings)):
+            step = readings[i].datetime - readings[i - 1].datetime
+            if step != timedelta(hours=1):
+                raise ValueError(
+                    f"readings[{i}] ({readings[i].datetime}) is {step} after "
+                    f"readings[{i - 1}]; readings must be consecutive hourly "
+                    "observations, oldest first, with no gaps or duplicates."
+                )
         return readings
 
 
@@ -133,6 +162,11 @@ class FleetSummaryResponse(BaseModel):
     threshold: float
     generated_at: datetime
     predictions: List[PredictionResponse]
+    # Machines in the dataset that got no prediction (too little history, or
+    # a scoring error). Their status is UNKNOWN: absence from `predictions`
+    # must never be read as healthy. Not filtered by `alerts_only`, since an
+    # unknown machine could be one that should be alerting.
+    unassessed_machine_ids: List[int] = Field(default_factory=list)
 
 
 class ReportRequest(BaseModel):
@@ -152,7 +186,7 @@ class ReportRequest(BaseModel):
         None,
         description="Ask a specific question instead of generating a full report.",
     )
-    as_of: Optional[datetime] = Field(
+    as_of: Optional[DatasetTime] = Field(
         None,
         description=(
             "Write the report as of this timestamp rather than the latest "

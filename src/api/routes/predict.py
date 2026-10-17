@@ -16,6 +16,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, status
 
 from src.api.schemas import (
+    DatasetTime,
     ExplainedPrediction,
     FleetSummaryResponse,
     PredictionResponse,
@@ -39,7 +40,7 @@ def _require_service() -> "PredictionService":
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
                 "The model or dataset is not loaded. Check /health. "
-                f"{state.model_error or ''}".strip()
+                f"{state.model_error or ''} {state.data_error or ''}".strip()
             ),
         )
     return state.service
@@ -52,6 +53,12 @@ def predict_from_readings(request: PredictRequest) -> PredictionResponse:
 
     This is the endpoint a real plant uses: its own sensors are the source of
     truth, not a CSV on the API host.
+
+    The request carries sensor readings only. The model's error and
+    maintenance features are therefore scored as "no errors in the last 24 h"
+    and "no maintenance on record" — the same values a machine with an empty
+    error and maintenance log would get. A machine with recent errors or a
+    recent service is scored as if it had neither.
     """
     if state.predictor is None:
         raise HTTPException(
@@ -73,7 +80,7 @@ def predict_from_readings(request: PredictRequest) -> PredictionResponse:
 @router.get("/machines/{machine_id}/predict", response_model=PredictionResponse)
 def predict_stored_machine(
     machine_id: int,
-    as_of: Optional[datetime] = Query(
+    as_of: Optional[DatasetTime] = Query(
         None,
         description=(
             "Assess as of this timestamp instead of the latest reading. "
@@ -91,7 +98,9 @@ def predict_stored_machine(
 def explain_stored_machine(
     machine_id: int,
     history_hours: int = Query(24, ge=0, le=168),
-    as_of: Optional[datetime] = Query(None, description="Assess as of this timestamp"),
+    as_of: Optional[DatasetTime] = Query(
+        None, description="Assess as of this timestamp"
+    ),
 ) -> ExplainedPrediction:
     """
     Score one machine and return the evidence behind the score.
@@ -113,7 +122,7 @@ def explain_stored_machine(
 def machine_history(
     machine_id: int,
     hours: int = Query(48, ge=1, le=720),
-    as_of: Optional[datetime] = Query(None, description="End the window here"),
+    as_of: Optional[DatasetTime] = Query(None, description="End the window here"),
 ) -> list:
     """Recent hourly sensor readings for one machine."""
     service = _require_service()
@@ -141,7 +150,7 @@ def machine_history(
 def fleet_status(
     alerts_only: bool = Query(False, description="Only machines at or above threshold"),
     refresh: bool = Query(False, description="Bypass the cache"),
-    as_of: Optional[datetime] = Query(
+    as_of: Optional[DatasetTime] = Query(
         None, description="Assess the whole fleet as of this timestamp"
     ),
 ) -> FleetSummaryResponse:
@@ -154,6 +163,7 @@ def fleet_status(
     service = _require_service()
     results = service.fleet(force=refresh, as_of=as_of)
     alerting = sum(1 for r in results if r["will_fail"])
+    assessed = {r["machine_id"] for r in results}
 
     shown = [r for r in results if r["will_fail"]] if alerts_only else results
     return FleetSummaryResponse(
@@ -162,4 +172,7 @@ def fleet_status(
         threshold=state.settings.PREDICTION_THRESHOLD,
         generated_at=datetime.now(timezone.utc),
         predictions=[PredictionResponse(**r) for r in shown],
+        unassessed_machine_ids=[
+            m for m in service.store.machine_ids if m not in assessed
+        ],
     )

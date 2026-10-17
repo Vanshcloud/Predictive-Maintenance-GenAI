@@ -331,7 +331,12 @@ def generate_failures(
                     failure_windows[mid] = []
                 failure_windows[mid].append(failure_time)
 
-    failures = pd.DataFrame(failure_records)
+    # Columns named explicitly: with zero failures (the small --sample run) a
+    # bare DataFrame has none, and the CSV is written without even a header —
+    # a file no reader can parse, which ingestion then silently dropped.
+    failures = pd.DataFrame(
+        failure_records, columns=["datetime", "machine_id", "failure"]
+    )
     if not failures.empty:
         failures["datetime"] = pd.to_datetime(failures["datetime"])
         failures = failures.sort_values("datetime").reset_index(drop=True)

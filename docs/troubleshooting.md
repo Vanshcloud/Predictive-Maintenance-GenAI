@@ -317,6 +317,13 @@ curl -X POST localhost:8000/report \
   -d '{"machine_id": 51, "provider": "ollama", "model": "llama3.2:1b"}'
 ```
 
+### `503 — All 4 report slots are busy`
+
+Every report slot is held by a provider call, possibly one that already
+returned `504`: a call keeps its slot until its thread returns. Retry once the
+provider recovers. The cap and its limits are in
+[`api.md`](api.md#post-report).
+
 ### A report contradicts its own numbers
 
 That is a bug worth reporting — the whole design intent is that every figure
@@ -405,10 +412,11 @@ If flake8 or Black disagree between local and CI, your tooling has drifted:
 pip install -r requirements-lint.txt
 ```
 
-### 18 tests skip
+### 23 tests skip
 
 Expected without a trained model — they skip rather than fail so CI stays
-green on a clean checkout. Full run: 246 unit, of which 18 need artifacts.
+green on a clean checkout. Full run: 304 unit, of which 22 need artifacts and 1 needs the optional
+`langchain-google-genai` extra.
 
 ### `test_served_threshold_matches_the_committed_evaluation_report` fails
 

@@ -208,7 +208,17 @@ if page == "Fleet overview":
     m3.metric("Alert threshold", f"{fleet['threshold']:.4f}")
     m4.metric("Critical + high", counts["critical"] + counts["high"])
 
-    if fleet["machines_alerting"] == 0:
+    # .get: an API from before this field existed omits it.
+    unassessed = fleet.get("unassessed_machine_ids", [])
+    if unassessed:
+        st.warning(
+            f"{len(unassessed)} machine(s) could not be assessed, so their "
+            f"status is unknown — not healthy: "
+            f"{', '.join(str(m) for m in unassessed)}. "
+            "Usually too little history before the chosen time."
+        )
+
+    if fleet["machines_alerting"] == 0 and not unassessed:
         st.success(
             "No machine is at or above the alert threshold. "
             "Nothing needs action right now."

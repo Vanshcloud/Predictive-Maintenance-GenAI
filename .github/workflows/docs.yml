@@ -36,17 +36,42 @@ jobs:
           python3 - <<'PY'
           import pathlib, re, sys
 
+          def anchors(md):
+              # GitHub's heading slugs: lowercase, punctuation dropped, spaces
+              # to hyphens, repeats numbered. Fenced code is not a heading.
+              found, seen, fenced = set(), {}, False
+              for line in md.read_text(encoding="utf-8").splitlines():
+                  if line.lstrip().startswith("```"):
+                      fenced = not fenced
+                  heading = None if fenced else re.match(r"#{1,6}\s+(.*?)\s*#*\s*$", line)
+                  if heading:
+                      slug = re.sub(r"<[^>]+>", "", heading.group(1)).strip().lower()
+                      slug = re.sub(r"[^\w\- ]", "", slug).replace(" ", "-")
+                      found.add(slug if slug not in seen else f"{slug}-{seen[slug]}")
+                      seen[slug] = seen.get(slug, 0) + 1
+                  found.update(re.findall(r'<a (?:name|id)="([^"]+)"', line))
+              return found
+
           broken = []
           for path in pathlib.Path(".").rglob("*.md"):
               if any(p in path.parts for p in (".git", "venv", ".venv", "node_modules")):
                   continue
               text = path.read_text(encoding="utf-8")
-              for match in re.finditer(r"\[([^\]]*)\]\(([^)]+)\)", text):
-                  target = match.group(2).split("#")[0].strip()
-                  if not target or target.startswith(("http://", "https://", "mailto:", "#")):
+              # Markdown links and HTML href attributes. The README's nav bar is
+              # HTML, and its "#quick-start" pointed at a heading that did not
+              # exist — invisible to a check that read only markdown links and
+              # discarded every #fragment.
+              links = [(m.group(0), m.group(2)) for m in re.finditer(r"\[([^\]]*)\]\(([^)\s]+)\)", text)]
+              links += [(m.group(0), m.group(1)) for m in re.finditer(r'href="([^"]+)"', text)]
+              for shown, link in links:
+                  if link.startswith(("http://", "https://", "mailto:")):
                       continue
-                  if not (path.parent / target).resolve().exists():
-                      broken.append(f"{path}: [{match.group(1)}]({match.group(2)})")
+                  target, _, fragment = link.partition("#")
+                  resolved = (path.parent / target).resolve() if target else path.resolve()
+                  if not resolved.exists():
+                      broken.append(f"{path}: {shown}")
+                  elif fragment and resolved.suffix == ".md" and fragment.lower() not in anchors(resolved):
+                      broken.append(f"{path}: {shown}  (no such heading)")
 
           if broken:
               print(f"{len(broken)} broken relative link(s):\n")

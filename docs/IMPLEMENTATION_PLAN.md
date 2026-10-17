@@ -863,7 +863,7 @@ Output (batch, 1) → P(failure within 24h)
 | Optimizer | **Adam** | Adaptive per-parameter LR; robust without tuning |
 | Learning rate | **0.001** | Adam default; reduced on plateau |
 | Loss | **Binary crossentropy**, class-weighted | Standard for binary classification |
-| Class weights | computed from label distribution: `w_c = n_total / (2 · n_c)` → **{0: 0.50, 1: 364.89}** | Makes the 957 positives count as much in aggregate as the 697,443 negatives |
+| Class weights | computed from label distribution: `w_c = n_total / (2 · n_c)` → planned **{0: 0.50, 1: 364.89}** from the projected 957 positives in 698,400 sequences. The trained model's split has 782 positives in 567,000 (`y_train.npy`), so training computed **{0: 0.50, 1: 362.53}** | Makes the positives count as much in aggregate as the negatives |
 | Batch size | **256** | See Batching above |
 | Epochs | **30** (default; 50 supported) | With early stopping, rarely reached |
 | Dropout | 0.3 | Regularization |
@@ -1543,7 +1543,7 @@ checkout, which doubles as validation of the installation instructions above.
 | **Root cause** | 957 positives among 698,400 sequences. The trivial "always predict 0" solution achieves 99.86% accuracy and a very low loss. |
 | **Impact** | A model that trains cleanly, reports a beautiful loss curve, and is worthless. **High.** |
 | **Likelihood** | High without countermeasures. |
-| **Mitigation** | Class weights of {0: 0.50, 1: 364.89}; AUC/precision/recall/F1 as the only reported metrics; accuracy deliberately not computed; early stopping monitors `val_auc`, not `val_loss`. |
+| **Mitigation** | Class weights of {0: 0.50, 1: 362.53} as trained (364.89 was the planning-stage projection); AUC/precision/recall/F1 as the only reported metrics; accuracy deliberately not computed; early stopping monitors `val_auc`, not `val_loss`. |
 | **Recovery** | If AUC ≈ 0.5, escalate through: focal loss → positive-window oversampling → longer sequences → wider prediction horizon. Day 5 owns this. |
 | **Status** | Mitigated; awaiting empirical confirmation from the first full training run. |
 

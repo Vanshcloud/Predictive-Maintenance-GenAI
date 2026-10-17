@@ -29,8 +29,9 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 
 from config.settings import get_settings
+from src.data.validation import DataValidator
 from src.prediction import Predictor
-from src.utils.exceptions import ResourceNotFoundError
+from src.utils.exceptions import PredictionError, ResourceNotFoundError
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -61,8 +62,12 @@ FLEET_CACHE_MAX_ENTRIES = 16
 class MachineDataStore:
     """Holds the dataset in memory and slices it per machine."""
 
-    def __init__(self, dataset: Dict[str, pd.DataFrame]) -> None:
+    def __init__(
+        self, dataset: Dict[str, pd.DataFrame], problems: Optional[List[str]] = None
+    ) -> None:
         self.dataset = dataset
+        # Why a table is absent, for /health's 503s and the startup log.
+        self.problems: List[str] = list(problems or [])
         machines = dataset.get("machines")
         self.machine_ids: List[int] = (
             sorted(int(m) for m in machines["machine_id"].unique())
@@ -74,23 +79,57 @@ class MachineDataStore:
     def load(cls, data_dir: Path) -> "MachineDataStore":
         """Read the raw tables once, parsing datetimes up front."""
         dataset = {}
+        problems = []
+        validator = DataValidator()
         for name in RAW_TABLES:
             path = data_dir / f"{name}.csv"
             if not path.exists():
-                logger.warning(f"{path} not found — the API will start degraded.")
+                problems.append(f"{path} not found")
                 continue
-            frame = pd.read_csv(path)
-            if "datetime" in frame.columns:
-                # Parsed once here rather than on every slice: over 876,000
-                # rows this is the difference between a fast slice and a slow one.
-                frame["datetime"] = pd.to_datetime(frame["datetime"])
+            # An unreadable file used to raise straight out of startup, so the
+            # API never came up to report it — the opposite of what startup()
+            # promises. It is recorded and the API starts degraded instead.
+            try:
+                frame = pd.read_csv(path)
+                if "datetime" in frame.columns:
+                    # Parsed once here rather than on every slice: over 876,000
+                    # rows this is the difference between a fast slice and a
+                    # slow one.
+                    frame["datetime"] = pd.to_datetime(frame["datetime"])
+            except Exception as e:
+                problems.append(f"{path} could not be read: {e}")
+                continue
+            # A readable file is not a usable one. machines.csv without
+            # machine_id crashed startup with a KeyError, and telemetry without
+            # voltage was marked loaded — /health said "ok" while every
+            # prediction failed. Check the same contract the pipeline uses.
+            failed = [
+                check.message
+                for check in (
+                    validator._check_not_empty(frame, name),
+                    validator._check_schema(frame, name),
+                )
+                if not check.passed and check.severity == "error"
+            ]
+            if failed:
+                problems.append(f"{path} is invalid: {'; '.join(failed)}")
+                continue
             dataset[name] = frame
-        return cls(dataset)
+        for problem in problems:
+            logger.warning(f"{problem} — the API will start degraded.")
+        return cls(dataset, problems)
 
     @property
     def is_loaded(self) -> bool:
-        """True when both tables the machine endpoints need are present."""
-        return "telemetry" in self.dataset and "machines" in self.dataset
+        """
+        True when every table the model's features come from is present.
+
+        Telemetry and machines used to be enough. Without errors.csv or
+        maintenance.csv the predictor fills those features with "no errors"
+        and "never maintained" — and /health said "ok" while every stored
+        prediction was made from data that was not there.
+        """
+        return all(name in self.dataset for name in RAW_TABLES)
 
     def require_machine(self, machine_id: int) -> None:
         """Raise ResourceNotFoundError unless this machine is in the dataset."""
@@ -341,12 +380,24 @@ class PredictionService:
 
             started = time.perf_counter()
             results = []
+            first_error: Optional[Exception] = None
             for machine_id in self.store.machine_ids:
                 try:
                     results.append(self.predict_machine(machine_id, as_of=as_of))
                 except Exception as e:
                     # One unscoreable machine must not blank the whole fleet view.
                     logger.warning(f"Skipping machine {machine_id}: {e}")
+                    first_error = first_error or e
+
+            # ...but if NONE could be scored there is no assessment at all, and
+            # an empty list reads as "0 alerting" — a healthy fleet. Say so.
+            if not results:
+                raise PredictionError(
+                    f"Insufficient data: none of the {len(self.store.machine_ids)} "
+                    "machines could be assessed"
+                    f"{f' as of {as_of}' if as_of is not None else ''}. "
+                    f"First error: {first_error}"
+                )
 
             results.sort(key=lambda r: r["failure_probability"], reverse=True)
             self._store_fleet(key, results)
@@ -375,6 +426,7 @@ class AppState:
         self.service: Optional[PredictionService] = None
         self.started_at: Optional[datetime] = None
         self.model_error: Optional[str] = None
+        self.data_error: Optional[str] = None
 
     def startup(self) -> None:
         """
@@ -398,7 +450,10 @@ class AppState:
         if self.store.is_loaded:
             logger.info(f"Dataset loaded: {len(self.store.machine_ids)} machines.")
         else:
-            logger.warning("Dataset unavailable — machine endpoints will 503.")
+            self.data_error = "; ".join(self.store.problems) or "dataset incomplete"
+            logger.warning(
+                f"Dataset unavailable — machine endpoints will 503: {self.data_error}"
+            )
 
         if self.predictor and self.store.is_loaded:
             self.service = PredictionService(self.predictor, self.store)

@@ -83,9 +83,12 @@ def main():
     data_dir = args.data_dir or settings.raw_data_path
     dataset = ingestion.load_dataset(data_dir=data_dir)
 
-    if not dataset or "telemetry" not in dataset:
+    # Every table feeds the model: without failures every label is 0, and
+    # without errors or maintenance the feature columns silently shrink.
+    missing = [t for t in DataIngestion.DATASET_TABLES if t not in dataset]
+    if missing:
         logger.error(
-            "❌ No telemetry data found! "
+            f"❌ Missing table(s): {missing}. "
             "Run 'python scripts/generate_data.py' first."
         )
         sys.exit(1)
@@ -99,11 +102,14 @@ def main():
     critical_failures = [
         name for name, report in reports.items() if not report.is_valid
     ]
+    # Error-severity checks are blocking by definition; training on data that
+    # failed them would bake the defect into the model and its metrics.
     if critical_failures:
-        logger.warning(
-            f"⚠ Validation failures in: {critical_failures}. "
-            "Proceeding with caution."
+        logger.error(
+            f"❌ Blocking validation failures in: {critical_failures}. "
+            "Fix the data before preprocessing."
         )
+        sys.exit(1)
 
     # --- Step 3: Preprocess ---
     logger.info("\n⚙️ Running preprocessing pipeline...")

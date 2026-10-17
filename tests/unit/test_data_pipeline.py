@@ -22,6 +22,7 @@ TESTING STRATEGY:
 """
 
 import tempfile
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -178,6 +179,30 @@ class TestDataIngestion:
         assert "machines" in dataset
         # Missing table should not be in the dict
         assert "errors" not in dataset
+
+    def test_relative_data_dir_override(self, temp_csv_dir, monkeypatch):
+        """
+        `--data-dir data/sample` is how the scripts are documented. The
+        existence check resolved it against the CWD and the read against
+        data/raw, so every table was reported missing and nothing loaded.
+        """
+        monkeypatch.chdir(temp_csv_dir.parent)
+
+        dataset = DataIngestion().load_dataset(data_dir=temp_csv_dir.name)
+
+        assert sorted(dataset) == sorted(DataIngestion.DATASET_TABLES)
+
+    def test_unreadable_table_raises_instead_of_vanishing(self, temp_csv_dir):
+        """
+        A file that exists but cannot be parsed is corrupt, not missing.
+
+        It was logged and dropped, and a dropped failures table reads
+        downstream as "no failures" — every label 0.
+        """
+        (temp_csv_dir / "failures.csv").write_text("")
+
+        with pytest.raises(DataIngestionError, match="failures.csv"):
+            DataIngestion().load_dataset(data_dir=temp_csv_dir)
 
     def test_load_csv_convenience(self, temp_csv_dir):
         """Test the load_csv convenience method."""
@@ -393,6 +418,38 @@ class TestDataValidator:
             assert isinstance(report, ValidationReport)
             assert report.table_name == table_name
 
+    @pytest.mark.parametrize(
+        "column, bad_values",
+        [
+            pytest.param("voltage", lambda s: s.astype(str) + "V", id="text-sensor"),
+            pytest.param("machine_id", lambda s: s.astype(float), id="float-id"),
+            pytest.param("datetime", lambda s: s.astype(str), id="unparsed-time"),
+        ],
+    )
+    def test_declared_types_are_enforced(self, sample_telemetry, column, bad_values):
+        """
+        SCHEMAS declared a type for every column, and nothing checked it. A
+        sensor read as text passed the schema check and then crashed the
+        range check with a TypeError.
+        """
+        bad = sample_telemetry.copy()
+        bad[column] = bad_values(bad[column])
+
+        report = DataValidator().validate(bad, "telemetry")
+
+        assert report.is_valid is False
+        assert column in str([e.details for e in report.errors])
+
+    def test_loaded_tables_satisfy_their_declared_types(self, temp_csv_dir):
+        """The enforcement must not reject correctly loaded data."""
+        dataset = DataIngestion().load_dataset(data_dir=temp_csv_dir)
+
+        reports = DataValidator().validate_dataset(dataset)
+
+        assert all(r.is_valid for r in reports.values()), {
+            n: r.summary() for n, r in reports.items() if not r.is_valid
+        }
+
     def test_validate_unknown_table(self):
         """Should handle tables without a defined schema."""
         validator = DataValidator()
@@ -401,3 +458,132 @@ class TestDataValidator:
         report = validator.validate(df, "unknown_table")
         # Should pass (no schema to enforce)
         assert report.is_valid is True
+
+
+# ===========================================================================
+# PIPELINE GATES — the scripts that turn validation into a decision
+# ===========================================================================
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+class TestPreprocessingGate:
+    """
+    run_preprocessing.py logged "Proceeding with caution" on error-severity
+    failures and trained anyway, and only insisted on telemetry being present.
+    """
+
+    @staticmethod
+    def _run(data_dir, output_dir):
+        import subprocess
+        import sys
+
+        return subprocess.run(
+            [
+                sys.executable,
+                str(PROJECT_ROOT / "scripts" / "run_preprocessing.py"),
+                "--data-dir",
+                str(data_dir),
+                "--output-dir",
+                str(output_dir),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+
+    def test_a_blocking_validation_failure_stops_the_pipeline(self, temp_csv_dir):
+        # 20% of voltage missing: an error-severity null_check failure.
+        telemetry = pd.read_csv(temp_csv_dir / "telemetry.csv")
+        telemetry.loc[::5, "voltage"] = np.nan
+        telemetry.to_csv(temp_csv_dir / "telemetry.csv", index=False)
+        output = temp_csv_dir / "out"
+
+        result = self._run(temp_csv_dir, output)
+
+        assert result.returncode != 0
+        assert not output.exists(), "artifacts were written from invalid data"
+
+    def test_a_missing_failures_table_stops_the_pipeline(self, temp_csv_dir):
+        (temp_csv_dir / "failures.csv").unlink()
+        output = temp_csv_dir / "out"
+
+        result = self._run(temp_csv_dir, output)
+
+        assert result.returncode != 0
+        assert not output.exists()
+
+
+def test_a_generated_failure_free_table_is_still_readable(tmp_path):
+    """
+    A short --sample run has no failures, and the bare DataFrame was written
+    with no header — the committed data/sample/failures.csv is that file.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "generate_data", PROJECT_ROOT / "scripts" / "generate_data.py"
+    )
+    generate_data = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(generate_data)
+
+    machines = pd.DataFrame({"machine_id": [1], "model": ["model1"], "age": [1]})
+    failures, _ = generate_data.generate_failures(
+        machines, datetime(2024, 1, 1), n_days=10, rng=np.random.default_rng(0)
+    )
+    failures.to_csv(tmp_path / "failures.csv", index=False)
+
+    reloaded = pd.read_csv(tmp_path / "failures.csv")
+    assert list(reloaded.columns) == ["datetime", "machine_id", "failure"]
+    assert reloaded.empty
+
+
+class TestCommittedSample:
+    """
+    data/sample/failures.csv was committed without even a header, so it was
+    unreadable and every load silently dropped it. Zero failures is the
+    sample's deliberate content (K-1); a missing header was never intended.
+    """
+
+    def test_the_committed_sample_loads_and_validates(self):
+        dataset = DataIngestion().load_dataset(
+            data_dir=PROJECT_ROOT / "data" / "sample"
+        )
+
+        assert sorted(dataset) == sorted(DataIngestion.DATASET_TABLES)
+        assert list(dataset["failures"].columns) == [
+            "datetime",
+            "machine_id",
+            "failure",
+        ]
+        assert dataset["failures"].empty  # zero failures, as documented
+
+        reports = DataValidator().validate_dataset(dataset)
+        assert all(r.is_valid for r in reports.values()), {
+            n: r.summary() for n, r in reports.items() if not r.is_valid
+        }
+
+
+class TestEmptyTables:
+    def test_an_empty_event_table_is_reported_but_not_blocking(self):
+        """No events in a period is an observation, not corruption."""
+        empty = pd.DataFrame(
+            {
+                "datetime": pd.Series(dtype="object"),
+                "machine_id": pd.Series(dtype="object"),
+                "failure": pd.Series(dtype="object"),
+            }
+        )
+
+        report = DataValidator().validate(empty, "failures")
+
+        assert report.is_valid is True
+        assert [w.name for w in report.warnings] == ["not_empty"]
+
+    def test_an_empty_machines_table_still_blocks(self):
+        empty = pd.DataFrame(columns=["machine_id", "model", "age"])
+
+        report = DataValidator().validate(empty, "machines")
+
+        assert report.is_valid is False
+        assert "not_empty" in [e.name for e in report.errors]

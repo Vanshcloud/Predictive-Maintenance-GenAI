@@ -26,10 +26,13 @@ HOW IT WORKS:
     which callers above can catch precisely.
 """
 
+import math
+import time
 from typing import Any, Dict, Optional
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnableSequence
 from pydantic import SecretStr
 
 from config.settings import get_settings
@@ -42,9 +45,73 @@ logger = get_logger(__name__)
 SUPPORTED_PROVIDERS = ("openai", "google", "ollama")
 
 
+def _deadline_client_kwargs(deadline: float) -> Dict[str, Any]:
+    """
+    httpx client settings that end a request `deadline` s after it starts.
+
+    An httpx timeout limits each socket operation, not the whole request, so
+    a provider sending a byte every few seconds never trips it: a 1 s timeout
+    let a trickling server hold the call for 5 s, and a server trickling its
+    response *headers* held a 0.2 s call for 1.4 s. This gives every read and
+    write on the connection only the time left before the deadline, so the
+    headers, the body, and a silent provider are all cut off at the deadline.
+    It reaches the connection through httpx's `trace` request extension
+    rather than a custom transport, because passing `transport=` makes httpx
+    ignore proxy environment variables.
+
+    Not covered: DNS resolution, which has no timeout of its own, and the
+    TCP connect and TLS handshake, which are each bounded by the ordinary
+    per-operation `timeout` (itself `deadline`) rather than by the time left.
+
+    Keep-alive is off because the clamp belongs to the connection: a reused
+    connection would carry an earlier request's deadline into the next one.
+    """
+    import httpcore
+    import httpx
+
+    def clamp(op: Any, stop_at: float) -> Any:
+        def bounded(*args: Any, timeout: Optional[float] = None) -> Any:
+            left = stop_at - time.monotonic()
+            if left > 0:
+                try:
+                    return op(
+                        *args, timeout=left if timeout is None else min(timeout, left)
+                    )
+                except httpcore.TimeoutException:
+                    if time.monotonic() < stop_at:
+                        raise
+            raise httpcore.ReadTimeout(
+                f"Request timed out: still running after the {deadline:g}s "
+                f"total deadline"
+            )
+
+        return bounded
+
+    def start(request: Any) -> None:
+        stop_at = time.monotonic() + deadline
+
+        def trace(event: str, info: Dict[str, Any]) -> None:
+            # The stream returned by the TCP connect, and its replacement
+            # after a TLS upgrade: every later read and write goes through
+            # one of them.
+            if event.endswith((".connect_tcp.complete", ".start_tls.complete")):
+                stream = info["return_value"]
+                stream.read = clamp(stream.read, stop_at)
+                stream.write = clamp(stream.write, stop_at)
+
+        request.extensions["trace"] = trace
+
+    return {
+        "timeout": deadline,
+        "event_hooks": {"request": [start]},
+        "limits": httpx.Limits(max_keepalive_connections=0),
+    }
+
+
 def get_llm(
     provider: Optional[str] = None,
     temperature: float = 0.2,
+    timeout: Optional[float] = None,
     **kwargs: Any,
 ) -> BaseChatModel:
     """
@@ -62,6 +129,13 @@ def get_llm(
         temperature: Low by default. This is a maintenance report, not
             creative writing — variation between runs on identical data would
             undermine trust in it.
+        timeout: The provider client's connect and read-inactivity timeout,
+            with retries disabled so one attempt is the whole budget. For
+            the httpx-based clients (OpenAI, langchain-ollama) it is also a
+            total deadline on every socket read and write, headers included
+            (see `_deadline_client_kwargs`). It bounds the local call only —
+            a hosted provider may still finish (and bill) the generation
+            after the connection is dropped.
 
     Raises:
         LLMConnectionError: unknown provider, missing package, or missing key.
@@ -84,8 +158,16 @@ def get_llm(
                 )
             from langchain_openai import ChatOpenAI
 
+            if timeout is not None:
+                import httpx
+
+                kwargs.update(
+                    timeout=timeout,
+                    max_retries=0,
+                    http_client=httpx.Client(**_deadline_client_kwargs(timeout)),
+                )
             return ChatOpenAI(
-                model=settings.OPENAI_MODEL,
+                model=kwargs.pop("model", None) or settings.OPENAI_MODEL,
                 # SecretStr is what the client expects, and it keeps the key
                 # from appearing in a repr() or a traceback.
                 api_key=SecretStr(settings.OPENAI_API_KEY),
@@ -103,8 +185,10 @@ def get_llm(
                     "Google provider requires `pip install langchain-google-genai`."
                 ) from e
 
+            if timeout is not None:
+                kwargs.update(timeout=timeout, max_retries=0)
             google_llm: BaseChatModel = ChatGoogleGenerativeAI(
-                model=settings.GOOGLE_MODEL,
+                model=kwargs.pop("model", None) or settings.GOOGLE_MODEL,
                 google_api_key=settings.GOOGLE_API_KEY,
                 temperature=temperature,
                 **kwargs,
@@ -123,6 +207,13 @@ def get_llm(
         except ImportError:
             from langchain_community.chat_models import ChatOllama
 
+        if timeout is not None:
+            # langchain-ollama configures its httpx client via client_kwargs;
+            # the deprecated community class takes `timeout` directly.
+            if "client_kwargs" in ChatOllama.model_fields:
+                kwargs["client_kwargs"] = _deadline_client_kwargs(timeout)
+            else:  # an int field: round up, never down to "no time"
+                kwargs["timeout"] = math.ceil(timeout)
         ollama_llm: BaseChatModel = ChatOllama(
             model=kwargs.pop("model", None) or settings.OLLAMA_MODEL,
             base_url=settings.OLLAMA_BASE_URL,
@@ -158,6 +249,7 @@ class ReportGenerator:
         llm: Optional[BaseChatModel] = None,
         provider: Optional[str] = None,
         temperature: float = 0.2,
+        timeout: Optional[float] = None,
         **llm_kwargs: Any,
     ) -> None:
         """
@@ -166,9 +258,14 @@ class ReportGenerator:
                 one — this class must be testable without a network call or
                 an API key, or it will simply not be tested.
             provider: Ignored when `llm` is given.
+            timeout: Total seconds one generation may run locally, also
+                passed to the provider client (see `get_llm`).
         """
+        self.timeout = timeout
         self.llm = (
-            llm if llm is not None else get_llm(provider, temperature, **llm_kwargs)
+            llm
+            if llm is not None
+            else get_llm(provider, temperature, timeout=timeout, **llm_kwargs)
         )
         self.report_chain = REPORT_TEMPLATE | self.llm | StrOutputParser()
         self.qa_chain = QA_TEMPLATE | self.llm | StrOutputParser()
@@ -191,7 +288,7 @@ class ReportGenerator:
         facts = format_machine_facts(record)
 
         try:
-            report: str = self.report_chain.invoke({"machine_facts": facts})
+            report = self._run(self.report_chain, {"machine_facts": facts})
         except Exception as e:
             raise self._wrap(e, f"report generation for machine {record['machine_id']}")
 
@@ -215,8 +312,8 @@ class ReportGenerator:
 
         facts = format_machine_facts(record)
         try:
-            answer: str = self.qa_chain.invoke(
-                {"machine_facts": facts, "question": question.strip()}
+            answer = self._run(
+                self.qa_chain, {"machine_facts": facts, "question": question.strip()}
             )
         except Exception as e:
             raise self._wrap(
@@ -252,7 +349,8 @@ class ReportGenerator:
         )
 
         try:
-            summary: str = self.qa_chain.invoke(
+            summary = self._run(
+                self.qa_chain,
                 {
                     "machine_facts": facts,
                     "question": (
@@ -261,7 +359,7 @@ class ReportGenerator:
                         "need attention first and why, citing the readings given. "
                         "If no machine is alerting, say the fleet is healthy."
                     ),
-                }
+                },
             )
         except Exception as e:
             raise self._wrap(e, "fleet summary generation")
@@ -271,6 +369,48 @@ class ReportGenerator:
         return summary.strip()
 
     # ------------------------------------------------------------------
+
+    def _run(self, chain: Any, inputs: Dict[str, Any]) -> str:
+        """
+        Run a chain within `self.timeout` seconds in total.
+
+        A provider timeout limits each read, so a model that is still
+        producing tokens never trips it. Streaming lets the total be checked
+        between chunks, and closing the stream drops the connection. Python
+        cannot safely kill a thread, so stopping between chunks is the only
+        place this can happen. The httpx-based clients also cut the socket
+        at the deadline (see `_deadline_client_kwargs`). For Google and the
+        deprecated community Ollama client this check is the only total
+        limit: a provider that goes silent is stopped by its per-read
+        timeout instead, so one call can run past `timeout`, and one that
+        keeps sending bytes that never form a token is not stopped at all.
+
+        The parser is applied once to the merged message rather than
+        streamed: LangChain drains the rest of the upstream stream when a
+        sequence ending in a parser is closed, which kept the connection
+        reading for as long as the provider kept sending.
+        """
+        if self.timeout is None:
+            result: str = chain.invoke(inputs)
+            return result
+        stop_at = time.monotonic() + self.timeout
+        merged = None
+        head: Any = RunnableSequence(*chain.steps[:-1])
+        stream = head.stream(inputs)
+        try:
+            for part in stream:
+                merged = part if merged is None else merged + part
+                if time.monotonic() > stop_at:
+                    raise TimeoutError(
+                        f"Generation timed out: still running after the "
+                        f"{self.timeout:g}s total deadline"
+                    )
+        finally:
+            stream.close()
+        if merged is None:
+            return ""
+        parsed: str = chain.last.invoke(merged)
+        return parsed
 
     @staticmethod
     def _require_fields(record: Dict[str, Any]) -> None:

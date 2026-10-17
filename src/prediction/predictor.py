@@ -233,10 +233,11 @@ class Predictor:
         apart.
         """
         s = self.settings
-        if probability >= s.RISK_BAND_CRITICAL:
-            return "critical"
-        if probability >= s.RISK_BAND_HIGH:
-            return "high"
+        # The boundary is THIS predictor's threshold, not the configured
+        # RISK_BAND_HIGH: with a custom threshold the two differ, and a
+        # machine could be "critical" without alerting, or alert while "low".
+        if probability >= self.threshold:
+            return "critical" if probability >= s.RISK_BAND_CRITICAL else "high"
         if probability >= s.RISK_BAND_MEDIUM:
             return "medium"
         return "low"
@@ -427,7 +428,15 @@ class Predictor:
         rows = featured[featured["machine_id"] == machine_id]
         if rows.empty:
             raise PredictionError(f"Machine {machine_id!r} is not present in the data.")
-        latest = rows.sort_values("datetime").iloc[-1]
+
+        # A prediction "as of" T is made from the window ENDING THE HOUR
+        # BEFORE T (see create_sequences); row T itself is not fed to the
+        # model. Evidence read from row T would describe an hour the model
+        # never saw, so the explanation uses the rows it actually consumed.
+        record = self.predict_machine(dataset, machine_id)
+        rows = rows[rows["datetime"] < pd.Timestamp(record["datetime"])]
+        rows = rows.sort_values("datetime")
+        latest = rows.iloc[-1]
 
         sensors: Dict[str, Dict[str, Any]] = {}
         for sensor, (concerning_sign, unit, story) in self._SENSOR_SEMANTICS.items():
@@ -491,7 +500,7 @@ class Predictor:
 
         trend = []
         if history_hours > 0:
-            recent = rows.sort_values("datetime").tail(history_hours)
+            recent = rows.tail(history_hours)
             for _, r in recent.iterrows():
                 trend.append(
                     {
@@ -504,7 +513,6 @@ class Predictor:
                     }
                 )
 
-        record = self.predict_machine(dataset, machine_id)
         record["context"] = {
             "age_years": int(latest["age"]) if "age" in latest else None,
             "errors_last_24h": int(latest.get("errors_last_24h", 0)),

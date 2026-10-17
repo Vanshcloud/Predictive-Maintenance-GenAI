@@ -20,7 +20,9 @@ def _require_store():
     if not state.store or not state.store.is_loaded:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Dataset not loaded. Check /health.",
+            detail=(
+                f"Dataset not loaded. Check /health. {state.data_error or ''}"
+            ).strip(),
         )
     return state.store
 

@@ -35,7 +35,7 @@ never reported anywhere in this project and is not computed by
 
 | Split | Sequences | Positives | Rate |
 |---|---|---|---|
-| Train | 567,000 | 800 | 1:709 |
+| Train | 567,000 | 782 | 1:725 |
 | Validation | 129,000 | 175 | 1:737 |
 | Test | 172,800 | 200 | 1:864 |
 
@@ -57,7 +57,8 @@ Input (batch, 24, 63)
   Dense(32, relu) → Dense(1, sigmoid)
 ```
 
-Trained with class-weighted binary crossentropy (**{0: 0.50, 1: 364.89}**),
+Trained with class-weighted binary crossentropy (**{0: 0.50, 1: 362.53}**,
+computed from the 782 training positives in `y_train.npy`),
 Adam at 0.001, batch 256. Early stopping on `val_f1` fired at epoch 28 of 30;
 best weights came from **epoch 23** (`val_f1` 0.9602).
 
@@ -168,14 +169,14 @@ default is now best-F1, and `sweep_thresholds()` returns a
 | Prediction, whole fleet dataset passed in | **> 120 s** |
 | `GET /machines/{id}/predict` | **137 ms** median |
 | `POST /predict` (60 supplied readings) | 108 ms |
-| `GET /fleet` (100 machines) | 13.4 s cold → **1.6 ms** cached |
+| `GET /fleet` (100 machines) | 13.5 s cold → **2.8 ms** cached |
 | `POST /report` (local LLM) | ~21 s |
 
 That 800× gap is why `MachineDataStore.slice_for()` exists. `merge_tables` and
 `engineer_features` run over whatever they are handed, so passing 876,000 rows
 to score one machine does 99% of its work on rows it discards.
 
-**NFR-4 (p95 `/predict` < 500 ms): met at 137 ms.**
+**NFR-4 (p95 `/predict` < 500 ms): met, at 139 ms** (median 137 ms).
 
 ---
 
@@ -214,12 +215,12 @@ naming the fix.
 
 | Suite | Count |
 |---|---|
-| Unit | **246** |
+| Unit | **304** |
 | Integration | 13 (parity, live-model grounding, point-in-time assessment) |
 | flake8 / Black / isort | clean |
 | mypy | **0 errors**, blocking in CI |
 
-On a clean checkout with no model and no generated data: **228 pass, 18 skip**
+On a clean checkout with no model and no generated data: **281 pass, 23 skip**
 from the unit suite — tests needing a trained model skip rather than fail. The
 13 integration tests skip in their entirety, for the same reason.
 

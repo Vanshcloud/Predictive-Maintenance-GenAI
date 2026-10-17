@@ -90,8 +90,8 @@ curl localhost:8000/health
 
 | Field | Type | Notes |
 |---|---|---|
-| `status` | `"ok"` \| `"degraded"` | `degraded` when the model or dataset failed to load |
-| `machines_known` | int | 0 when degraded |
+| `status` | `"ok"` \| `"degraded"` | `degraded` when the model failed to load, or any of `telemetry`, `machines`, `errors`, `maintenance` is missing, unreadable, or lacks a required column (telemetry and machines must also be non-empty) |
+| `machines_known` | int | Machines `/machines` lists; `0` when `dataset_loaded` is `false`. Can be non-zero while `degraded` if only the model is missing |
 | `threshold` | float | The alert threshold currently in force |
 | `data_start` / `data_end` | datetime \| null | The window `as_of` may address |
 
@@ -245,9 +245,16 @@ curl "localhost:8000/fleet?alerts_only=true&as_of=2024-10-31T06:00:00"
   "machines_alerting": 2,
   "threshold": 0.3415,
   "generated_at": "2026-08-26T17:41:03.221Z",
-  "predictions": [{"machine_id": 51, "failure_probability": 0.99999, "risk_level": "critical", "will_fail": true, "datetime": "2024-10-31 06:00:00", "threshold": 0.3415}]
+  "predictions": [{"machine_id": 51, "failure_probability": 0.99999, "risk_level": "critical", "will_fail": true, "datetime": "2024-10-31 06:00:00", "threshold": 0.3415}],
+  "unassessed_machine_ids": []
 }
 ```
+
+`unassessed_machine_ids` lists machines that got no prediction — usually too
+little history before `as_of`. Their status is **unknown, not healthy**, and the
+list is not filtered by `alerts_only`. If no machine can be assessed at all, the
+endpoint returns `422` (`PredictionError`) rather than an empty, healthy-looking
+fleet.
 
 ### `POST /predict`
 
@@ -280,6 +287,13 @@ values like that and its output would be meaningless rather than merely wrong.
 
 **Why 48 readings and not 24?** Feature engineering consumes the first 24 hours
 for rolling and lag windows, and the LSTM needs 24 more to form one sequence.
+
+**Only sensor readings are supplied.** The model also uses error counts and
+time since maintenance, which this request cannot carry, so they are scored as
+"no errors in the last 24 h" and "no maintenance on record". A machine with
+recent errors or a recent service is assessed as if it had neither. The stored
+endpoints (`GET /machines/{id}/predict`) use the real logs, and the API reports
+itself degraded rather than score them when either log is missing.
 
 ```bash
 curl -X POST localhost:8000/predict \
@@ -316,6 +330,26 @@ curl -X POST localhost:8000/report \
 a timeout returns `504` — both **with the prediction in the error detail**. The
 model's answer never depends on the language model.
 
+A `504` means the API stopped *waiting* at 120 s. It does not mean the provider
+call has stopped. That call runs on a worker thread, which Python cannot kill,
+so it is stopped by limits inside the provider client, with retries off:
+
+| Client | What bounds the local call |
+|---|---|
+| OpenAI, `langchain-ollama` | Every socket read and write, response headers included, gets only the time left before 120 s from the start of the request. Measured: a server trickling its headers held a 0.2 s call for 1.47 s before this, 0.22 s after. Not covered: DNS lookup (no timeout), and the TCP connect and TLS handshake, which have only the ordinary per-operation 120 s timeout. |
+| Google, deprecated `langchain-community` Ollama | A 120 s per-read timeout, plus a total check on each generated token. A provider that goes silent stops at its next read timeout, after the 120 s; one that keeps sending bytes that never form a token (blank lines, keep-alives) is **not stopped at all**. Install `langchain-ollama` for the socket-level limit. |
+
+**Concurrency is capped, including abandoned calls.** At most
+`REPORT_MAX_CONCURRENT` (4) provider calls run at once per API process. A call keeps its slot
+from start until its thread actually returns, not until the `504`, so timed-out
+calls cannot pile up threads. With every slot held, `/report` answers `503` at
+once, with the prediction attached, until a slot frees. Other endpoints are
+unaffected. A call that never returns (the unbounded case above) holds its slot
+until the process restarts.
+
+Stopping the local call drops the connection. It does not cancel anything at
+the provider: a hosted provider may still finish (and bill) the generation.
+
 Every figure the report quotes comes from the `/explain` record it is handed.
 It is given nothing else.
 
@@ -335,6 +369,7 @@ matching on error messages.
 | `422` | `ReportGenerationError` | The report input was wrong |
 | `502` | `LLMConnectionError` | Provider unreachable — **retryable**, prediction attached |
 | `503` | `ModelNotFoundError` | This instance cannot serve; check `/health` |
+| `503` | — | `/report` only: every report slot is busy; prediction attached, retry later |
 | `504` | — | The language model exceeded 120 s; prediction attached |
 | `500` | `InternalServerError` | Unanticipated. Opaque body + correlation id |
 

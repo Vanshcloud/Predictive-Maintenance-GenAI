@@ -151,6 +151,25 @@ jobs:
           path: coverage.xml
           retention-days: 7
 
+  python-floor:
+    # pyproject declares requires-python >=3.10, but the suite above runs on
+    # 3.12 only — which is how tests importing tomllib (3.11+) went unnoticed.
+    # The full suite needs TensorFlow; these are the tests that parse
+    # pyproject.toml, so they are what a 3.10 floor actually exercises here.
+    name: Python 3.10 floor
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: pip install "pytest>=7.4.0,<9.0.0" "pydantic-settings>=2.0.0,<3.0.0"
+      # --noconftest: conftest.py imports TensorFlow, which this job omits.
+      - run: >-
+          python -m pytest tests/unit/test_smoke.py --noconftest -o addopts=""
+          -k "TestVersion or TestPackaging"
+
   security:
     name: Dependency audit
     runs-on: ubuntu-latest

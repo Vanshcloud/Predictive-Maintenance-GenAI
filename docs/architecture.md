@@ -121,7 +121,7 @@ statistics. Both are pinned by tests.
 ```mermaid
 flowchart TD
     S["set_random_seed(42)<br/><i>before the model is built</i>"] --> M["build LSTM"]
-    M --> C["compile — Adam 1e-3<br/>class weights {0: 0.50, 1: 364.89}"]
+    M --> C["compile — Adam 1e-3<br/>class weights {0: 0.50, 1: 362.53}"]
     C --> L{"for epoch in 1..30"}
     L --> B["iter_batches — shuffled,<br/>sorted within batch for memmap reads"]
     B --> T["train_step<br/><i>tf.function GradientTape</i>"]
@@ -208,7 +208,7 @@ sequenceDiagram
     C->>A: POST /report
     A->>S: explain_machine()
     S-->>A: prediction + evidence
-    A->>L: run_in_threadpool(invoke)
+    A->>L: invoke on a report thread (capped; 503 when all are busy)
     alt provider answers
         L-->>A: report text
         A-->>C: 200 · report + prediction

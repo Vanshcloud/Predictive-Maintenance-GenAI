@@ -150,6 +150,20 @@ class TestRiskBanding:
         assert predictor.risk_level(predictor.threshold) == "high"
         assert predictor.risk_level(predictor.threshold - 1e-6) != "high"
 
+    @pytest.mark.parametrize("threshold", [0.10, 0.50, 0.95])
+    def test_bands_agree_with_a_custom_threshold(
+        self, predictor, monkeypatch, threshold
+    ):
+        """
+        A custom threshold used to leave the bands on the configured one:
+        at 0.95, p=0.92 was "critical" with will_fail False; at 0.10, p=0.12
+        alerted while banded "low".
+        """
+        monkeypatch.setattr(predictor, "threshold", threshold)
+        for p in (0.0, 0.05, 0.12, 0.2, 0.3415, 0.4, 0.6, 0.92, 0.97, 1.0):
+            alerting = predictor.risk_level(p) in ("high", "critical")
+            assert alerting == (p >= threshold), (p, predictor.risk_level(p))
+
 
 class TestPredictSequences:
     def test_probabilities_are_in_range(self, predictor):
@@ -290,3 +304,27 @@ class TestPredictEndToEnd:
     def test_predict_machine_rejects_an_unknown_machine(self, predictor, raw_dataset):
         with pytest.raises(PredictionError, match="No prediction produced"):
             predictor.predict_machine(raw_dataset, machine_id=9999)
+
+    def test_explanation_describes_the_hours_the_model_consumed(
+        self, predictor, raw_dataset
+    ):
+        """
+        A prediction as of hour T is made from the window ending at T-1.
+
+        The explanation used to quote hour T's readings — an hour the model
+        never saw — as the "current" evidence for its score.
+        """
+        record = predictor.explain_machine(raw_dataset, machine_id=1, history_hours=3)
+        as_of = pd.Timestamp(record["datetime"])
+
+        telemetry = raw_dataset["telemetry"]
+        telemetry = telemetry[telemetry["machine_id"] == 1].set_index("datetime")
+        last_consumed = telemetry.loc[as_of - pd.Timedelta(hours=1)]
+
+        context = record["context"]
+        for sensor in ("voltage", "rotation", "pressure", "vibration"):
+            assert context["sensors"][sensor]["current"] == round(
+                float(last_consumed[sensor]), 2
+            )
+        trend_times = [pd.Timestamp(r["datetime"]) for r in context["recent_readings"]]
+        assert trend_times == [as_of - pd.Timedelta(hours=h) for h in (3, 2, 1)]

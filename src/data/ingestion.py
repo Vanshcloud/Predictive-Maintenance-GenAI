@@ -203,9 +203,13 @@ class DataIngestion:
              "maintenance": df, "failures": df}
 
         Raises:
-            DataIngestionError: If any required table is missing.
+            DataIngestionError: If a table file exists but cannot be read. An
+                absent file is logged and left out of the result.
         """
-        load_dir = Path(data_dir) if data_dir else self.data_dir
+        # Resolved here, against the working directory: left relative, the
+        # existence check below looked in the CWD while load_file() re-rooted
+        # the same path under data/raw — so every table "went missing".
+        load_dir = Path(data_dir).resolve() if data_dir else self.data_dir
 
         logger.info("=" * 50)
         logger.info(f"Loading complete dataset from {load_dir}")
@@ -236,12 +240,10 @@ class DataIngestion:
             if parse_dates:
                 kwargs["parse_dates"] = parse_dates
 
-            try:
-                df = self.load_file(filepath, **kwargs)
-                dataset[table_name] = df
-            except DataIngestionError:
-                missing_tables.append(table_name)
-                logger.error(f"  ✗ Failed to load: {table_name}.csv")
+            # A file that exists but cannot be parsed is corrupt, not missing.
+            # Treating it as absent let a broken failures table become "no
+            # failures" — every label 0 — with only a log line to show for it.
+            dataset[table_name] = self.load_file(filepath, **kwargs)
 
         # --- Summary ---
         logger.info("")
@@ -270,7 +272,8 @@ class DataIngestion:
         """
         null_counts = df.isnull().sum()
         total_nulls = null_counts.sum()
-        null_pct = (total_nulls / (len(df) * len(df.columns))) * 100
+        # An empty event table (zero failures) has no cells: 0%, not 0/0.
+        null_pct = (total_nulls / df.size) * 100 if df.size else 0.0
 
         logger.info(
             f"  Loaded {name}: "

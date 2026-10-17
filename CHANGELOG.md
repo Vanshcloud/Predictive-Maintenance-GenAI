@@ -23,6 +23,35 @@ Every metric quoted below is stated with its caveats in
   placeholders in the README's Screenshots section.
 - `playwright` in `requirements-dev.txt`, required by that script.
 
+### Fixed
+
+Fixes from an independent audit (findings F01–F14). The model, scalers and
+published metrics are unchanged.
+
+- **Features and explanations:** no feature reads a later row (backward fill
+  removed); maintenance feature order no longer depends on the event log; an
+  explanation describes the hours the model actually consumed; risk bands
+  follow a custom threshold.
+- **Data loading and validation:** declared column types, required columns and
+  timestamps are enforced; an unreadable, missing or invalid table is reported
+  instead of silently dropped; a blocking validation failure stops
+  preprocessing; the committed sample `failures.csv` now has its header.
+- **API:** timezone-aware timestamps are accepted and normalised to UTC;
+  submitted readings must be consecutive hours; a partially assessable fleet
+  names the machines it could not assess instead of reporting them healthy;
+  `/health` and the endpoints agree on an invalid dataset.
+- **Report deadlines and concurrency:** the provider client gets the report
+  timeout with retries off. For OpenAI and `langchain-ollama` every socket read
+  and write, response headers included, is capped at the time left before the
+  deadline. At most four provider calls run per process, a timed-out call keeps
+  its slot until its thread returns, and `/report` answers `503` (prediction
+  attached) when all are busy. Limits that remain are in `docs/api.md`.
+- **Delivery:** every release job checks out the requested tag; `make
+  docker-up` rebuilds the images; CI checks the Python 3.10 floor; the docs
+  link check also validates `#heading` anchors and HTML links.
+- **Docs:** current figures (782 training positives, class weight 362.53) match
+  `y_train.npy` and the saved evaluation.
+
 ---
 
 ## [1.0.0] - 2026-08-26

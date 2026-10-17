@@ -23,6 +23,12 @@ RUN: python -m pytest tests/unit/test_smoke.py -v
 
 import pytest
 
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10, which pyproject supports: the same
+    # API ships as `tomli`, and pytest itself depends on it below 3.11.
+    import tomli as tomllib
+
 
 class TestDependencyImports:
     """Verify all critical dependencies are installed and importable."""
@@ -129,8 +135,6 @@ class TestVersion:
     """
 
     def test_all_three_declarations_agree(self):
-        import tomllib
-
         import src
         from config.settings import PROJECT_ROOT, get_settings
 
@@ -156,8 +160,6 @@ class TestPackaging:
     """
 
     def test_runtime_dependencies_are_declared(self):
-        import tomllib
-
         from config.settings import PROJECT_ROOT
 
         with open(PROJECT_ROOT / "pyproject.toml", "rb") as fh:
@@ -322,3 +324,87 @@ class TestExceptions:
         assert issubclass(DataIngestionError, PredMaintenanceError)
         assert issubclass(ModelNotFoundError, PredMaintenanceError)
         assert issubclass(LLMConnectionError, PredMaintenanceError)
+
+
+class TestDeliveryConfiguration:
+    """
+    Release and deployment files are code that nothing else exercises before
+    they run for real — a wrong ref or a stale image surfaces as a release
+    or a deployment, not as a failing build.
+    """
+
+    def test_every_release_job_checks_out_the_requested_tag(self):
+        """
+        A manual release used to check out the branch it was dispatched from:
+        the gate and both builds ran on that branch, and the result was
+        published under the requested tag.
+        """
+        import yaml
+
+        from config.settings import PROJECT_ROOT
+
+        workflow = yaml.safe_load(
+            (PROJECT_ROOT / ".github/workflows/release.yml").read_text("utf-8")
+        )
+        release_ref = workflow["env"]["RELEASE_REF"]
+        assert "refs/tags/" in release_ref and "inputs.tag" in release_ref
+
+        checkouts = [
+            (job_name, step.get("with", {}).get("ref"))
+            for job_name, job in workflow["jobs"].items()
+            for step in job["steps"]
+            if str(step.get("uses", "")).startswith("actions/checkout")
+        ]
+        assert checkouts, "no checkout steps found"
+        unpinned = [name for name, ref in checkouts if ref != "${{ env.RELEASE_REF }}"]
+        assert not unpinned, f"jobs not building the requested tag: {unpinned}"
+
+    def test_documented_compose_targets_rebuild_the_images(self):
+        """
+        config/ and src/ are baked into the API image, and `compose up` alone
+        reuses whatever image exists — after a source change it served the
+        old code and the old settings.
+        """
+        from config.settings import PROJECT_ROOT
+
+        makefile = (PROJECT_ROOT / "Makefile").read_text("utf-8")
+        for target in ("docker-up", "docker-up-d"):
+            recipe = makefile.split(f"\n{target}:", 1)[1].split("\n\n", 1)[0]
+            assert "--build" in recipe, f"`make {target}` does not rebuild"
+
+
+class TestPublishedNumbers:
+    """
+    README and RESULTS quote the evaluation report. When the report is
+    regenerated and the documents are not, the headline numbers go stale
+    silently — this makes that a failing test instead.
+    """
+
+    @pytest.fixture(scope="class")
+    def published(self):
+        import json
+
+        from config.settings import PROJECT_ROOT
+
+        report = json.loads(
+            (PROJECT_ROOT / "models/evaluation_report.json").read_text("utf-8")
+        )["test_at_chosen_threshold"]
+        (tn, fp), (fn, tp) = report["confusion_matrix"]
+        return {
+            "threshold": f"{report['threshold']:.4f}",
+            "auc": f"{report['auc']:.4f}",
+            "precision": f"{report['precision']:.4f}",
+            "recall": f"{report['recall']:.4f}",
+            "f1": f"{report['f1']:.4f}",
+            "true negatives": f"{tn:,}",
+            "false alarms": str(fp),
+            "caught": str(tp),
+        }
+
+    @pytest.mark.parametrize("document", ["README.md", "docs/RESULTS.md"])
+    def test_documents_quote_the_current_evaluation(self, published, document):
+        from config.settings import PROJECT_ROOT
+
+        text = (PROJECT_ROOT / document).read_text("utf-8")
+        missing = {k: v for k, v in published.items() if v not in text}
+        assert not missing, f"{document} does not quote the current report: {missing}"
