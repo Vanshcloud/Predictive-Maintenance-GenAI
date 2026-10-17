@@ -14,6 +14,10 @@ Every metric quoted below is stated with its caveats in
 
 ## [Unreleased]
 
+---
+
+## [1.0.1] - 2026-10-18
+
 ### Added
 
 - `scripts/capture_screenshots.py` — drives the running Streamlit dashboard with
@@ -51,6 +55,9 @@ published metrics are unchanged.
   link check also validates `#heading` anchors and HTML links.
 - **Docs:** current figures (782 training positives, class weight 362.53) match
   `y_train.npy` and the saved evaluation.
+- **Dependencies:** `pyarrow<26` in `requirements-dashboard.txt`. pyarrow 26
+  refuses to import under the NumPy < 2 pin TensorFlow needs, and does not
+  declare it, so CI installed the pair and the dashboard tests failed.
 
 ---
 
@@ -195,5 +202,6 @@ First release. Everything below shipped together.
 
 ---
 
-[Unreleased]: https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Vanshcloud/Predictive-Maintenance-GenAI/releases/tag/v1.0.0

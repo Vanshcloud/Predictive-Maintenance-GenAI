@@ -18,8 +18,8 @@ authors:
 repository-code: "https://github.com/Vanshcloud/Predictive-Maintenance-GenAI"
 url: "https://github.com/Vanshcloud/Predictive-Maintenance-GenAI"
 license: MIT
-version: 1.0.0
-date-released: 2026-08-26
+version: 1.0.1
+date-released: 2026-10-18
 keywords:
   - predictive-maintenance
   - machine-learning

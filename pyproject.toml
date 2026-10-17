@@ -36,7 +36,7 @@ include = ["src*", "config*"]
 
 [project]
 name = "predictive-maintenance-genai"
-version = "1.0.0"
+version = "1.0.1"
 description = "Predict equipment failure 24 hours ahead from sensor telemetry, and explain each prediction in plain English"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"  # TensorFlow has no wheels for 3.13+; 3.12 is what this project is developed on

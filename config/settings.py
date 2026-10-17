@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     # Surfaced by /health so an operator can tell which build is running.
     # Keep in step with [project].version in pyproject.toml and
     # src/__init__.py — a release test asserts all three agree.
-    APP_VERSION: str = "1.0.0"
+    APP_VERSION: str = "1.0.1"
     APP_ENV: str = "development"  # development | staging | production
     DEBUG: bool = True
     LOG_LEVEL: str = "DEBUG"  # DEBUG | INFO | WARNING | ERROR | CRITICAL

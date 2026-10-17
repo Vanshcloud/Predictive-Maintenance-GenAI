@@ -101,7 +101,7 @@ which is what makes container and CI configuration work.
 | `APP_ENV` | `development` | `development` · `staging` · `production` |
 | `DEBUG` | `true` | Set `false` in production |
 | `LOG_LEVEL` | `DEBUG` | Use `INFO` in production |
-| `APP_VERSION` | `1.0.0` | Reported by `/health` so an operator can identify the build |
+| `APP_VERSION` | `1.0.1` | Reported by `/health` so an operator can identify the build |
 
 ### Model and data
 

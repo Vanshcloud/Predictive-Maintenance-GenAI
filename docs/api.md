@@ -82,7 +82,7 @@ curl localhost:8000/health
   "dataset_loaded": true,
   "machines_known": 100,
   "threshold": 0.3415,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "data_start": "2024-01-01T00:00:00",
   "data_end": "2024-12-30T23:00:00"
 }

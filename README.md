@@ -701,7 +701,7 @@ renders a "Cite this repository" panel from [`CITATION.cff`](CITATION.cff).
   author  = {Tomar, Vansh},
   title   = {Predictive Maintenance + GenAI Insight Generator},
   year    = {2026},
-  version = {1.0.0},
+  version = {1.0.1},
   url     = {https://github.com/Vanshcloud/Predictive-Maintenance-GenAI},
   license = {MIT}
 }
